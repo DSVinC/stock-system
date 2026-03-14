@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A股投资系统 | 监控池管理</title>
+  <link rel="stylesheet" href="./pages/style.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="hero-card">
+      <div class="eyebrow">Monitor Pool</div>
+      <h1 class="hero-title">监控池管理页面</h1>
+      <p class="hero-copy">集中查看已加入监控池的股票，随时打开研究报告，或从池中移除失效标的。页面默认从本地接口读取 `monitor_pool` 数据表。</p>
+      <div class="hero-actions">
+        <a class="button-link button-primary" href="file:///Users/vvc/.openclaw/workspace/skills/a%E8%82%A1%E8%B7%9F%E8%B8%AA%E7%9B%91%E6%8E%A7/dashboard/index.html">前往监控面板</a>
+        <button id="refreshButton" class="button-secondary" type="button">刷新列表</button>
+      </div>
+      <div class="summary-grid">
+        <article class="summary-card">
+          <div class="summary-label">池内股票</div>
+          <div class="summary-value" id="totalCount">0</div>
+          <div class="summary-note">当前处于跟踪状态的标的数量</div>
+        </article>
+        <article class="summary-card">
+          <div class="summary-label">最近加入</div>
+          <div class="summary-value" id="latestAdded">-</div>
+          <div class="summary-note">按添加时间倒序统计</div>
+        </article>
+        <article class="summary-card">
+          <div class="summary-label">状态</div>
+          <div class="summary-value" id="statusBadge">就绪</div>
+          <div class="summary-note">接口联通后会自动拉取最新列表</div>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2 class="panel-title">监控池股票列表</h2>
+          <p class="panel-copy">支持查看已保存的研报路径，并按需移除个股。若后端返回空列表，页面会展示空态提示。</p>
+        </div>
+      </div>
+
+      <div class="status-bar">
+        <span id="statusText" class="status-text">正在准备数据…</span>
+        <div class="panel-actions">
+          <button id="reloadButton" class="button-secondary" type="button">重新加载</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table aria-label="监控池股票表格">
+          <thead>
+            <tr>
+              <th scope="col">股票名称</th>
+              <th scope="col">代码</th>
+              <th scope="col">添加时间</th>
+              <th scope="col">操作</th>
+            </tr>
+          </thead>
+          <tbody id="monitorTableBody"></tbody>
+        </table>
+      </div>
+
+      <section id="emptyState" class="empty-state" aria-live="polite">
+        <h3 class="empty-title">监控池暂时为空</h3>
+        <p class="empty-copy">当分析页将股票加入监控池后，这里会显示名称、代码、添加时间以及报告入口。</p>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const monitorTableBody = document.getElementById('monitorTableBody');
+    const statusText = document.getElementById('statusText');
+    const totalCount = document.getElementById('totalCount');
+    const latestAdded = document.getElementById('latestAdded');
+    const statusBadge = document.getElementById('statusBadge');
+    const emptyState = document.getElementById('emptyState');
+    const refreshButton = document.getElementById('refreshButton');
+    const reloadButton = document.getElementById('reloadButton');
+
+    function formatDateTime(value) {
+      if (!value) {
+        return '-';
+      }
+
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        return value;
+      }
+
+      return new Intl.DateTimeFormat('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      }).format(date);
+    }
+
+    function setLoadingState(isLoading) {
+      refreshButton.disabled = isLoading;
+      reloadButton.disabled = isLoading;
+      statusBadge.textContent = isLoading ? '加载中' : '就绪';
+    }
+
+    function renderRows(stocks) {
+      monitorTableBody.innerHTML = '';
+
+      if (!stocks.length) {
+        emptyState.classList.add('visible');
+        return;
+      }
+
+      emptyState.classList.remove('visible');
+
+      for (const stock of stocks) {
+        const row = document.createElement('tr');
+        const reportUrl = stock.report_path ? encodeURI(stock.report_path) : '';
+
+        row.innerHTML = `
+          <td>
+            <div class="stock-name">${stock.stock_name || '-'}</div>
+          </td>
+          <td>
+            <span class="stock-code">${stock.stock_code || '-'}</span>
+          </td>
+          <td class="muted">${formatDateTime(stock.added_at)}</td>
+          <td>
+            <div class="panel-actions">
+              ${reportUrl ? `<a class="button-link button-secondary" href="file://${reportUrl}" target="_blank" rel="noreferrer">查看报告</a>` : `<span class="muted">暂无报告</span>`}
+              <button class="button-danger" type="button" data-remove-id="${stock.id}">移除</button>
+            </div>
+          </td>
+        `;
+
+        monitorTableBody.appendChild(row);
+      }
+    }
+
+    async function loadMonitorPool() {
+      setLoadingState(true);
+      statusText.textContent = '正在从接口加载监控池...';
+      statusText.classList.remove('error');
+
+      try {
+        const response = await fetch('/api/monitor/list');
+        const payload = await response.json();
+
+        if (!response.ok || !payload.success) {
+          throw new Error(payload.message || '加载失败');
+        }
+
+        const stocks = Array.isArray(payload.data) ? payload.data : [];
+        renderRows(stocks);
+
+        totalCount.textContent = String(stocks.length);
+        latestAdded.textContent = stocks.length ? formatDateTime(stocks[0].added_at) : '-';
+        statusBadge.textContent = stocks.length ? '在线' : '空池';
+        statusText.textContent = stocks.length ? `已加载 ${stocks.length} 条监控记录。` : '监控池为空，等待新股票加入。';
+      } catch (error) {
+        emptyState.classList.add('visible');
+        totalCount.textContent = '0';
+        latestAdded.textContent = '-';
+        statusBadge.textContent = '异常';
+        statusText.textContent = `接口请求失败：${error.message}`;
+        statusText.classList.add('error');
+      } finally {
+        setLoadingState(false);
+      }
+    }
+
+    async function removeStock(id) {
+      if (!id) {
+        return;
+      }
+
+      setLoadingState(true);
+      statusText.textContent = `正在移除记录 #${id}...`;
+      statusText.classList.remove('error');
+
+      try {
+        const response = await fetch('/api/monitor/remove', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ id: Number(id) })
+        });
+        const payload = await response.json();
+
+        if (!response.ok || !payload.success) {
+          throw new Error(payload.message || '移除失败');
+        }
+
+        await loadMonitorPool();
+      } catch (error) {
+        statusBadge.textContent = '异常';
+        statusText.textContent = `移除失败：${error.message}`;
+        statusText.classList.add('error');
+        setLoadingState(false);
+      }
+    }
+
+    monitorTableBody.addEventListener('click', (event) => {
+      const target = event.target.closest('[data-remove-id]');
+      if (!target) {
+        return;
+      }
+
+      removeStock(target.dataset.removeId);
+    });
+
+    refreshButton.addEventListener('click', loadMonitorPool);
+    reloadButton.addEventListener('click', loadMonitorPool);
+
+    loadMonitorPool();
+  </script>
+</body>
+</html>

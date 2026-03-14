@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>A股投资系统 | 个股分析</title>
+  <link rel="stylesheet" href="./pages/style.css" />
+</head>
+<body>
+  <main class="page-shell">
+    <section class="hero">
+      <p class="eyebrow">A-Share Analysis</p>
+      <h1>个股分析</h1>
+      <p>将已选方向转化为可跟踪的候选股票，系统会基于方向热度、龙头属性给出初筛结果。</p>
+    </section>
+
+    <section class="panel">
+      <div class="panel-inner">
+        <h2 class="section-title">已选方向</h2>
+        <div id="selected-directions" class="tag-list"></div>
+        <div class="status-row">
+          <span id="direction-status">正在读取...</span>
+          <div class="panel-actions">
+            <button id="view-report" class="button button-secondary" type="button">查看选股报告</button>
+            <a href="./index.html" class="button-link button-secondary">返回重新选股</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-inner">
+        <h2 class="section-title">执行分析</h2>
+        <div class="toolbar">
+          <button id="analyze-button" class="button" type="button">分析方向个股</button>
+          <input id="custom-stock-input" class="input" type="text" placeholder="自定义股票名称或代码，如 中际旭创 / 300308.SZ" />
+          <button id="add-custom-button" class="button button-secondary" type="button">加入候选</button>
+        </div>
+        <div class="status-row">
+          <span id="analyze-status">等待分析</span>
+          <span id="selected-count">当前已选 0 只</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-inner">
+        <h2 class="section-title">分析结果</h2>
+        <p class="section-copy">推荐评分范围 1-5，数值越高越值得进入后续跟踪。点击"查看报告"可查看详细分析。</p>
+        <div id="analysis-results" class="stock-grid"></div>
+        <div id="analysis-empty" class="empty-state">点击"分析方向个股"后展示候选股票。</div>
+        <div class="footer-bar">
+          <p class="hint">勾选股票后点击"加入监控池"进入下一步。</p>
+          <button id="go-monitor-pool" class="button" type="button">加入监控池</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const DIRECTIONS_STORAGE_KEY = "selectedDirections";
+    const ANALYSIS_RESULTS_KEY = "analysisResults";
+    const MONITOR_POOL_DRAFT_KEY = "monitorPoolDraft";
+
+    const selectedDirectionsContainer = document.getElementById("selected-directions");
+    const directionStatus = document.getElementById("direction-status");
+    const analyzeButton = document.getElementById("analyze-button");
+    const analyzeStatus = document.getElementById("analyze-status");
+    const resultsContainer = document.getElementById("analysis-results");
+    const emptyState = document.getElementById("analysis-empty");
+    const goMonitorPoolButton = document.getElementById("go-monitor-pool");
+    const customStockInput = document.getElementById("custom-stock-input");
+    const addCustomButton = document.getElementById("add-custom-button");
+    const selectedCount = document.getElementById("selected-count");
+
+    let directions = [];
+    let stocks = [];
+
+    function safeJsonParse(rawValue) {
+      try {
+        return JSON.parse(rawValue);
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function normalizeDirections(input) {
+      if (!input) return [];
+      if (Array.isArray(input)) {
+        return [...new Set(input.map((item) => String(item).trim()).filter(Boolean))];
+      }
+      if (typeof input === "string") {
+        const parsed = safeJsonParse(input);
+        if (Array.isArray(parsed)) {
+          return normalizeDirections(parsed);
+        }
+        return [...new Set(input.split(",").map((item) => item.trim()).filter(Boolean))];
+      }
+      return [];
+    }
+
+    function readDirections() {
+      const params = new URLSearchParams(window.location.search);
+      const urlDirections = params.getAll("direction").filter(Boolean);
+      if (urlDirections.length > 0) {
+        localStorage.setItem(DIRECTIONS_STORAGE_KEY, JSON.stringify(urlDirections));
+        return urlDirections;
+      }
+      return normalizeDirections(localStorage.getItem(DIRECTIONS_STORAGE_KEY));
+    }
+
+    function escapeHtml(text) {
+      return String(text)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function renderDirections() {
+      selectedDirectionsContainer.innerHTML = "";
+
+      if (directions.length === 0) {
+        directionStatus.textContent = "未找到已选方向，请返回首页重新选择";
+        selectedDirectionsContainer.innerHTML = '<span class="tag">暂无方向</span>';
+        return;
+      }
+
+      directions.forEach((direction) => {
+        const tag = document.createElement("span");
+        tag.className = "tag";
+        tag.textContent = direction;
+        selectedDirectionsContainer.appendChild(tag);
+      });
+
+      directionStatus.textContent = `已选择 ${directions.length} 个方向`;
+    }
+
+    function getDecisionClass(decision) {
+      if (decision === "买入") return "decision-buy";
+      if (decision === "观望") return "decision-watch";
+      return "decision-avoid";
+    }
+
+    function updateSelectedCount() {
+      const checkedCount = resultsContainer.querySelectorAll('input[type="checkbox"]:checked').length;
+      selectedCount.textContent = `当前已选 ${checkedCount} 只`;
+    }
+
+    function renderStocks() {
+      resultsContainer.innerHTML = "";
+
+      if (stocks.length === 0) {
+        emptyState.hidden = false;
+        updateSelectedCount();
+        return;
+      }
+
+      emptyState.hidden = true;
+      const html = stocks.map((stock, index) => `
+        <article class="stock-card">
+          <label>
+            <input type="checkbox" data-stock-index="${index}" ${stock.selected ? "checked" : ""} />
+            <span>
+              <span class="stock-name">${escapeHtml(stock.name)}</span>
+              <p class="stock-meta">
+                代码: ${escapeHtml(stock.code)}<br />
+                推荐评分: ${escapeHtml(stock.score)} / 5<br />
+                决策建议: <strong class="${getDecisionClass(stock.decision)}">${escapeHtml(stock.decision)}</strong>
+              </p>
+            </span>
+          </label>
+          <div class="stock-actions">
+            <button class="button-secondary view-report-btn" data-stock-name="${escapeHtml(stock.name)}" data-stock-code="${escapeHtml(stock.code)}">查看报告</button>
+          </div>
+        </article>
+      `).join("");
+
+      resultsContainer.innerHTML = html;
+
+      // 绑定复选框事件
+      resultsContainer.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+        checkbox.addEventListener("change", (event) => {
+          const index = Number(event.target.dataset.stockIndex);
+          stocks[index].selected = event.target.checked;
+          persistAnalysis();
+          updateSelectedCount();
+        });
+      });
+
+      // 绑定查看报告按钮
+      resultsContainer.querySelectorAll(".view-report-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const stockName = btn.dataset.stockName;
+          const stockCode = btn.dataset.stockCode;
+          viewStockReport(stockName, stockCode);
+        });
+      });
+
+      updateSelectedCount();
+    }
+
+    async function viewStockReport(stockName, stockCode) {
+      analyzeStatus.textContent = `正在生成 ${stockName} 的分析报告...`;
+      
+      try {
+        // 调用个股分析接口生成报告
+        const response = await fetch("/api/analyze/report", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ stock_name: stockName, stock_code: stockCode })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.report_path) {
+            // 在新窗口打开报告
+            window.open(data.report_path, "_blank");
+            analyzeStatus.textContent = `已打开 ${stockName} 分析报告`;
+          } else {
+            analyzeStatus.textContent = `报告生成成功，但未返回路径`;
+          }
+        } else {
+          // 如果接口不存在，显示提示
+          analyzeStatus.textContent = `个股分析报告功能开发中，敬请期待`;
+        }
+      } catch (error) {
+        analyzeStatus.textContent = `暂无该股票的分析报告`;
+      }
+    }
+
+    function persistAnalysis() {
+      localStorage.setItem(ANALYSIS_RESULTS_KEY, JSON.stringify(stocks));
+    }
+
+    function restoreAnalysis() {
+      const cached = safeJsonParse(localStorage.getItem(ANALYSIS_RESULTS_KEY));
+      if (!Array.isArray(cached)) return;
+      stocks = cached.map((stock) => ({
+        ...stock,
+        selected: Boolean(stock.selected),
+      }));
+      renderStocks();
+    }
+
+    async function analyzeDirections() {
+      if (directions.length === 0) {
+        analyzeStatus.textContent = "没有可分析的方向，请先回到首页完成选择";
+        return;
+      }
+
+      analyzeButton.disabled = true;
+      analyzeStatus.textContent = "分析中...";
+
+      try {
+        const response = await fetch("/api/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ directions }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`接口异常: ${response.status}`);
+        }
+
+        const payload = await response.json();
+        const nextStocks = Array.isArray(payload.stocks) ? payload.stocks : [];
+
+        stocks = nextStocks.map((stock) => ({
+          ...stock,
+          selected: false,
+        }));
+
+        persistAnalysis();
+        renderStocks();
+        analyzeStatus.textContent = `分析完成，返回 ${stocks.length} 只候选股票`;
+      } catch (error) {
+        analyzeStatus.textContent = `分析失败: ${error.message}`;
+      } finally {
+        analyzeButton.disabled = false;
+      }
+    }
+
+    function inferCustomStock(rawValue) {
+      const value = rawValue.trim();
+      if (!value) return null;
+
+      const looksLikeCode = /^[0-9]{6}(?:\.(?:SZ|SH))?$/i.test(value);
+      if (looksLikeCode) {
+        const normalizedCode = value.includes(".")
+          ? value.toUpperCase()
+          : `${value}.${value.startsWith("6") ? "SH" : "SZ"}`;
+        return {
+          name: "自定义股票",
+          code: normalizedCode,
+          score: 3,
+          decision: "观望",
+          selected: true,
+        };
+      }
+
+      return {
+        name: value,
+        code: "CUSTOM",
+        score: 3,
+        decision: "观望",
+        selected: true,
+      };
+    }
+
+    function addCustomStock() {
+      const stock = inferCustomStock(customStockInput.value);
+      if (!stock) {
+        analyzeStatus.textContent = "请输入股票名称或代码";
+        return;
+      }
+      stocks.unshift(stock);
+      customStockInput.value = "";
+      persistAnalysis();
+      renderStocks();
+      analyzeStatus.textContent = "已加入自定义候选股票";
+    }
+
+    function goToMonitorPool() {
+      const selectedStocks = stocks.filter((stock) => stock.selected);
+      if (selectedStocks.length === 0) {
+        analyzeStatus.textContent = "请至少选择一只股票";
+        return;
+      }
+      localStorage.setItem(MONITOR_POOL_DRAFT_KEY, JSON.stringify(selectedStocks));
+      window.location.href = "./monitor-pool.html";
+    }
+
+    analyzeButton.addEventListener("click", analyzeDirections);
+    addCustomButton.addEventListener("click", addCustomStock);
+    goMonitorPoolButton.addEventListener("click", goToMonitorPool);
+    customStockInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        addCustomStock();
+      }
+    });
+
+    directions = readDirections();
+    renderDirections();
+    restoreAnalysis();
+
+    // 查看选股报告
+    document.getElementById('view-report').addEventListener('click', async () => {
+      try {
+        const response = await fetch('/api/select/report', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await response.json();
+        if (data.report_path) {
+          window.open(data.report_path, '_blank');
+        } else {
+          analyzeStatus.textContent = '选股报告功能开发中';
+        }
+      } catch (e) {
+        analyzeStatus.textContent = '选股报告功能开发中';
+      }
+    });
+  </script>
+</body>
+</html>
