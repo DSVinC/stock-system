@@ -488,20 +488,45 @@
         <div id="params_conditional" class="strategy-params">
           <h4 class="params-title">自定义条件单策略</h4>
           <div class="conditional-info">
-            <p class="info-text">从条件单管理系统导入已保存的条件单策略</p>
-            <div class="info-card">
-              <label>选择已保存的条件单</label>
-              <select id="conditionalOrderSelect" class="form-select">
-                <option value="">-- 请选择条件单 --</option>
-              </select>
-              <button class="button button-small" onclick="loadConditionalOrder()" style="margin-top: 12px;">加载条件单</button>
+            <!-- 步骤引导 -->
+            <div class="import-steps" style="margin-bottom: 20px; padding: 16px; border-radius: 10px; background: rgba(255, 255, 255, 0.02);">
+              <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                <span style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: white; font-size: 14px; font-weight: 600;">1</span>
+                <span style="color: var(--text);">前往<a href="conditional-order.html" style="color: var(--accent); margin: 0 4px;">条件单管理</a>页面创建或选择条件单</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                <span style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: white; font-size: 14px; font-weight: 600;">2</span>
+                <span style="color: var(--text);">点击条件单右侧的「导入回测」按钮</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: white; font-size: 14px; font-weight: 600;">3</span>
+                <span style="color: var(--text);">系统自动跳转并加载条件单数据</span>
+              </div>
             </div>
+
+            <!-- 快速选择 -->
+            <div class="info-card" id="conditionalSelectCard">
+              <label style="margin-bottom: 8px; display: block;">或者从已保存的条件单中选择</label>
+              <select id="conditionalOrderSelect" class="form-select">
+                <option value="">-- 加载条件单列表 --</option>
+              </select>
+              <button class="button button-small" onclick="loadConditionalOrder()" style="margin-top: 12px;">加载选中条件单</button>
+            </div>
+
+            <!-- 条件单预览 -->
             <div id="conditionalOrderPreview" class="conditional-preview" style="display: none;">
-              <h5>已加载条件单预览</h5>
+              <h5>✓ 已加载条件单</h5>
               <div id="conditionalOrderContent"></div>
+              <button class="action-btn" onclick="clearConditionalOrder()" style="margin-top: 12px; padding: 8px 16px; border-radius: 8px; border: 1px solid rgba(251, 113, 133, 0.3); background: rgba(251, 113, 133, 0.1); color: var(--bad); cursor: pointer;">
+                清除选择
+              </button>
+            </div>
+
+            <!-- 空状态提示 -->
+            <div id="conditionalEmptyHint" style="margin-top: 16px; padding: 12px 16px; border-radius: 10px; background: rgba(255, 255, 255, 0.02); color: var(--text-soft); font-size: 13px;">
+              💡 提示：条件单策略可精确控制买卖时机，支持价格、技术指标等多种触发条件
             </div>
           </div>
-          <p class="param-hint">提示：请先在"条件单"页面创建并保存条件单策略</p>
         </div>
 
         <!-- 股票选择 -->
@@ -593,6 +618,22 @@
     // 状态管理
     let selectedStocks = [];
     let searchDebounceTimer = null;
+    let loadedConditionalOrder = null; // 存储已加载的条件单数据
+
+    // 页面加载时检查是否从条件单页面跳转
+    document.addEventListener('DOMContentLoaded', function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const importType = urlParams.get('import');
+      const orderId = urlParams.get('id');
+
+      if (importType === 'conditional' && orderId) {
+        // 自动选择条件单策略
+        document.getElementById('strategySelect').value = 'conditional';
+        onStrategyChange();
+        // 加载条件单数据
+        setTimeout(() => loadConditionalOrderById(orderId), 500);
+      }
+    });
 
     // 策略切换
     function onStrategyChange() {
