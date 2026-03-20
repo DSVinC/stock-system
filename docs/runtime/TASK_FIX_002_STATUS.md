@@ -3,8 +3,8 @@
 > **任务 ID**: TASK_FIX_002  
 > **任务名称**: Codex 验收问题修复（4 项）  
 > **当前负责人**: 灵爪（项目经理）/ Claude Code（开发）  
-> **当前阶段**: 🔄 并行开发中  
-> **最后更新**: 2026-03-20 21:32 (Asia/Shanghai)
+> **当前阶段**: ✅ PR 已合并，待最终验收  
+> **最后更新**: 2026-03-20 22:15 (Asia/Shanghai)
 
 ---
 
@@ -58,11 +58,13 @@
 
 ## 6. 下一步
 
-1. 🔄 等待 4 个 Claude Code 会话完成
-2. 🔄 验证所有 Git 提交已推送
-3. ⏳ 重新验收（Codex）
-4. ⏳ 更新 `docs/fixes/TASK_FIX_002_SUMMARY.md`
-5. ⏳ 更新 `docs/acceptance/TASK_FIX_002_CODEX_ACCEPTANCE.md`
+1. ✅ ~~等待 4 个 Claude Code 会话完成~~ (已完成)
+2. ✅ ~~验证所有 Git 提交已推送~~ (已完成)
+3. ✅ ~~PR 审核~~ (Codex Review 通过)
+4. ✅ ~~PR 合并~~ (已合并到 main)
+5. 🔄 **最终验收** (Codex 功能验收)
+6. ⏳ 更新 `docs/fixes/TASK_FIX_002_SUMMARY.md`
+7. ⏳ 任务关闭
 
 ---
 
