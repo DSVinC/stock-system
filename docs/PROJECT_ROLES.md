@@ -80,6 +80,23 @@
 2. **单元测试**: `test_{module}.js`，覆盖率≥80%
 3. **交接文档**: `docs/handover/TASK_{ID}_HANDOVER.md`
 
+### 调用方式
+
+**✅ 正确方式：后台 CLI 调用**
+```bash
+cd /Users/vvc/.openclaw/workspace/stock-system && \
+codex exec "你是程序员，请实现..." &
+```
+
+**⚠️ 配置要求**:
+- Codex 需要配置代理：`export HTTP_PROXY=... HTTPS_PROXY=...`
+- 使用 `exec` 子命令进行非交互式任务
+- 长任务用 `&` 后台执行
+
+**❌ 禁止方式**:
+- 不要使用 ACP/sessions_spawn（Codex 不在允许列表中）
+- 不要直接用 `codex -p`（参数解析问题）
+
 ### 交接文档模板
 
 ```markdown

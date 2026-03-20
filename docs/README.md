@@ -201,6 +201,64 @@ node api/server.js
 
 ---
 
+## 🛠️ 外部工具调用规范
+
+### Codex 调用方法
+
+**✅ 正确方式：后台 CLI 调用**
+```bash
+cd /Users/vvc/.openclaw/workspace/stock-system && \
+codex exec "你是程序员/验收员，请..." &
+```
+
+**⚠️ 配置要求**:
+- Codex 需要配置代理：`export HTTP_PROXY=... HTTPS_PROXY=...`
+- 使用 `exec` 子命令进行非交互式任务
+- 长任务用 `&` 后台执行
+
+**❌ 禁止方式**:
+- 不要使用 ACP/sessions_spawn（Codex 不在允许列表中）
+- 不要直接用 `codex -p`（参数解析问题）
+
+**示例**:
+```bash
+# 开发任务
+codex exec "你是程序员，请实现飞书推送接口..." &
+
+# 验收任务
+codex exec "你是验收员，请对 TASK_016 进行验收..." &
+```
+
+### Claude Code 调用方法
+
+**✅ 正确方式：后台 CLI 调用**
+```bash
+cd /Users/vvc/.openclaw/workspace/stock-system && \
+claude -p "你的任务描述" &
+```
+
+**⚠️ 配置要求**:
+- Claude Code 配置已就绪（火山引擎/百炼）
+- 不需要代理
+- 使用 `-p` 参数传递提示词
+
+**示例**:
+```bash
+# 开发任务
+claude -p "你是程序员，请修复测试脚本..." &
+```
+
+### 工具选择建议
+
+| 场景 | 推荐工具 | 原因 |
+|------|----------|------|
+| 代码开发 | Claude Code | 配置简单，不需要代理 |
+| 代码验收 | Codex | 擅长审查和测试 |
+| 文档编写 | Claude Code | 文档质量高 |
+| 复杂重构 | Codex | 代码理解能力强 |
+
+---
+
 ## 📊 当前任务状态
 
 | 任务ID | 内容 | 状态 | 负责人 |
