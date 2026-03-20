@@ -205,32 +205,69 @@
     }
     
     function showCreateModal() {
-      document.getElementById('create-modal').classList.add('show');
+      const modal = document.getElementById('create-modal');
+      if (!modal) {
+        console.error('找不到弹窗元素');
+        return;
+      }
+      modal.classList.add('show');
+      // 重置表单
+      const form = modal.querySelector('form');
+      if (form) form.reset();
     }
-    
+
     function closeCreateModal() {
-      document.getElementById('create-modal').classList.remove('show');
+      const modal = document.getElementById('create-modal');
+      if (modal) {
+        modal.classList.remove('show');
+      }
     }
     
     async function createAccount(e) {
       e.preventDefault();
       const form = e.target;
+      const submitBtn = form.querySelector('button[type="submit"]');
+      const originalText = submitBtn.textContent;
+
       const data = {
-        account_name: form.account_name.value,
+        account_name: form.account_name.value.trim(),
         initial_cash: parseInt(form.initial_cash.value)
       };
-      
-      const result = await api('/api/portfolio/account', {
-        method: 'POST',
-        body: JSON.stringify(data)
-      });
-      
-      if (result.success) {
-        closeCreateModal();
-        selectAccount(result.data.id);
-        loadAccounts();
-      } else {
-        alert('创建失败: ' + result.error);
+
+      // 前端验证
+      if (!data.account_name) {
+        alert('请输入账户名称');
+        return;
+      }
+      if (!data.initial_cash || data.initial_cash < 10000) {
+        alert('初始资金不能少于 10000 元');
+        return;
+      }
+
+      try {
+        submitBtn.textContent = '创建中...';
+        submitBtn.disabled = true;
+
+        const result = await api('/api/portfolio/account', {
+          method: 'POST',
+          body: JSON.stringify(data)
+        });
+
+        if (result.success) {
+          closeCreateModal();
+          form.reset();
+          selectAccount(result.data.id);
+          loadAccounts();
+          alert('账户创建成功！');
+        } else {
+          alert('创建失败: ' + (result.error || '未知错误'));
+        }
+      } catch (err) {
+        console.error('创建账户出错:', err);
+        alert('创建失败: ' + err.message);
+      } finally {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
       }
     }
     
