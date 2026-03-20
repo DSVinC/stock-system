@@ -187,6 +187,43 @@ async function bootstrap() {
     console.log('[mountApi] backtest模块加载失败:', e.message);
   }
 
+  // 股票搜索API
+  try {
+    const { searchStock, searchStocks } = require('./market-data');
+    const router = require('express').Router();
+    // 单个搜索（精确匹配）
+    router.get('/search', async (req, res) => {
+      const query = req.query.q || req.query.query || '';
+      if (!query.trim()) {
+        return res.json({ success: true, data: [] });
+      }
+      try {
+        const result = await searchStock(query);
+        res.json({ success: true, data: [result] });
+      } catch (error) {
+        res.json({ success: true, data: [], message: error.message });
+      }
+    });
+    // 模糊搜索（返回多个结果）
+    router.get('/search/fuzzy', async (req, res) => {
+      const query = req.query.q || req.query.query || '';
+      const limit = Math.min(parseInt(req.query.limit) || 10, 20);
+      if (!query.trim()) {
+        return res.json({ success: true, data: [] });
+      }
+      try {
+        const results = await searchStocks(query, limit);
+        res.json({ success: true, data: results });
+      } catch (error) {
+        res.json({ success: true, data: [], message: error.message });
+      }
+    });
+    app.use('/api/stock', router);
+    mounted.push('/api/stock');
+  } catch (e) {
+    console.log('[mountApi] stock search模块加载失败:', e.message);
+  }
+
   app.get('/api', (req, res) => {
     res.json({
       success: true,

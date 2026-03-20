@@ -479,6 +479,78 @@ async function searchStock(query) {
   return matched;
 }
 
+/**
+ * 模糊搜索股票（返回多个结果）
+ */
+async function searchStocks(query, limit = 10) {
+  const normalizedQuery = String(query || '').trim().toLowerCase();
+  if (!normalizedQuery) {
+    return [];
+  }
+
+  const results = [];
+  const seen = new Set();
+
+  // 1. 尝试新浪实时搜索
+  try {
+    const result = await runSinaScript('search-symbol.cjs', [normalizedQuery]);
+    const matches = Array.isArray(result.data) ? result.data : [];
+    for (const item of matches.slice(0, limit)) {
+      if (item && item.symbol) {
+        const tsCode = normalizeTsCode(item.symbol);
+        if (!seen.has(tsCode)) {
+          seen.add(tsCode);
+          results.push({
+            ts_code: tsCode,
+            name: item.name || tsCode,
+            symbol: tsCode.slice(0, 6),
+          });
+        }
+      }
+    }
+  } catch (_error) {
+    // 新浪搜索失败，继续使用本地搜索
+  }
+
+  // 2. 本地股票列表模糊匹配
+  if (results.length < limit) {
+    try {
+      const rows = await tushareRequest('stock_basic', {
+        exchange: '',
+        list_status: 'L',
+      }, ['ts_code', 'symbol', 'name', 'industry']);
+
+      for (const row of rows) {
+        if (results.length >= limit) break;
+        const nameLower = String(row.name || '').toLowerCase();
+        const codeLower = String(row.ts_code || '').toLowerCase();
+        const symbolLower = String(row.symbol || '').toLowerCase();
+
+        if (
+          nameLower.includes(normalizedQuery) ||
+          codeLower.includes(normalizedQuery) ||
+          symbolLower === normalizedQuery ||
+          symbolLower.includes(normalizedQuery.replace(/^0+/, ''))
+        ) {
+          if (!seen.has(row.ts_code)) {
+            seen.add(row.ts_code);
+            results.push({
+              ts_code: row.ts_code,
+              name: row.name,
+              symbol: row.symbol,
+              industry: row.industry || '',
+            });
+          }
+        }
+      }
+    } catch (_error) {
+      // 忽略错误
+    }
+  }
+
+  return results;
+}
+
 async function getRealtimeQuote(tsCode) {
   const symbol = normalizeCnSymbol(tsCode);
   const result = await runSinaScript('quote.cjs', [symbol]);
@@ -772,6 +844,7 @@ module.exports = {
   normalizeCnSymbol,
   normalizeTsCode,
   searchStock,
+  searchStocks,
   toNumber,
   tushareRequest,
 };
