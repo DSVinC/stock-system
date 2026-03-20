@@ -555,10 +555,14 @@ export async function main() {
     // 发送飞书推送
     try {
       console.log("📨 开始发送飞书推送...");
-      await sendMonitorReport(monitorReport);
-      console.log("✅ 飞书推送发送成功");
+      const result = await sendMonitorReport(monitorReport);
+      if (result.success) {
+        console.log("✅ 飞书推送发送成功");
+      } else {
+        console.warn("⚠️ 飞书推送失败:", result.error);
+      }
     } catch (pushError) {
-      console.warn("⚠️ 飞书推送失败:", pushError.message);
+      console.warn("⚠️ 飞书推送异常:", pushError.message);
     }
 
     console.log(`\n✅ 监控完成`);

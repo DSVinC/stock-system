@@ -44,27 +44,20 @@
 
 ### 2.1 环境准备
 
-**首次运行前**，创建 `.env` 文件：
+**首次运行前**，创建 `.env` 文件（手动创建）：
 
 ```bash
 cd /Users/vvc/.openclaw/workspace/stock-system
-cp .env.example .env  # 或手动创建
-```
-
-**.env 文件内容**：
-
-```env
+cat > .env << 'EOF'
 # 飞书开放平台凭证
 FEISHU_APP_ID=cli_xxxxxxxxxxxxx
 FEISHU_APP_SECRET=xxxxxxxxxxxxxxxxx
-
-# 接收者 open_id（主人）
-FEISHU_RECEIVE_ID=ou_a21807011c59304bedfaf2f7440f5361
+EOF
 ```
 
-**获取方式**：
-- `FEISHU_APP_ID` / `FEISHU_APP_SECRET`: 飞书开放平台应用凭证
-- `FEISHU_RECEIVE_ID`: 飞书用户 open_id
+**说明**：
+- `FEISHU_APP_ID` / `FEISHU_APP_SECRET`: 飞书开放平台应用凭证（从 `.env` 文件读取）
+- 接收者 `open_id` 已硬编码在 `scripts/feishu-push.mjs` 中（`ou_a21807011c59304bedfaf2f7440f5361`）
 
 ### 2.2 运行主流程
 
@@ -154,11 +147,15 @@ node scripts/feishu-push.mjs "测试消息"
 
 | 字段 | 说明 |
 |------|------|
-| `monitor_assessment.decision` | 投资决策（买入/卖出/持有/观望） |
-| `monitor_assessment.report_score` | 报告评分（1-5） |
-| `monitor_assessment.key_watch_points` | 关键关注点列表 |
-| `monitor_assessment.risk_controls` | 风险控制措施列表 |
-| `monitor_assessment.strategy` | 策略建议（含买点、止损、目标价） |
+| `monitor_assessment.action` | 监控行动建议（继续跟踪/减仓/清仓等） |
+| `monitor_assessment.risk_level` | 风险等级（low/medium/high） |
+| `monitor_assessment.summary` | 监控摘要 |
+| `monitor_assessment.follow_ups` | 后续跟踪事项列表 |
+| `monitor_assessment.watch_items` | 关注事项列表 |
+| `monitor_assessment.risk_alerts` | 风险预警列表 |
+| `position.report.parsed_data.decision` | 投资决策（买入/卖出/持有/观望） |
+| `position.report.parsed_data.report_score` | 报告评分（1-5） |
+| `position.report.parsed_data.strategy` | 策略建议（含买点、止损、目标价） |
 | `after_hours_events` | 盘后事件列表 |
 
 ---
@@ -209,7 +206,7 @@ openclaw cron add daily-monitor '{"schedule":{"kind":"cron","expr":"30 15 * * 1-
 **现象**: 日志显示"未找到分析报告"
 
 **解决**:
-1. 确认 `data/stock-analysis/` 目录下有对应股票的分析报告
+1. 确认 `report/analysis/` 目录下有对应股票的分析报告
 2. 报告文件名格式：`stock_analysis_<股票代码>.json`
 
 ---
