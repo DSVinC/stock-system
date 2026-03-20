@@ -278,28 +278,178 @@ class BacktestEngine {
    */
   async executeStrategy(dayData) {
     const strategy = this.config.strategy;
-    
+    const strategyType = strategy.type || 'basic';
+
     // 检查最大持仓数限制
     const maxPositions = strategy.maxPositions || 10;
     const currentPositions = Object.keys(this.state.positions).length;
-    
+
     for (const stock of dayData) {
-      // 检查买入条件
-      if (strategy.buyCondition) {
-        const shouldBuy = this.evaluateCondition(strategy.buyCondition, stock);
-        if (shouldBuy && !this.state.positions[stock.ts_code] && currentPositions < maxPositions) {
-          await this.buy(stock.ts_code, stock.stock_name, stock.price, stock);
-        }
+      // 更新价格历史
+      if (!this.priceHistory[stock.ts_code]) {
+        this.priceHistory[stock.ts_code] = [];
       }
-      
-      // 检查卖出条件
-      if (strategy.sellCondition && this.state.positions[stock.ts_code]) {
-        const shouldSell = this.evaluateCondition(strategy.sellCondition, stock);
-        if (shouldSell) {
-          await this.sell(stock.ts_code, stock.stock_name, stock.price);
-        }
+      this.priceHistory[stock.ts_code].push(stock.price);
+
+      const prices = this.priceHistory[stock.ts_code];
+      let shouldBuy = false;
+      let shouldSell = false;
+
+      // 根据策略类型判断买卖信号
+      switch (strategyType) {
+        case 'double_ma':
+          const maResult = this.evaluateDoubleMA(prices, strategy.params);
+          shouldBuy = maResult.buy;
+          shouldSell = maResult.sell;
+          break;
+
+        case 'rsi':
+          const rsiResult = this.evaluateRSI(prices, strategy.params);
+          shouldBuy = rsiResult.buy;
+          shouldSell = rsiResult.sell;
+          break;
+
+        case 'macd':
+          const macdResult = this.evaluateMACD(prices, strategy.params);
+          shouldBuy = macdResult.buy;
+          shouldSell = macdResult.sell;
+          break;
+
+        case 'bollinger':
+          const bollResult = this.evaluateBollinger(prices, stock.price, strategy.params);
+          shouldBuy = bollResult.buy;
+          shouldSell = bollResult.sell;
+          break;
+
+        case 'conditional':
+          // 使用条件单的条件
+          if (strategy.buyCondition && !this.state.positions[stock.ts_code]) {
+            shouldBuy = this.evaluateCondition(strategy.buyCondition, stock);
+          }
+          if (strategy.sellCondition && this.state.positions[stock.ts_code]) {
+            shouldSell = this.evaluateCondition(strategy.sellCondition, stock);
+          }
+          break;
+
+        default:
+          // 基础策略：直接使用买卖条件
+          if (strategy.buyCondition && !this.state.positions[stock.ts_code]) {
+            shouldBuy = this.evaluateCondition(strategy.buyCondition, stock);
+          }
+          if (strategy.sellCondition && this.state.positions[stock.ts_code]) {
+            shouldSell = this.evaluateCondition(strategy.sellCondition, stock);
+          }
+      }
+
+      // 执行买入
+      if (shouldBuy && !this.state.positions[stock.ts_code] && currentPositions < maxPositions) {
+        const investRatio = strategy.params?.invest_ratio || strategy.investRatio || 0.3;
+        await this.buy(stock.ts_code, stock.stock_name, stock.price, stock, investRatio);
+      }
+
+      // 执行卖出
+      if (shouldSell && this.state.positions[stock.ts_code]) {
+        await this.sell(stock.ts_code, stock.stock_name, stock.price);
       }
     }
+  }
+
+  /**
+   * 双均线策略评估
+   */
+  evaluateDoubleMA(prices, params) {
+    const fastPeriod = params?.fast_period || 10;
+    const slowPeriod = params?.slow_period || 60;
+
+    if (prices.length < slowPeriod + 1) {
+      return { buy: false, sell: false };
+    }
+
+    const fastMA = calculateSMA(prices, fastPeriod);
+    const slowMA = calculateSMA(prices, slowPeriod);
+    const prevFastMA = calculateSMA(prices.slice(0, -1), fastPeriod);
+    const prevSlowMA = calculateSMA(prices.slice(0, -1), slowPeriod);
+
+    // 金叉：快线上穿慢线
+    const buy = prevFastMA <= prevSlowMA && fastMA > slowMA;
+    // 死叉：快线下穿慢线
+    const sell = prevFastMA >= prevSlowMA && fastMA < slowMA;
+
+    return { buy, sell };
+  }
+
+  /**
+   * RSI 策略评估
+   */
+  evaluateRSI(prices, params) {
+    const period = params?.period || 14;
+    const oversold = params?.oversold || 30;
+    const overbought = params?.overbought || 70;
+
+    if (prices.length < period + 1) {
+      return { buy: false, sell: false };
+    }
+
+    const rsi = calculateRSI(prices, period);
+    const prevRSI = calculateRSI(prices.slice(0, -1), period);
+
+    // 超卖区域反弹
+    const buy = prevRSI < oversold && rsi > oversold;
+    // 超买区域回落
+    const sell = prevRSI > overbought && rsi < overbought;
+
+    return { buy, sell };
+  }
+
+  /**
+   * MACD 策略评估
+   */
+  evaluateMACD(prices, params) {
+    const fastPeriod = params?.fast_period || 12;
+    const slowPeriod = params?.slow_period || 26;
+    const signalPeriod = params?.signal_period || 9;
+
+    if (prices.length < slowPeriod + signalPeriod + 1) {
+      return { buy: false, sell: false };
+    }
+
+    const macd = calculateMACD(prices, fastPeriod, slowPeriod, signalPeriod);
+    const prevMacd = calculateMACD(prices.slice(0, -1), fastPeriod, slowPeriod, signalPeriod);
+
+    if (!macd || !prevMacd) {
+      return { buy: false, sell: false };
+    }
+
+    // 金叉：MACD 上穿信号线
+    const buy = prevMacd.histogram < 0 && macd.histogram > 0;
+    // 死叉：MACD 下穿信号线
+    const sell = prevMacd.histogram > 0 && macd.histogram < 0;
+
+    return { buy, sell };
+  }
+
+  /**
+   * 布林带策略评估
+   */
+  evaluateBollinger(prices, currentPrice, params) {
+    const period = params?.period || 20;
+    const stdDev = params?.std_dev || 2;
+
+    if (prices.length < period) {
+      return { buy: false, sell: false };
+    }
+
+    const boll = calculateBollinger(prices, period, stdDev);
+    if (!boll) {
+      return { buy: false, sell: false };
+    }
+
+    // 跌破下轨买入
+    const buy = currentPrice <= boll.lower;
+    // 突破上轨卖出
+    const sell = currentPrice >= boll.upper;
+
+    return { buy, sell };
   }
   
   /**
@@ -339,9 +489,8 @@ class BacktestEngine {
   /**
    * 买入股票
    */
-  async buy(tsCode, stockName, price, dayData) {
-    // 从策略配置读取资金比例，默认30%
-    const investRatio = this.config.strategy.investRatio || 0.3;
+  async buy(tsCode, stockName, price, dayData, investRatio = 0.3) {
+    // 使用传入的资金比例
     const investAmount = this.state.cash * investRatio;
     const quantity = Math.floor(investAmount / price / 100) * 100;
     
