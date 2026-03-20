@@ -5,6 +5,9 @@ import { collectAfterHoursEvents } from "./after-hours-events.mjs";
 import { sendMonitorReport } from "./feishu-push.mjs";
 
 
+// Load environment variables from .env file
+import 'dotenv/config';
+
 /**
  * 每日监控脚本
  * 读取模拟账户持仓，尝试读取对应分析报告，生成JSON监控报告

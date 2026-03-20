@@ -782,12 +782,6 @@ async function main() {
   return events;
 }
 
-// 执行
-main().catch(error => {
-  console.error('程序执行失败:', error);
-  process.exit(1);
-});
-
 // ==================== 导出函数 ====================
 
 /**
