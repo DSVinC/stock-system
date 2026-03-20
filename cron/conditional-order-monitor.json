@@ -1,0 +1,18 @@
+{
+  "name": "stock-conditional-order-monitor",
+  "description": "股票投资系统 - 条件单定时监控",
+  "schedule": "*/5 * * * *",
+  "timezone": "Asia/Shanghai",
+  "enabled": true,
+  "task": {
+    "type": "script",
+    "script": "scripts/conditional-order-monitor.mjs",
+    "workdir": "/Users/vvc/.openclaw/workspace/stock-system",
+    "timeout": 60
+  },
+  "notifications": {
+    "on_error": true,
+    "channel": "feishu",
+    "target": "user:ou_a21807011c59304bedfaf2f7440f5361"
+  }
+}

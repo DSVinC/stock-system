@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A股投资系统 | 选股报告</title>
+  <link rel="stylesheet" href="./pages/style.css">
+  <style>
+    .report-meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin: 1.5rem 0;
+      padding: 1rem;
+      background: #f9fafb;
+      border-radius: 8px;
+    }
+    .meta-item {
+      display: flex;
+      flex-direction: column;
+    }
+    .meta-label {
+      font-size: 0.75rem;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .meta-value {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #111827;
+      margin-top: 0.25rem;
+    }
+    
+    /* 已监控股票样式 - TASK_OPT_003 */
+    .stock-item.monitored {
+      border-left: 3px solid #22c55e;
+      background: #f0fdf4;
+    }
+    .monitor-badge {
+      font-size: 0.75rem;
+      color: #15803d;
+      background: #dcfce7;
+      padding: 2px 8px;
+      border-radius: 12px;
+      margin-left: 8px;
+    }
+    .directions-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .direction-card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 1rem;
+    }
+    .direction-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+    .direction-name {
+      font-weight: 600;
+      color: #111827;
+    }
+    .score-badge {
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+    .score-high {
+      background: #dcfce7;
+      color: #166534;
+    }
+    .score-medium {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    .score-low {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    .stocks-section {
+      margin-top: 2rem;
+    }
+    .stock-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+    .stock-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      background: #f9fafb;
+      border-radius: 6px;
+      border-left: 3px solid #3b82f6;
+    }
+    .stock-info {
+      display: flex;
+      flex-direction: column;
+    }
+    .stock-name {
+      font-weight: 600;
+      color: #111827;
+    }
+    .stock-code {
+      font-size: 0.75rem;
+      color: #6b7280;
+    }
+    .action-buttons {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 1px solid #e5e7eb;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 3rem;
+      color: #6b7280;
+    }
+    .report-content {
+      white-space: pre-wrap;
+      font-family: inherit;
+      line-height: 1.8;
+      color: #374151;
+      padding: 1rem;
+      background: #f9fafb;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero-card">
+      <div class="eyebrow">Selection Report</div>
+      <h1 class="hero-title">选股报告</h1>
+      <p class="hero-copy">基于行业筛选结果生成的投资方向与候选股票推荐</p>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2 class="panel-title">报告概览</h2>
+          <p class="panel-copy">展示本次选股的方向、评分及推荐股票</p>
+        </div>
+        <div class="panel-actions">
+          <a href="./select.html" class="button-link button-secondary">重新选股</a>
+          <a href="./analysis.html" class="button-link button-primary">去分析个股</a>
+        </div>
+      </div>
+
+      <div id="reportContainer">
+        <div class="empty-state">
+          <p>暂无选股报告</p>
+          <p style="font-size: 0.875rem; margin-top: 0.5rem;">请先前往「行业选股」页面生成报告</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const DIRECTIONS_STORAGE_KEY = "selectedDirections";
+    const SELECTION_REPORT_KEY = "selectionReport";
+
+    function safeJsonParse(rawValue) {
+      try {
+        return JSON.parse(rawValue);
+      } catch (error) {
+        return null;
+      }
+    }
+
+    async function renderReport() {
+      const container = document.getElementById('reportContainer');
+      const directions = safeJsonParse(localStorage.getItem(DIRECTIONS_STORAGE_KEY)) || [];
+      const report = safeJsonParse(localStorage.getItem(SELECTION_REPORT_KEY));
+
+      if (!directions.length && !report) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <p>暂无选股报告</p>
+            <p style="font-size: 0.875rem; margin-top: 0.5rem;">请先前往「行业选股」页面生成报告</p>
+            <a href="./select.html" class="button-link button-primary" style="margin-top: 1rem;">前往选股</a>
+          </div>
+        `;
+        return;
+      }
+
+      // 获取已监控股票列表 - TASK_OPT_003
+      let monitoredStocks = [];
+      try {
+        const response = await fetch('/api/monitor/stock-list');
+        if (response.ok) {
+          const data = await response.json();
+          monitoredStocks = data.stocks || [];
+        }
+      } catch (error) {
+        console.warn('获取已监控股票列表失败:', error);
+      }
+
+      let html = '';
+
+      html += `
+        <div class="report-meta">
+          <div class="meta-item">
+            <span class="meta-label">生成时间</span>
+            <span class="meta-value">${report?.generatedAt || new Date().toLocaleString('zh-CN')}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">选中方向</span>
+            <span class="meta-value">${directions.length} 个</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">推荐股票</span>
+            <span class="meta-value">${report?.stocks?.length || 0} 只</span>
+          </div>
+        </div>
+      `;
+
+      if (directions.length) {
+        html += '<h3 style="margin-top: 1.5rem; color: #111827;">已选方向</h3>';
+        html += '<div class="directions-grid">';
+        directions.forEach(dir => {
+          const score = dir.score || 0;
+          const scoreClass = score >= 4 ? 'score-high' : score >= 3 ? 'score-medium' : 'score-low';
+          html += `
+            <div class="direction-card">
+              <div class="direction-header">
+                <span class="direction-name">${dir.name}</span>
+                <span class="score-badge ${scoreClass}">${score.toFixed(1)}分</span>
+              </div>
+              <p style="font-size: 0.875rem; color: #4b5563; line-height: 1.5;">${dir.reason || '暂无说明'}</p>
+            </div>
+          `;
+        });
+        html += '</div>';
+      }
+
+      if (report?.stocks?.length) {
+        html += `
+          <div class="stocks-section">
+            <h3 style="color: #111827;">推荐股票</h3>
+            <div class="stock-list">
+        `;
+        report.stocks.forEach(stock => {
+          const isMonitored = monitoredStocks.includes(stock.code);
+          html += `
+            <div class="stock-item ${isMonitored ? 'monitored' : ''}">
+              <div class="stock-info">
+                <span class="stock-name">${stock.name}</span>
+                <span class="stock-code">${stock.code}</span>
+                ${isMonitored ? '<span class="monitor-badge">✅ 已监控</span>' : ''}
+              </div>
+              <span style="font-size: 0.875rem; color: #4b5563; max-width: 400px;">${stock.reason || ''}</span>
+            </div>
+          `;
+        });
+        html += '</div></div>';
+      }
+
+      if (report?.reportText) {
+        html += `
+          <div class="stocks-section">
+            <h3 style="color: #111827;">详细报告</h3>
+            <div class="report-content">${report.reportText}</div>
+          </div>
+        `;
+      }
+
+      html += `
+        <div class="action-buttons">
+          <a href="./analysis.html" class="button-link button-primary">分析方向个股</a>
+          <a href="./monitor-pool.html" class="button-link button-secondary">查看监控池</a>
+        </div>
+      `;
+
+      container.innerHTML = html;
+    }
+
+    renderReport();
+  </script>
+</body>
+</html>

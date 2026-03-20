@@ -21,8 +21,8 @@
         <div class="status-row">
           <span id="direction-status">正在读取...</span>
           <div class="panel-actions">
-            <button id="view-report" class="button button-secondary" type="button">查看选股报告</button>
-            <a href="./index.html" class="button-link button-secondary">返回重新选股</a>
+            <a href="./report.html" class="button-link button-secondary">查看选股报告</a>
+            <a href="./select.html" class="button-link button-secondary">返回重新选股</a>
           </div>
         </div>
       </div>
@@ -32,7 +32,7 @@
       <div class="panel-inner">
         <h2 class="section-title">执行分析</h2>
         <div class="toolbar">
-          <button id="analyze-button" class="button" type="button">分析方向个股</button>
+          <button id="analyze-button" class="button button-large" type="button">分析方向个股</button>
           <input id="custom-stock-input" class="input" type="text" placeholder="自定义股票名称或代码，如 中际旭创 / 300308.SZ" />
           <button id="add-custom-button" class="button button-secondary" type="button">加入候选</button>
         </div>
@@ -51,7 +51,7 @@
         <div id="analysis-empty" class="empty-state">点击"分析方向个股"后展示候选股票。</div>
         <div class="footer-bar">
           <p class="hint">勾选股票后点击"加入监控池"进入下一步。</p>
-          <button id="go-monitor-pool" class="button" type="button">加入监控池</button>
+          <button id="go-monitor-pool" class="button button-large" type="button">加入监控池</button>
         </div>
       </div>
     </section>
@@ -84,24 +84,107 @@
       }
     }
 
+    function normalizeDirection(input) {
+      if (typeof input === "string") {
+        const name = input.trim();
+        return name ? { name, score: 0, reason: "" } : null;
+      }
+
+      if (!input || typeof input !== "object") {
+        return null;
+      }
+
+      const name = typeof input.name === "string" ? input.name.trim() : "";
+      if (!name) {
+        return null;
+      }
+
+      const scoreValue = Number(input.score);
+      return {
+        name,
+        score: Number.isFinite(scoreValue) ? scoreValue : 0,
+        reason: typeof input.reason === "string" ? input.reason.trim() : ""
+      };
+    }
+
     function normalizeDirections(input) {
       if (!input) return [];
       if (Array.isArray(input)) {
-        return [...new Set(input.map((item) => String(item).trim()).filter(Boolean))];
+        const result = [];
+        const seen = new Set();
+
+        input.forEach((item) => {
+          const normalized = normalizeDirection(item);
+          if (!normalized || seen.has(normalized.name)) {
+            return;
+          }
+          seen.add(normalized.name);
+          result.push(normalized);
+        });
+
+        return result;
       }
       if (typeof input === "string") {
         const parsed = safeJsonParse(input);
         if (Array.isArray(parsed)) {
           return normalizeDirections(parsed);
         }
-        return [...new Set(input.split(",").map((item) => item.trim()).filter(Boolean))];
+        return normalizeDirections(input.split(",").map((item) => ({ name: item })));
       }
       return [];
     }
 
+    function normalizeStock(input) {
+      if (!input || typeof input !== "object") {
+        return null;
+      }
+
+      const name = typeof input.name === "string" ? input.name.trim() : "";
+      const code = typeof input.code === "string" ? input.code.trim() : "";
+      if (!name || !code) {
+        return null;
+      }
+
+      const scoreValue = Number(input.score);
+      const decision = typeof input.decision === "string" && input.decision.trim()
+        ? input.decision.trim()
+        : "观望";
+
+      return {
+        name,
+        code,
+        score: Number.isFinite(scoreValue) ? scoreValue : 0,
+        decision,
+        selected: Boolean(input.selected)
+      };
+    }
+
+    function openSafeUrl(rawUrl) {
+      if (typeof rawUrl !== "string" || !rawUrl.trim()) {
+        return false;
+      }
+
+      let url;
+      try {
+        url = new URL(rawUrl, window.location.href);
+      } catch (error) {
+        return false;
+      }
+
+      if (!["http:", "https:", "file:"].includes(url.protocol)) {
+        return false;
+      }
+
+      const openedWindow = window.open(url.toString(), "_blank", "noopener");
+      if (openedWindow) {
+        openedWindow.opener = null;
+      }
+      return true;
+    }
+
     function readDirections() {
       const params = new URLSearchParams(window.location.search);
-      const urlDirections = params.getAll("direction").filter(Boolean);
+      const urlDirections = normalizeDirections(params.getAll("direction"));
       if (urlDirections.length > 0) {
         localStorage.setItem(DIRECTIONS_STORAGE_KEY, JSON.stringify(urlDirections));
         return urlDirections;
@@ -109,28 +192,22 @@
       return normalizeDirections(localStorage.getItem(DIRECTIONS_STORAGE_KEY));
     }
 
-    function escapeHtml(text) {
-      return String(text)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#39;");
-    }
-
     function renderDirections() {
-      selectedDirectionsContainer.innerHTML = "";
+      selectedDirectionsContainer.replaceChildren();
 
       if (directions.length === 0) {
         directionStatus.textContent = "未找到已选方向，请返回首页重新选择";
-        selectedDirectionsContainer.innerHTML = '<span class="tag">暂无方向</span>';
+        const emptyTag = document.createElement("span");
+        emptyTag.className = "tag";
+        emptyTag.textContent = "暂无方向";
+        selectedDirectionsContainer.appendChild(emptyTag);
         return;
       }
 
       directions.forEach((direction) => {
         const tag = document.createElement("span");
         tag.className = "tag";
-        tag.textContent = direction;
+        tag.textContent = direction.name;
         selectedDirectionsContainer.appendChild(tag);
       });
 
@@ -149,7 +226,7 @@
     }
 
     function renderStocks() {
-      resultsContainer.innerHTML = "";
+      resultsContainer.replaceChildren();
 
       if (stocks.length === 0) {
         emptyState.hidden = false;
@@ -158,44 +235,64 @@
       }
 
       emptyState.hidden = true;
-      const html = stocks.map((stock, index) => `
-        <article class="stock-card">
-          <label>
-            <input type="checkbox" data-stock-index="${index}" ${stock.selected ? "checked" : ""} />
-            <span>
-              <span class="stock-name">${escapeHtml(stock.name)}</span>
-              <p class="stock-meta">
-                代码: ${escapeHtml(stock.code)}<br />
-                推荐评分: ${escapeHtml(stock.score)} / 5<br />
-                决策建议: <strong class="${getDecisionClass(stock.decision)}">${escapeHtml(stock.decision)}</strong>
-              </p>
-            </span>
-          </label>
-          <div class="stock-actions">
-            <button class="button-secondary view-report-btn" data-stock-name="${escapeHtml(stock.name)}" data-stock-code="${escapeHtml(stock.code)}">查看报告</button>
-          </div>
-        </article>
-      `).join("");
+      stocks.forEach((stock, index) => {
+        const card = document.createElement("article");
+        card.className = "stock-card";
 
-      resultsContainer.innerHTML = html;
+        const label = document.createElement("label");
 
-      // 绑定复选框事件
-      resultsContainer.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.dataset.stockIndex = String(index);
+        checkbox.checked = stock.selected;
         checkbox.addEventListener("change", (event) => {
-          const index = Number(event.target.dataset.stockIndex);
-          stocks[index].selected = event.target.checked;
+          const targetIndex = Number(event.target.dataset.stockIndex);
+          stocks[targetIndex].selected = event.target.checked;
           persistAnalysis();
           updateSelectedCount();
         });
-      });
 
-      // 绑定查看报告按钮
-      resultsContainer.querySelectorAll(".view-report-btn").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const stockName = btn.dataset.stockName;
-          const stockCode = btn.dataset.stockCode;
-          viewStockReport(stockName, stockCode);
+        const infoWrap = document.createElement("span");
+        const nameNode = document.createElement("span");
+        nameNode.className = "stock-name";
+        nameNode.textContent = stock.name;
+
+        const meta = document.createElement("p");
+        meta.className = "stock-meta";
+        meta.append(
+          `代码: ${stock.code}`,
+          document.createElement("br"),
+          `推荐评分: ${stock.score} / 5`,
+          document.createElement("br"),
+          "决策建议: "
+        );
+
+        const decisionNode = document.createElement("strong");
+        decisionNode.className = getDecisionClass(stock.decision);
+        decisionNode.textContent = stock.decision;
+        meta.appendChild(decisionNode);
+
+        infoWrap.appendChild(nameNode);
+        infoWrap.appendChild(meta);
+
+        label.appendChild(checkbox);
+        label.appendChild(infoWrap);
+
+        const actions = document.createElement("div");
+        actions.className = "stock-actions";
+
+        const reportButton = document.createElement("button");
+        reportButton.className = "button-secondary view-report-btn";
+        reportButton.type = "button";
+        reportButton.textContent = "查看报告";
+        reportButton.addEventListener("click", () => {
+          viewStockReport(stock.name, stock.code);
         });
+        actions.appendChild(reportButton);
+
+        card.appendChild(label);
+        card.appendChild(actions);
+        resultsContainer.appendChild(card);
       });
 
       updateSelectedCount();
@@ -206,7 +303,7 @@
       
       try {
         // 调用个股分析接口生成报告
-        const response = await fetch("/api/analyze/report", {
+        const response = await fetch("/api/analysis/report", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ stock_name: stockName, stock_code: stockCode })
@@ -214,19 +311,17 @@
 
         if (response.ok) {
           const data = await response.json();
-          if (data.report_path) {
-            // 在新窗口打开报告
-            window.open(data.report_path, "_blank");
+          if (data.report_path && openSafeUrl(data.report_path)) {
             analyzeStatus.textContent = `已打开 ${stockName} 分析报告`;
           } else {
             analyzeStatus.textContent = `报告生成成功，但未返回路径`;
           }
         } else {
-          // 如果接口不存在，显示提示
-          analyzeStatus.textContent = `个股分析报告功能开发中，敬请期待`;
+          const errorPayload = await response.json().catch(() => null);
+          analyzeStatus.textContent = errorPayload?.message || `个股分析报告生成失败（${response.status}）`;
         }
       } catch (error) {
-        analyzeStatus.textContent = `暂无该股票的分析报告`;
+        analyzeStatus.textContent = error.message || `暂无该股票的分析报告`;
       }
     }
 
@@ -237,10 +332,7 @@
     function restoreAnalysis() {
       const cached = safeJsonParse(localStorage.getItem(ANALYSIS_RESULTS_KEY));
       if (!Array.isArray(cached)) return;
-      stocks = cached.map((stock) => ({
-        ...stock,
-        selected: Boolean(stock.selected),
-      }));
+      stocks = cached.map((stock) => normalizeStock(stock)).filter(Boolean);
       renderStocks();
     }
 
@@ -261,16 +353,16 @@
         });
 
         if (!response.ok) {
-          throw new Error(`接口异常: ${response.status}`);
+          const errorPayload = await response.json().catch(() => null);
+          throw new Error(errorPayload?.message || `接口异常: ${response.status}`);
         }
 
         const payload = await response.json();
         const nextStocks = Array.isArray(payload.stocks) ? payload.stocks : [];
 
-        stocks = nextStocks.map((stock) => ({
-          ...stock,
-          selected: false,
-        }));
+        stocks = nextStocks
+          .map((stock) => normalizeStock({ ...stock, selected: false }))
+          .filter(Boolean);
 
         persistAnalysis();
         renderStocks();
@@ -302,7 +394,7 @@
 
       return {
         name: value,
-        code: "CUSTOM",
+        code: value,
         score: 3,
         decision: "观望",
         selected: true,
@@ -353,13 +445,13 @@
           headers: { 'Content-Type': 'application/json' }
         });
         const data = await response.json();
-        if (data.report_path) {
-          window.open(data.report_path, '_blank');
+        if (data.report_path && openSafeUrl(data.report_path)) {
+          
         } else {
-          analyzeStatus.textContent = '选股报告功能开发中';
+          analyzeStatus.textContent = data?.message || '选股报告生成失败';
         }
       } catch (e) {
-        analyzeStatus.textContent = '选股报告功能开发中';
+        analyzeStatus.textContent = e.message || '选股报告生成失败';
       }
     });
   </script>

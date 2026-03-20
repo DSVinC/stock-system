@@ -1,0 +1,17 @@
+{
+  "name": "stock-system",
+  "version": "1.0.0",
+  "description": "Stock analysis and monitoring system",
+  "main": "server.js",
+  "scripts": {
+    "start": "node api/server.js",
+    "update:industry": "node scripts/update_valuation_data.mjs --type=industry",
+    "update:pe": "node scripts/update_valuation_data.mjs --type=pe",
+    "update:atr": "node scripts/update_valuation_data.mjs --type=atr"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "express": "^4.18.2",
+    "sqlite3": "^5.1.7"
+  }
+}

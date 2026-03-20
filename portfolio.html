@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>模拟账户 - 股票投资系统</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f7fa; padding: 20px; }
+    .container { max-width: 800px; margin: 0 auto; }
+    
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .header h1 { color: #1a1a2e; font-size: 24px; }
+    .header .nav a { margin-left: 15px; color: #4a5568; text-decoration: none; }
+    .header .nav a:hover { color: #3182ce; }
+    
+    .card { background: white; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .card h2 { color: #2d3748; font-size: 18px; margin-bottom: 16px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+    
+    .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    .stat-item { padding: 16px; background: #f7fafc; border-radius: 8px; }
+    .stat-label { color: #718096; font-size: 14px; margin-bottom: 6px; }
+    .stat-value { color: #1a202c; font-size: 24px; font-weight: bold; }
+    .stat-value.positive { color: #e53e3e; }
+    .stat-value.negative { color: #38a169; }
+    
+    .summary-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+    .summary-card .stat-label { color: rgba(255,255,255,0.8); }
+    .summary-card .stat-value { color: white; }
+    
+    .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; transition: all 0.2s; }
+    .btn-primary { background: #3182ce; color: white; }
+    .btn-primary:hover { background: #2c5282; }
+    .btn-success { background: #38a169; color: white; }
+    .btn-danger { background: #e53e3e; color: white; }
+    .btn-secondary { background: #718096; color: white; }
+    
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; margin-bottom: 6px; color: #4a5568; font-weight: 500; }
+    .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 14px; }
+    .form-group input:focus { outline: none; border-color: #3182ce; box-shadow: 0 0 0 3px rgba(49,130,206,0.1); }
+    
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
+    .modal.show { display: flex; align-items: center; justify-content: center; }
+    .modal-content { background: white; border-radius: 12px; padding: 24px; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .modal-header h3 { color: #1a202c; }
+    .modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: #718096; }
+    
+    .empty-state { text-align: center; padding: 40px; color: #718096; }
+    .empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎯 模拟账户</h1>
+      <nav class="nav">
+        <a href="index.html">监控池</a>
+        <a href="analysis.html">个股分析</a>
+        <a href="portfolio.html">账户</a>
+        <a href="conditional-order.html">条件单</a>
+      </nav>
+    </div>
+    
+    <div class="card summary-card">
+      <h2>账户总览</h2>
+      <div class="stats-grid">
+        <div class="stat-item">
+          <div class="stat-label">初始资金</div>
+          <div class="stat-value" id="initial-cash">-</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">当前现金</div>
+          <div class="stat-value" id="current-cash">-</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">持仓市值</div>
+          <div class="stat-value" id="position-value">-</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">总资产</div>
+          <div class="stat-value" id="total-value">-</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">累计收益</div>
+          <div class="stat-value" id="total-return">-</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">收益率</div>
+          <div class="stat-value" id="return-rate">-</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="card">
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h2>账户列表</h2>
+        <button class="btn btn-primary" onclick="showCreateModal()">+ 创建账户</button>
+      </div>
+      <div id="account-list">
+        <div class="empty-state">
+          <div class="icon">📊</div>
+          <p>暂无账户，点击上方按钮创建</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 创建账户弹窗 -->
+  <div class="modal" id="create-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>创建模拟账户</h3>
+        <button class="modal-close" onclick="closeCreateModal()">×</button>
+      </div>
+      <form onsubmit="createAccount(event)">
+        <div class="form-group">
+          <label>账户名称</label>
+          <input type="text" name="account_name" placeholder="例如：主账户、测试账户" required>
+        </div>
+        <div class="form-group">
+          <label>初始资金（元）</label>
+          <input type="number" name="initial_cash" placeholder="1000000" min="10000" max="10000000" required>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button type="submit" class="btn btn-primary" style="flex:1;">创建</button>
+          <button type="button" class="btn btn-secondary" onclick="closeCreateModal()">取消</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    let currentAccountId = null;
+    
+    async function api(url, options = {}) {
+      const response = await fetch(url, {
+        headers: { 'Content-Type': 'application/json' },
+        ...options
+      });
+      return response.json();
+    }
+    
+    async function loadAccounts() {
+      const result = await api('/api/portfolio/account');
+      const listEl = document.getElementById('account-list');
+      
+      if (!result.success || result.data.length === 0) {
+        listEl.innerHTML = '<div class="empty-state"><div class="icon">📊</div><p>暂无账户，点击上方按钮创建</p></div>';
+        return;
+      }
+      
+      listEl.innerHTML = result.data.map(acc => `
+        <div class="card" style="cursor:pointer;margin-bottom:12px;border:2px solid ${acc.id === currentAccountId ? '#3182ce' : 'transparent'};" onclick="selectAccount(${acc.id})">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <h3 style="margin:0;color:#1a202c;">${acc.account_name}</h3>
+              <p style="margin:4px 0 0;color:#718096;font-size:14px;">初始资金: ¥${acc.initial_cash.toLocaleString()}</p>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:20px;font-weight:bold;${acc.return_rate >= 0 ? 'color:#e53e3e':'color:#38a169';}">
+                ${acc.return_rate >= 0 ? '+' : ''}${(acc.return_rate * 100).toFixed(2)}%
+              </div>
+              <p style="margin:4px 0 0;color:#718096;font-size:14px;">¥${acc.total_return.toLocaleString()}</p>
+            </div>
+          </div>
+        </div>
+      `).join('');
+      
+      // 如果有当前选中的账户，加载详情
+      if (currentAccountId) {
+        loadAccountSummary(currentAccountId);
+      } else if (result.data.length > 0) {
+        selectAccount(result.data[0].id);
+      }
+    }
+    
+    async function selectAccount(id) {
+      currentAccountId = id;
+      localStorage.setItem('current_account_id', id);
+      loadAccounts();
+      loadAccountSummary(id);
+    }
+    
+    async function loadAccountSummary(id) {
+      const result = await api(`/api/portfolio/account/${id}/summary`);
+      if (!result.success) return;
+      
+      const { account, positions } = result.data;
+      const positionValue = positions.reduce((sum, p) => sum + (p.market_value || 0), 0);
+      
+      document.getElementById('initial-cash').textContent = '¥' + account.initial_cash.toLocaleString();
+      document.getElementById('current-cash').textContent = '¥' + account.current_cash.toLocaleString();
+      document.getElementById('position-value').textContent = '¥' + positionValue.toLocaleString();
+      document.getElementById('total-value').textContent = '¥' + account.total_value.toLocaleString();
+      
+      const returnEl = document.getElementById('total-return');
+      returnEl.textContent = (account.total_return >= 0 ? '+' : '') + '¥' + account.total_return.toLocaleString();
+      returnEl.className = 'stat-value ' + (account.total_return >= 0 ? 'positive' : 'negative');
+      
+      const rateEl = document.getElementById('return-rate');
+      rateEl.textContent = (account.return_rate >= 0 ? '+' : '') + (account.return_rate * 100).toFixed(2) + '%';
+      rateEl.className = 'stat-value ' + (account.return_rate >= 0 ? 'positive' : 'negative');
+    }
+    
+    function showCreateModal() {
+      document.getElementById('create-modal').classList.add('show');
+    }
+    
+    function closeCreateModal() {
+      document.getElementById('create-modal').classList.remove('show');
+    }
+    
+    async function createAccount(e) {
+      e.preventDefault();
+      const form = e.target;
+      const data = {
+        account_name: form.account_name.value,
+        initial_cash: parseInt(form.initial_cash.value)
+      };
+      
+      const result = await api('/api/portfolio/account', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+      
+      if (result.success) {
+        closeCreateModal();
+        selectAccount(result.data.id);
+        loadAccounts();
+      } else {
+        alert('创建失败: ' + result.error);
+      }
+    }
+    
+    // 初始化
+    currentAccountId = parseInt(localStorage.getItem('current_account_id')) || null;
+    loadAccounts();
+  </script>
+</body>
+</html>

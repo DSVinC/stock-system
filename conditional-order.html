@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>条件单 - 股票投资系统</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f7fa; padding: 20px; }
+    .container { max-width: 1000px; margin: 0 auto; }
+    
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .header h1 { color: #1a1a2e; font-size: 24px; }
+    .header .nav a { margin-left: 15px; color: #4a5568; text-decoration: none; }
+    .header .nav a:hover { color: #3182ce; }
+    
+    .card { background: white; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .card h2 { color: #2d3748; font-size: 18px; margin-bottom: 16px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+    
+    .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; transition: all 0.2s; }
+    .btn-primary { background: #3182ce; color: white; }
+    .btn-success { background: #38a169; color: white; }
+    .btn-danger { background: #e53e3e; color: white; }
+    .btn-warning { background: #d69e2e; color: white; }
+    .btn-secondary { background: #718096; color: white; }
+    .btn-sm { padding: 6px 12px; font-size: 12px; }
+    
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; margin-bottom: 6px; color: #4a5568; font-weight: 500; }
+    .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 14px; }
+    .form-group input:focus { outline: none; border-color: #3182ce; }
+    
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    
+    .condition-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; padding: 10px; background: #f7fafc; border-radius: 6px; }
+    .condition-row select { flex: 1; }
+    .condition-row input { flex: 1; }
+    .condition-row .btn { flex: 0 0 auto; }
+    
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+    th { background: #f7fafc; color: #4a5568; font-weight: 600; }
+    tr:hover { background: #f7fafc; }
+    
+    .status-badge { padding: 4px 12px; border-radius: 12px; font-size: 12px; }
+    .status-pending { background: #ebf8ff; color: #3182ce; }
+    .status-triggered { background: #c6f6d5; color: #276749; }
+    .status-cancelled { background: #fed7d7; color: #c53030; }
+    .status-expired { background: #e2e8f0; color: #4a5568; }
+    
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
+    .modal.show { display: flex; align-items: center; justify-content: center; }
+    .modal-content { background: white; border-radius: 12px; padding: 24px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: #718096; }
+    
+    .empty-state { text-align: center; padding: 40px; color: #718096; }
+    
+    .action-type { display: inline-flex; align-items: center; gap: 6px; }
+    .action-buy { color: #e53e3e; }
+    .action-sell { color: #38a169; }
+    
+    .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+    .tab { padding: 8px 16px; border: none; background: #e2e8f0; border-radius: 6px; cursor: pointer; }
+    .tab.active { background: #3182ce; color: white; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📋 条件单管理</h1>
+      <nav class="nav">
+        <a href="index.html">监控池</a>
+        <a href="analysis.html">个股分析</a>
+        <a href="portfolio.html">账户</a>
+        <a href="conditional-order.html">条件单</a>
+      </nav>
+    </div>
+    
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h2>条件单列表</h2>
+        <button class="btn btn-primary" onclick="showCreateModal()">+ 新建条件单</button>
+      </div>
+      
+      <div class="tabs">
+        <button class="tab active" onclick="filterOrders('all')">全部</button>
+        <button class="tab" onclick="filterOrders('pending')">待触发</button>
+        <button class="tab" onclick="filterOrders('triggered')">已触发</button>
+        <button class="tab" onclick="filterOrders('cancelled')">已取消</button>
+      </div>
+      
+      <div id="order-list">
+        <div class="empty-state">
+          <div style="font-size:48px;margin-bottom:16px;">📋</div>
+          <p>暂无条件单，点击上方按钮创建</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 创建条件单弹窗 -->
+  <div class="modal" id="create-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>新建条件单</h3>
+        <button class="modal-close" onclick="closeCreateModal()">×</button>
+      </div>
+      <form id="create-form" onsubmit="createOrder(event)">
+        <div class="form-row">
+          <div class="form-group">
+            <label>股票代码</label>
+            <input type="text" name="ts_code" placeholder="300308.SZ" required>
+          </div>
+          <div class="form-group">
+            <label>股票名称</label>
+            <input type="text" name="stock_name" placeholder="中际旭创" required>
+          </div>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label>交易动作</label>
+            <select name="action" required>
+              <option value="buy">买入</option>
+              <option value="sell">卖出</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>条件单类型</label>
+            <select name="order_type" required>
+              <option value="price">价格条件</option>
+              <option value="indicator">技术指标</option>
+              <option value="capital">资金条件</option>
+              <option value="composite">复合条件</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label>交易数量/金额</label>
+          <div class="form-row">
+            <input type="number" name="quantity" placeholder="数量（股）" min="100" step="100">
+            <input type="number" name="amount" placeholder="金额（元）">
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label>触发条件</label>
+          <div id="conditions-list">
+            <div class="condition-row">
+              <select class="cond-type">
+                <option value="price">股价</option>
+                <option value="pct_change">涨跌幅(%)</option>
+                <option value="volume_ratio">量比</option>
+                <option value="rsi">RSI</option>
+                <option value="macd_cross">MACD信号</option>
+              </select>
+              <select class="cond-op">
+                <option value=">=">>=</option>
+                <option value="<="><=</option>
+                <option value=">">></option>
+                <option value="<"><</option>
+              </select>
+              <input type="text" class="cond-value" placeholder="数值">
+              <button type="button" class="btn btn-danger btn-sm" onclick="removeCondition(this)">删除</button>
+            </div>
+          </div>
+          <button type="button" class="btn btn-secondary" onclick="addCondition()">+ 添加条件</button>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label>有效期开始</label>
+            <input type="date" name="start_date" required>
+          </div>
+          <div class="form-group">
+            <label>有效期结束</label>
+            <input type="date" name="end_date" required>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label>最大触发次数</label>
+          <input type="number" name="max_trigger_count" value="1" min="1" required>
+        </div>
+        
+        <div style="display:flex;gap:10px;">
+          <button type="submit" class="btn btn-primary" style="flex:1;">创建</button>
+          <button type="button" class="btn btn-secondary" onclick="closeCreateModal()">取消</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    let currentFilter = 'all';
+    let currentAccountId = null;
+    
+    async function api(url, options = {}) {
+      const response = await fetch(url, {
+        headers: { 'Content-Type': 'application/json' },
+        ...options
+      });
+      return response.json();
+    }
+    
+    function getAccountId() {
+      currentAccountId = parseInt(localStorage.getItem('current_account_id'));
+      return currentAccountId;
+    }
+    
+    async function loadOrders() {
+      const accountId = getAccountId();
+      if (!accountId) {
+        document.getElementById('order-list').innerHTML = '<div class="empty-state"><p>请先选择账户</p></div>';
+        return;
+      }
+      
+      const url = currentFilter === 'all' 
+        ? `/api/conditional-order?account_id=${accountId}`
+        : `/api/conditional-order?account_id=${accountId}&status=${currentFilter}`;
+      
+      const result = await api(url);
+      const listEl = document.getElementById('order-list');
+      
+      if (!result.success || result.data.length === 0) {
+        listEl.innerHTML = '<div class="empty-state"><div style="font-size:48px;margin-bottom:16px;">📋</div><p>暂无条件单</p></div>';
+        return;
+      }
+      
+      listEl.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>状态</th>
+              <th>股票</th>
+              <th>动作</th>
+              <th>条件</th>
+              <th>有效期</th>
+              <th>触发</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${result.data.map(order => `
+              <tr>
+                <td><span class="status-badge status-${order.status}">${getStatusText(order.status)}</span></td>
+                <td>${order.ts_code}<br><small>${order.stock_name}</small></td>
+                <td><span class="action-type ${order.action === 'buy' ? 'action-buy' : 'action-sell'}">${order.action === 'buy' ? '买入' : '卖出'}</span></td>
+                <td>${formatConditions(order.conditions)}</td>
+                <td>${order.start_date} 至 ${order.end_date}</td>
+                <td>${order.trigger_count}/${order.max_trigger_count}</td>
+                <td>
+                  ${order.status === 'pending' ? `
+                    <button class="btn btn-warning btn-sm" onclick="cancelOrder(${order.id})">取消</button>
+                  ` : '-'}
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+    
+    function getStatusText(status) {
+      const map = { pending: '待触发', triggered: '已触发', cancelled: '已取消', expired: '已过期' };
+      return map[status] || status;
+    }
+    
+    function formatConditions(conditions) {
+      if (!conditions || conditions.length === 0) return '-';
+      return conditions.map(c => `${c.type}${c.operator}${c.value}`).join('、');
+    }
+    
+    function filterOrders(status) {
+      currentFilter = status;
+      document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+      event.target.classList.add('active');
+      loadOrders();
+    }
+    
+    function showCreateModal() {
+      if (!getAccountId()) {
+        alert('请先创建并选择账户');
+        return;
+      }
+      // 设置默认日期
+      const today = new Date().toISOString().split('T')[0];
+      const threeMonthsLater = new Date();
+      threeMonthsLater.setMonth(threeMonthsLater.getMonth() + 3);
+      document.querySelector('[name="start_date"]').value = today;
+      document.querySelector('[name="end_date"]').value = threeMonthsLater.toISOString().split('T')[0];
+      document.getElementById('create-modal').classList.add('show');
+    }
+    
+    function closeCreateModal() {
+      document.getElementById('create-modal').classList.remove('show');
+    }
+    
+    function addCondition() {
+      const list = document.getElementById('conditions-list');
+      const row = document.createElement('div');
+      row.className = 'condition-row';
+      row.innerHTML = `
+        <select class="cond-type">
+          <option value="price">股价</option>
+          <option value="pct_change">涨跌幅(%)</option>
+          <option value="volume_ratio">量比</option>
+          <option value="rsi">RSI</option>
+          <option value="macd_cross">MACD信号</option>
+        </select>
+        <select class="cond-op">
+          <option value=">=">>=</option>
+          <option value="<="><=</option>
+          <option value=">">></option>
+          <option value="<"><</option>
+        </select>
+        <input type="text" class="cond-value" placeholder="数值">
+        <button type="button" class="btn btn-danger btn-sm" onclick="removeCondition(this)">删除</button>
+      `;
+      list.appendChild(row);
+    }
+    
+    function removeCondition(btn) {
+      btn.parentElement.remove();
+    }
+    
+    async function createOrder(e) {
+      e.preventDefault();
+      const form = e.target;
+      
+      // 收集条件
+      const conditions = [];
+      document.querySelectorAll('.condition-row').forEach(row => {
+        const type = row.querySelector('.cond-type').value;
+        const operator = row.querySelector('.cond-op').value;
+        const value = row.querySelector('.cond-value').value;
+        if (value) {
+          conditions.push({ type, operator, value: parseFloat(value) || value });
+        }
+      });
+      
+      const data = {
+        account_id: getAccountId(),
+        ts_code: form.ts_code.value,
+        stock_name: form.stock_name.value,
+        action: form.action.value,
+        order_type: form.order_type.value,
+        quantity: form.quantity.value ? parseInt(form.quantity.value) : null,
+        amount: form.amount.value ? parseFloat(form.amount.value) : null,
+        conditions: conditions,
+        condition_logic: 'AND',
+        start_date: form.start_date.value,
+        end_date: form.end_date.value,
+        max_trigger_count: parseInt(form.max_trigger_count.value)
+      };
+      
+      const result = await api('/api/conditional-order', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+      
+      if (result.success) {
+        closeCreateModal();
+        loadOrders();
+      } else {
+        alert('创建失败: ' + result.error);
+      }
+    }
+    
+    async function cancelOrder(id) {
+      if (!confirm('确定要取消这个条件单吗？')) return;
+      
+      const result = await api(`/api/conditional-order/${id}/cancel`, {
+        method: 'POST'
+      });
+      
+      if (result.success) {
+        loadOrders();
+      } else {
+        alert('取消失败: ' + result.error);
+      }
+    }
+    
+    // 初始化
+    loadOrders();
+  </script>
+</body>
+</html>

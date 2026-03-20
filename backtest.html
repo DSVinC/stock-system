@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>回测系统 - A股投资系统</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      color: #e0e0e0;
+      padding: 20px;
+    }
+    .container { max-width: 1200px; margin: 0 auto; }
+    h1 {
+      text-align: center;
+      color: #00d4ff;
+      margin-bottom: 30px;
+      font-size: 2em;
+    }
+    .card {
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .card-title {
+      font-size: 1.2em;
+      color: #00d4ff;
+      margin-bottom: 15px;
+      border-bottom: 1px solid rgba(0,212,255,0.3);
+      padding-bottom: 10px;
+    }
+    .form-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      color: #a0a0a0;
+      font-size: 0.9em;
+    }
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 6px;
+      background: rgba(0,0,0,0.3);
+      color: #e0e0e0;
+      font-size: 14px;
+    }
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #00d4ff, #0099cc);
+      color: #fff;
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,212,255,0.4);
+    }
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin-top: 20px;
+    }
+    .metric-card {
+      background: rgba(0,0,0,0.2);
+      padding: 15px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .metric-value {
+      font-size: 1.8em;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    .metric-value.positive { color: #00ff88; }
+    .metric-value.negative { color: #ff4757; }
+    .metric-label {
+      color: #a0a0a0;
+      font-size: 0.85em;
+    }
+    .trades-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+    .trades-table th, .trades-table td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .trades-table th {
+      color: #00d4ff;
+      font-weight: 500;
+    }
+    .trades-table tr:hover {
+      background: rgba(255,255,255,0.05);
+    }
+    .badge {
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.85em;
+    }
+    .badge-buy { background: rgba(0,255,136,0.2); color: #00ff88; }
+    .badge-sell { background: rgba(255,71,87,0.2); color: #ff4757; }
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #00d4ff;
+    }
+    .error {
+      background: rgba(255,71,87,0.2);
+      color: #ff4757;
+      padding: 15px;
+      border-radius: 6px;
+      margin-top: 15px;
+    }
+    .nav {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .nav a {
+      color: #a0a0a0;
+      text-decoration: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      transition: all 0.3s;
+    }
+    .nav a:hover, .nav a.active {
+      color: #00d4ff;
+      background: rgba(0,212,255,0.1);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📊 策略回测系统</h1>
+    
+    <div class="nav">
+      <a href="index.html">监控池</a>
+      <a href="select.html">选股</a>
+      <a href="analysis.html">分析</a>
+      <a href="portfolio.html">账户</a>
+      <a href="conditional-order.html">条件单</a>
+      <a href="backtest.html" class="active">回测</a>
+    </div>
+
+    <!-- 回测配置 -->
+    <div class="card">
+      <div class="card-title">⚙️ 回测配置</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>开始日期</label>
+          <input type="date" id="startDate" value="2024-01-01">
+        </div>
+        <div class="form-group">
+          <label>结束日期</label>
+          <input type="date" id="endDate" value="2024-12-31">
+        </div>
+        <div class="form-group">
+          <label>初始资金</label>
+          <input type="number" id="initialCash" value="1000000" step="100000">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>股票代码（逗号分隔）</label>
+          <input type="text" id="stocks" value="300308.SZ,000001.SZ" placeholder="如: 300308.SZ,000001.SZ">
+        </div>
+        <div class="form-group">
+          <label>买入条件</label>
+          <select id="buyCondition">
+            <option value="pe_low">PE < 20（低估值）</option>
+            <option value="price_drop">价格跌幅 > 5%</option>
+            <option value="custom">自定义</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>卖出条件</label>
+          <select id="sellCondition">
+            <option value="profit_10">盈利10%</option>
+            <option value="loss_5">亏损5%</option>
+            <option value="pe_high">PE > 40</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="runBacktest()">🚀 开始回测</button>
+    </div>
+
+    <!-- 回测结果 -->
+    <div id="resultContainer" style="display: none;">
+      <!-- 关键指标 -->
+      <div class="card">
+        <div class="card-title">📈 回测结果</div>
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-value" id="totalReturn">--</div>
+            <div class="metric-label">总收益</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value" id="returnRate">--</div>
+            <div class="metric-label">收益率</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value" id="maxDrawdown">--</div>
+            <div class="metric-label">最大回撤</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value" id="sharpeRatio">--</div>
+            <div class="metric-label">夏普比率</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value" id="winRate">--</div>
+            <div class="metric-label">胜率</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value" id="tradeCount">--</div>
+            <div class="metric-label">交易次数</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 交易记录 -->
+      <div class="card">
+        <div class="card-title">📝 交易记录</div>
+        <table class="trades-table">
+          <thead>
+            <tr>
+              <th>日期</th>
+              <th>股票</th>
+              <th>操作</th>
+              <th>数量</th>
+              <th>价格</th>
+              <th>金额</th>
+              <th>盈亏</th>
+            </tr>
+          </thead>
+          <tbody id="tradesBody">
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="loading" class="loading" style="display: none;">
+      ⏳ 回测进行中，请稍候...
+    </div>
+    <div id="error" class="error" style="display: none;"></div>
+  </div>
+
+  <script>
+    async function runBacktest() {
+      const startDate = document.getElementById('startDate').value;
+      const endDate = document.getElementById('endDate').value;
+      const initialCash = parseInt(document.getElementById('initialCash').value);
+      const stocksInput = document.getElementById('stocks').value;
+      const stocks = stocksInput.split(',').map(s => s.trim()).filter(s => s);
+      
+      const buyConditionType = document.getElementById('buyCondition').value;
+      const sellConditionType = document.getElementById('sellCondition').value;
+      
+      // 构建条件
+      let buyCondition, sellCondition;
+      
+      switch(buyConditionType) {
+        case 'pe_low':
+          buyCondition = { type: 'pe', operator: '<=', value: 20 };
+          break;
+        case 'price_drop':
+          buyCondition = { type: 'price', operator: '<=', value: 100 }; // 简化处理
+          break;
+        default:
+          buyCondition = { type: 'pe', operator: '<=', value: 30 };
+      }
+      
+      switch(sellConditionType) {
+        case 'profit_10':
+          sellCondition = { type: 'price', operator: '>=', value: 1000 }; // 简化
+          break;
+        case 'loss_5':
+          sellCondition = { type: 'price', operator: '<=', value: 0 };
+          break;
+        case 'pe_high':
+          sellCondition = { type: 'pe', operator: '>=', value: 40 };
+          break;
+      }
+      
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('resultContainer').style.display = 'none';
+      document.getElementById('error').style.display = 'none';
+      
+      try {
+        const response = await fetch('/api/backtest/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            startDate,
+            endDate,
+            initialCash,
+            stocks,
+            strategy: {
+              name: 'PE估值策略',
+              buyCondition,
+              sellCondition
+            }
+          })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          displayResults(result.data);
+        } else {
+          showError(result.error || '回测失败');
+        }
+      } catch (err) {
+        showError('请求失败: ' + err.message);
+      } finally {
+        document.getElementById('loading').style.display = 'none';
+      }
+    }
+    
+    function displayResults(data) {
+      const summary = data.summary;
+      const metrics = data.metrics;
+      
+      // 更新指标
+      document.getElementById('totalReturn').textContent = '¥' + (summary.totalReturn || 0).toLocaleString();
+      document.getElementById('totalReturn').className = 'metric-value ' + (summary.totalReturn >= 0 ? 'positive' : 'negative');
+      
+      document.getElementById('returnRate').textContent = ((summary.returnRate || 0) * 100).toFixed(2) + '%';
+      document.getElementById('returnRate').className = 'metric-value ' + (summary.returnRate >= 0 ? 'positive' : 'negative');
+      
+      document.getElementById('maxDrawdown').textContent = ((summary.maxDrawdown || 0) * 100).toFixed(2) + '%';
+      document.getElementById('sharpeRatio').textContent = (summary.sharpeRatio || 0).toFixed(2);
+      document.getElementById('winRate').textContent = ((summary.winRate || 0) * 100).toFixed(1) + '%';
+      document.getElementById('tradeCount').textContent = summary.tradeCount || 0;
+      
+      // 更新交易记录
+      const tradesBody = document.getElementById('tradesBody');
+      tradesBody.innerHTML = '';
+      
+      if (data.trades && data.trades.length > 0) {
+        data.trades.forEach(trade => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${trade.date}</td>
+            <td>${trade.stock_name || trade.ts_code}</td>
+            <td><span class="badge badge-${trade.action}">${trade.action === 'buy' ? '买入' : '卖出'}</span></td>
+            <td>${trade.quantity}</td>
+            <td>¥${trade.price.toFixed(2)}</td>
+            <td>¥${trade.amount.toFixed(2)}</td>
+            <td>${trade.profit ? (trade.profit > 0 ? '+' : '') + '¥' + trade.profit.toFixed(2) : '-'}</td>
+          `;
+          tradesBody.appendChild(row);
+        });
+      } else {
+        tradesBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #666;">暂无交易记录</td></tr>';
+      }
+      
+      document.getElementById('resultContainer').style.display = 'block';
+    }
+    
+    function showError(message) {
+      document.getElementById('error').textContent = message;
+      document.getElementById('error').style.display = 'block';
+    }
+  </script>
+</body>
+</html>

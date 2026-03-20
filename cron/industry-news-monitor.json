@@ -1,0 +1,34 @@
+{
+  "name": "industry-news-monitor",
+  "description": "行业新闻监控定时任务",
+  "schedules": [
+    {
+      "name": "hourly-news-monitor",
+      "description": "每小时执行行业新闻监控",
+      "cron": "0 * * * *",
+      "script": "scripts/industry-news-monitor.mjs",
+      "enabled": true,
+      "retry_on_failure": true,
+      "max_retries": 3
+    },
+    {
+      "name": "daily-industry-summary",
+      "description": "每日9点生成行业监控摘要",
+      "cron": "0 9 * * *",
+      "script": "scripts/daily-industry-summary.mjs",
+      "enabled": true,
+      "retry_on_failure": true,
+      "max_retries": 2
+    }
+  ],
+  "config": {
+    "feishu_webhook_url": "${FEISHU_WEBHOOK_URL}",
+    "feishu_receiver_id": "ou_a21807011c59304bedfaf2f7440f5361",
+    "news_db_path": "../news_system/news.db",
+    "monitor_db_path": "data/stock_system.db",
+    "max_news_per_industry": 50,
+    "analysis_hours": 1,
+    "high_impact_sentiments": ["strong_positive", "strong_negative", "positive", "negative"],
+    "immediate_notification": true
+  }
+}

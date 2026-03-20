@@ -3,213 +3,184 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>A股投资系统</title>
+  <title>A股投资系统 | 主页</title>
   <link rel="stylesheet" href="./pages/style.css">
+  <style>
+    .nav-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+      margin-top: 1.5rem;
+    }
+    .nav-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+    .nav-card:hover {
+      border-color: var(--accent);
+      box-shadow: 0 4px 12px rgba(56, 189, 248, 0.15);
+    }
+    .nav-card h3 {
+      margin: 0 0 0.5rem 0;
+      color: var(--text);
+      font-size: 1.125rem;
+    }
+    .nav-card p {
+      margin: 0;
+      color: var(--text-soft);
+      font-size: 0.875rem;
+    }
+    .nav-card .icon {
+      font-size: 2rem;
+      margin-bottom: 0.75rem;
+    }
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 1rem;
+      padding: 0.75rem 1rem;
+      background: var(--panel-strong);
+      border-radius: 12px;
+      color: var(--text-soft);
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--good);
+    }
+    .status-dot.warning {
+      background: var(--warn);
+    }
+    .status-dot.error {
+      background: var(--bad);
+    }
+  </style>
 </head>
 <body>
   <main class="page-shell">
     <section class="hero">
-      <div class="hero-copy">
-        <span class="eyebrow">Top-Down Selection</span>
-        <h1>A股投资系统</h1>
-        <p class="subtitle">自上而下，系统化投资</p>
-        <div class="hero-actions">
-          <button id="load-directions" class="cta-button" type="button">开始选股</button>
-        </div>
-      </div>
-
-      <div class="hero-side">
-        <div class="stat-card">
-          <article class="stat-item">
-            <div class="stat-label">筛选方式</div>
-            <div class="stat-value">4D</div>
-            <div class="stat-note">趋势、政策、舆论、商业</div>
-          </article>
-          <article class="stat-item">
-            <div class="stat-label">研究节奏</div>
-            <div class="stat-value">5步</div>
-            <div class="stat-note">行业优先，再落到个股</div>
-          </article>
-        </div>
-
-        <article class="method-card">
-          <h2>方向筛选框架</h2>
-          <p>先发现符合时代主线的大方向，再按四维度打分，保留最有胜率的赛道进入下一步个股分析。</p>
-          <div class="method-tags">
-            <span class="tag">社会经济趋势</span>
-            <span class="tag">政策方向</span>
-            <span class="tag">舆论热度</span>
-            <span class="tag">商业变现</span>
-          </div>
-        </article>
+      <div class="eyebrow">A-Share Investment System</div>
+      <h1>A股投资系统</h1>
+      <p>基于新浪财经实时数据 + Tushare历史数据的完整投资分析平台。支持选股、个股分析、监控、条件单、回测等功能。</p>
+      <div class="status-bar">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">正在检查服务状态...</span>
       </div>
     </section>
 
-    <section class="panel" id="results-panel">
-      <div class="section-head">
-        <div>
-          <h2>选股结果</h2>
-          <p>勾选你要进入下一步分析的行业方向。</p>
-        </div>
-        <div id="status-text" class="status-text">尚未开始筛选</div>
+    <section class="panel">
+      <div class="panel-inner">
+        <h2 class="section-title">功能导航</h2>
+        <p>点击下方卡片进入对应功能模块</p>
       </div>
 
-      <div id="result-list" class="result-list">
-        <div class="empty-state">点击“开始选股”后加载方向评分结果。</div>
-      </div>
-
-      <div class="bottom-bar">
-        <div id="selection-note" class="selection-note">已选择 0 个方向</div>
-        <div class="bottom-actions">
-          <button id="view-report" class="button button-secondary" type="button" disabled>查看选股报告</button>
-          <button id="next-step" class="next-button" type="button" disabled>下一步：个股分析</button>
+      <div class="nav-grid">
+        <div class="nav-card" onclick="location.href='./select.html'">
+          <div class="icon">📊</div>
+          <h3>行业选股</h3>
+          <p>基于四维度标准筛选行业，生成选股报告</p>
         </div>
+
+        <div class="nav-card" onclick="location.href='./analysis.html'">
+          <div class="icon">🔍</div>
+          <h3>个股分析</h3>
+          <p>深度分析个股技术面、基本面、资金面、估值</p>
+        </div>
+
+        <div class="nav-card" onclick="location.href='./monitor-pool.html'">
+          <div class="icon">👁️</div>
+          <h3>监控池</h3>
+          <p>管理已加入监控的股票，查看研究报告</p>
+        </div>
+
+        <div class="nav-card" onclick="location.href='./portfolio.html'">
+          <div class="icon">💼</div>
+          <h3>账户管理</h3>
+          <p>管理模拟账户，查看持仓和交易记录</p>
+        </div>
+
+        <div class="nav-card" onclick="location.href='./conditional-order.html'">
+          <div class="icon">🎯</div>
+          <h3>条件单</h3>
+          <p>设置价格/指标/估值触发条件，自动执行交易</p>
+        </div>
+
+        <div class="nav-card" onclick="location.href='./backtest.html'">
+          <div class="icon">📈</div>
+          <h3>回测</h3>
+          <p>基于历史数据验证策略有效性</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2 class="panel-title">系统信息</h2>
+      </div>
+      <div class="summary-grid">
+        <article class="summary-card">
+          <div class="summary-label">API服务</div>
+          <div class="summary-value" id="apiStatus">-</div>
+          <div class="summary-note">http://127.0.0.1:3000</div>
+        </article>
+        <article class="summary-card">
+          <div class="summary-label">数据库</div>
+          <div class="summary-value" id="dbStatus">-</div>
+          <div class="summary-note">外部SSD存储</div>
+        </article>
+        <article class="summary-card">
+          <div class="summary-label">监控服务</div>
+          <div class="summary-value" id="monitorStatus">-</div>
+          <div class="summary-note">条件单自动触发</div>
+        </article>
       </div>
     </section>
   </main>
 
   <script>
-    const loadButton = document.getElementById('load-directions');
-    const scrollButton = document.getElementById('scroll-results');
-    const resultList = document.getElementById('result-list');
-    const nextStepButton = document.getElementById('next-step');
-    const statusText = document.getElementById('status-text');
-    const selectionNote = document.getElementById('selection-note');
-    const storageKey = 'selectedDirections';
-    const apiBase = window.location.protocol === 'file:' ? 'http://localhost:3000' : window.location.origin;
-
-    let currentDirections = [];
-
-    async function requestJson(path, options = {}) {
-      const response = await fetch(`${apiBase}${path}`, {
-        ...options,
-        headers: {
-          'Accept': 'application/json',
-          ...(options.headers || {})
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      return response.json();
-    }
-
-    function updateSelectionState() {
-      const selected = Array.from(document.querySelectorAll('input[name="direction"]:checked')).map((input) => {
-        return {
-          name: input.value,
-          score: Number(input.dataset.score || 0)
-        };
-      });
-
-      localStorage.setItem(storageKey, JSON.stringify(selected));
-      selectionNote.textContent = `已选择 ${selected.length} 个方向`;
-      nextStepButton.disabled = selected.length === 0;
-    }
-
-    function renderDirections(directions) {
-      if (!Array.isArray(directions) || directions.length === 0) {
-        resultList.innerHTML = '<div class="empty-state">当前没有可用方向，请稍后重试。</div>';
-        updateSelectionState();
-        return;
-      }
-
-      const saved = new Set(
-        JSON.parse(localStorage.getItem(storageKey) || '[]').map((item) => item.name)
-      );
-
-      resultList.innerHTML = directions.map((direction) => {
-        const checked = saved.has(direction.name) ? 'checked' : '';
-        return `
-          <article class="direction-card">
-            <label class="direction-check" aria-label="选择${direction.name}">
-              <input type="checkbox" name="direction" value="${direction.name}" data-score="${direction.score}" ${checked}>
-            </label>
-            <div class="direction-main">
-              <div class="direction-top">
-                <h3 class="direction-name">${direction.name}</h3>
-              </div>
-              <p class="direction-reason">${direction.reason || ''}</p>
-            </div>
-            <div class="score-badge">
-              <div class="score-label">评分</div>
-              <div class="score-value">${direction.score}</div>
-            </div>
-          </article>
-        `;
-      }).join('');
-
-      document.querySelectorAll('input[name="direction"]').forEach((input) => {
-        input.addEventListener('change', updateSelectionState);
-      });
-
-      updateSelectionState();
-    }
-
-    async function loadDirections() {
-      loadButton.disabled = true;
-      statusText.textContent = '筛选中...';
+    async function checkStatus() {
+      const statusDot = document.getElementById('statusDot');
+      const statusText = document.getElementById('statusText');
+      const apiStatus = document.getElementById('apiStatus');
+      const dbStatus = document.getElementById('dbStatus');
+      const monitorStatus = document.getElementById('monitorStatus');
 
       try {
-        const payload = await requestJson('/api/select');
-        currentDirections = payload.directions || [];
-        renderDirections(currentDirections);
-        statusText.textContent = `已返回 ${currentDirections.length} 个候选方向`;
-        if (scrollButton) {
-          scrollButton.classList.remove('hidden');
+        const response = await fetch('/api');
+        const data = await response.json();
+
+        if (data.success) {
+          statusDot.className = 'status-dot';
+          statusText.textContent = '服务运行正常';
+          apiStatus.textContent = '运行中';
+          apiStatus.style.color = '#22c55e';
+          dbStatus.textContent = '已连接';
+          dbStatus.style.color = '#22c55e';
+          monitorStatus.textContent = '就绪';
+          monitorStatus.style.color = '#22c55e';
+        } else {
+          throw new Error('API返回失败');
         }
       } catch (error) {
-        resultList.innerHTML = `<div class="empty-state">加载失败：${error.message}</div>`;
-        statusText.textContent = '接口请求失败';
-      } finally {
-        loadButton.disabled = false;
+        statusDot.className = 'status-dot error';
+        statusText.textContent = '服务连接失败';
+        apiStatus.textContent = '离线';
+        apiStatus.style.color = '#ef4444';
+        dbStatus.textContent = '未知';
+        dbStatus.style.color = '#6b7280';
+        monitorStatus.textContent = '未知';
+        monitorStatus.style.color = '#6b7280';
       }
     }
 
-    loadButton.addEventListener('click', loadDirections);
-
-    nextStepButton.addEventListener('click', () => {
-      if (nextStepButton.disabled) {
-        return;
-      }
-      window.location.href = './analysis.html';
-    });
-
-    // 查看选股报告
-    const viewReportBtn = document.getElementById('view-report');
-    viewReportBtn.addEventListener('click', async () => {
-      if (viewReportBtn.disabled) return;
-      viewReportBtn.disabled = true;
-      viewReportBtn.textContent = '生成中...';
-      
-      try {
-        const data = await requestJson('/api/select/report', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        if (data.report_path) {
-          window.open(data.report_path, '_blank');
-        } else {
-          alert('选股报告功能开发中');
-        }
-      } catch (e) {
-        alert('选股报告功能开发中');
-      } finally {
-        viewReportBtn.disabled = currentDirections.length === 0;
-        viewReportBtn.textContent = '查看选股报告';
-      }
-    });
-
-    // 选股完成后启用报告按钮
-    const originalRender = renderDirections;
-    renderDirections = function(dirs) {
-      originalRender(dirs);
-      viewReportBtn.disabled = dirs.length === 0;
-    };
-
-    updateSelectionState();
+    checkStatus();
+    setInterval(checkStatus, 30000);
   </script>
 </body>
 </html>

@@ -13,7 +13,7 @@
       <h1 class="hero-title">监控池管理页面</h1>
       <p class="hero-copy">集中查看已加入监控池的股票，随时打开研究报告，或从池中移除失效标的。页面默认从本地接口读取 `monitor_pool` 数据表。</p>
       <div class="hero-actions">
-        <a class="button-link button-primary" href="file:///Users/vvc/.openclaw/workspace/skills/a%E8%82%A1%E8%B7%9F%E8%B8%AA%E7%9B%91%E6%8E%A7/dashboard/index.html">前往监控面板</a>
+        <a class="button-link button-primary" href="./conditional-order.html">条件单管理</a>
         <button id="refreshButton" class="button-secondary" type="button">刷新列表</button>
       </div>
       <div class="summary-grid">
@@ -30,7 +30,7 @@
         <article class="summary-card">
           <div class="summary-label">状态</div>
           <div class="summary-value" id="statusBadge">就绪</div>
-          <div class="summary-note">接口联通后会自动拉取最新列表</div>
+          <div class="summary-note">点击刷新按钮获取最新监控池数据</div>
         </article>
       </div>
     </section>
@@ -72,6 +72,7 @@
   </main>
 
   <script>
+    const MONITOR_POOL_DRAFT_KEY = 'monitorPoolDraft';
     const monitorTableBody = document.getElementById('monitorTableBody');
     const statusText = document.getElementById('statusText');
     const totalCount = document.getElementById('totalCount');
@@ -80,6 +81,123 @@
     const emptyState = document.getElementById('emptyState');
     const refreshButton = document.getElementById('refreshButton');
     const reloadButton = document.getElementById('reloadButton');
+
+    function safeJsonParse(rawValue) {
+      try {
+        return JSON.parse(rawValue);
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function normalizeDraftStock(input) {
+      if (!input || typeof input !== 'object') {
+        return null;
+      }
+
+      const stockName = typeof input.name === 'string' ? input.name.trim() : '';
+      const stockCode = typeof input.code === 'string' ? input.code.trim().toUpperCase() : '';
+
+      if (!stockName || !stockCode) {
+        return null;
+      }
+
+      return {
+        stock_name: stockName,
+        stock_code: stockCode
+      };
+    }
+
+    function readDraftStocks() {
+      const cached = safeJsonParse(localStorage.getItem(MONITOR_POOL_DRAFT_KEY));
+      if (!Array.isArray(cached)) {
+        return [];
+      }
+
+      const seen = new Set();
+      const stocks = [];
+
+      for (const item of cached) {
+        const normalized = normalizeDraftStock(item);
+        if (!normalized) {
+          continue;
+        }
+
+        const uniqueKey = `${normalized.stock_code}::${normalized.stock_name}`;
+        if (seen.has(uniqueKey)) {
+          continue;
+        }
+
+        seen.add(uniqueKey);
+        stocks.push(normalized);
+      }
+
+      return stocks;
+    }
+
+    async function buildReportPath(stock) {
+      try {
+        const response = await fetch('/api/analysis/report', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            stock_name: stock.stock_name,
+            stock_code: stock.stock_code
+          })
+        });
+        const payload = await response.json();
+
+        if (!response.ok || !payload.success || typeof payload.report_path !== 'string') {
+          return '';
+        }
+
+        return payload.report_path.trim();
+      } catch (error) {
+        return '';
+      }
+    }
+
+    async function persistDraftStocks() {
+      const draftStocks = readDraftStocks();
+      if (!draftStocks.length) {
+        return { imported: 0, duplicates: 0 };
+      }
+
+      let imported = 0;
+      let duplicates = 0;
+
+      for (const stock of draftStocks) {
+        const reportPath = await buildReportPath(stock);
+        const response = await fetch('/api/monitor/add', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            ...stock,
+            report_path: reportPath
+          })
+        });
+
+        const payload = await response.json();
+        if (response.ok && payload.success) {
+          imported += 1;
+          continue;
+        }
+
+        if (response.status === 409) {
+          duplicates += 1;
+          continue;
+        }
+
+        throw new Error(payload.message || `写入失败: ${stock.stock_name}`);
+      }
+
+      localStorage.removeItem(MONITOR_POOL_DRAFT_KEY);
+      return { imported, duplicates };
+    }
 
     function formatDateTime(value) {
       if (!value) {
@@ -106,8 +224,20 @@
       statusBadge.textContent = isLoading ? '加载中' : '就绪';
     }
 
+    function toSafeFileUrl(rawPath) {
+      if (typeof rawPath !== 'string' || !rawPath.trim()) {
+        return '';
+      }
+
+      try {
+        return new URL(rawPath, 'file://').toString();
+      } catch (error) {
+        return '';
+      }
+    }
+
     function renderRows(stocks) {
-      monitorTableBody.innerHTML = '';
+      monitorTableBody.replaceChildren();
 
       if (!stocks.length) {
         emptyState.classList.add('visible');
@@ -118,34 +248,76 @@
 
       for (const stock of stocks) {
         const row = document.createElement('tr');
-        const reportUrl = stock.report_path ? encodeURI(stock.report_path) : '';
+        const nameCell = document.createElement('td');
+        nameCell.dataset.label = '股票名称';
+        const nameNode = document.createElement('div');
+        nameNode.className = 'stock-name';
+        nameNode.textContent = stock.stock_name || '-';
+        nameCell.appendChild(nameNode);
 
-        row.innerHTML = `
-          <td>
-            <div class="stock-name">${stock.stock_name || '-'}</div>
-          </td>
-          <td>
-            <span class="stock-code">${stock.stock_code || '-'}</span>
-          </td>
-          <td class="muted">${formatDateTime(stock.added_at)}</td>
-          <td>
-            <div class="panel-actions">
-              ${reportUrl ? `<a class="button-link button-secondary" href="file://${reportUrl}" target="_blank" rel="noreferrer">查看报告</a>` : `<span class="muted">暂无报告</span>`}
-              <button class="button-danger" type="button" data-remove-id="${stock.id}">移除</button>
-            </div>
-          </td>
-        `;
+        const codeCell = document.createElement('td');
+        codeCell.dataset.label = '代码';
+        const codeNode = document.createElement('span');
+        codeNode.className = 'stock-code';
+        codeNode.textContent = stock.stock_code || '-';
+        codeCell.appendChild(codeNode);
+
+        const timeCell = document.createElement('td');
+        timeCell.dataset.label = '添加时间';
+        timeCell.className = 'muted';
+        timeCell.textContent = formatDateTime(stock.added_at);
+
+        const actionCell = document.createElement('td');
+        actionCell.dataset.label = '操作';
+        const actionWrap = document.createElement('div');
+        actionWrap.className = 'panel-actions';
+
+        const reportUrl = toSafeFileUrl(stock.report_path);
+        if (reportUrl) {
+          const reportLink = document.createElement('a');
+          reportLink.className = 'button-link button-secondary';
+          reportLink.href = reportUrl;
+          reportLink.target = '_blank';
+          reportLink.rel = 'noopener noreferrer';
+          reportLink.textContent = '查看报告';
+          actionWrap.appendChild(reportLink);
+        } else {
+          const emptyReport = document.createElement('span');
+          emptyReport.className = 'muted';
+          emptyReport.textContent = '暂无报告';
+          actionWrap.appendChild(emptyReport);
+        }
+
+        const removeButton = document.createElement('button');
+        removeButton.className = 'button-danger';
+        removeButton.type = 'button';
+        removeButton.dataset.removeId = String(stock.id || '');
+        removeButton.textContent = '移除';
+        actionWrap.appendChild(removeButton);
+
+        actionCell.appendChild(actionWrap);
+
+        row.appendChild(nameCell);
+        row.appendChild(codeCell);
+        row.appendChild(timeCell);
+        row.appendChild(actionCell);
 
         monitorTableBody.appendChild(row);
       }
     }
 
-    async function loadMonitorPool() {
+    async function loadMonitorPool(options = {}) {
+      const { syncDraft = false } = options;
       setLoadingState(true);
-      statusText.textContent = '正在从接口加载监控池...';
+      statusText.textContent = syncDraft ? '正在同步分析页选中的股票...' : '正在从接口加载监控池...';
       statusText.classList.remove('error');
 
       try {
+        let syncSummary = null;
+        if (syncDraft) {
+          syncSummary = await persistDraftStocks();
+        }
+
         const response = await fetch('/api/monitor/list');
         const payload = await response.json();
 
@@ -159,7 +331,19 @@
         totalCount.textContent = String(stocks.length);
         latestAdded.textContent = stocks.length ? formatDateTime(stocks[0].added_at) : '-';
         statusBadge.textContent = stocks.length ? '在线' : '空池';
-        statusText.textContent = stocks.length ? `已加载 ${stocks.length} 条监控记录。` : '监控池为空，等待新股票加入。';
+
+        if (syncSummary && (syncSummary.imported || syncSummary.duplicates)) {
+          const fragments = [];
+          if (syncSummary.imported) {
+            fragments.push(`新增 ${syncSummary.imported} 条`);
+          }
+          if (syncSummary.duplicates) {
+            fragments.push(`跳过 ${syncSummary.duplicates} 条重复记录`);
+          }
+          statusText.textContent = `${fragments.join('，')}。当前共 ${stocks.length} 条监控记录。`;
+        } else {
+          statusText.textContent = stocks.length ? `已加载 ${stocks.length} 条监控记录。` : '监控池为空，等待新股票加入。';
+        }
       } catch (error) {
         emptyState.classList.add('visible');
         totalCount.textContent = '0';
@@ -213,10 +397,10 @@
       removeStock(target.dataset.removeId);
     });
 
-    refreshButton.addEventListener('click', loadMonitorPool);
-    reloadButton.addEventListener('click', loadMonitorPool);
+    refreshButton.addEventListener('click', () => loadMonitorPool());
+    reloadButton.addEventListener('click', () => loadMonitorPool());
 
-    loadMonitorPool();
+    loadMonitorPool({ syncDraft: true });
   </script>
 </body>
 </html>
