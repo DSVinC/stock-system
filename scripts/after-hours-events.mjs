@@ -412,3 +412,22 @@ main().catch(error => {
   console.error('程序执行失败:', error);
   process.exit(1);
 });
+
+// ==================== 导出函数 ====================
+
+/**
+ * 盘后事件收集函数
+ * @returns {Promise<Array>} 事件列表
+ */
+export async function collectAfterHoursEvents() {
+  const aggregator = new EventAggregator(CONFIG);
+  const events = await aggregator.fetchAllEvents();
+  
+  // 返回事件列表
+  return events.all;
+}
+
+// 如果直接运行此脚本，执行 main 函数
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main().catch(console.error);
+}

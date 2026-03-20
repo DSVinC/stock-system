@@ -1,4 +1,10 @@
 #!/usr/bin/env node
+
+// Import event sources and Feishu push
+import { collectAfterHoursEvents } from "./after-hours-events.mjs";
+import { sendMonitorReport } from "./feishu-push.mjs";
+
+
 /**
  * 每日监控脚本
  * 读取模拟账户持仓，尝试读取对应分析报告，生成JSON监控报告
@@ -527,6 +533,30 @@ export async function main() {
     const reportFileName = `monitor_report_${new Date().toISOString().split('T')[0]}.json`;
     const reportFilePath = path.join(MONITOR_REPORTS_DIR, reportFileName);
     fs.writeFileSync(reportFilePath, JSON.stringify(monitorReport, null, 2), 'utf8');
+
+
+    // 收集盘后事件
+    try {
+      console.log("📊 开始收集盘后事件...");
+      const afterHoursEvents = await collectAfterHoursEvents();
+      monitorReport.after_hours_events = afterHoursEvents;
+      console.log(`✅ 收集到 ${afterHoursEvents.length} 条盘后事件`);
+    } catch (eventError) {
+      console.warn("⚠️ 盘后事件收集失败:", eventError.message);
+      monitorReport.after_hours_events = [];
+    }
+
+    // 保存更新后的报告（包含事件）
+    fs.writeFileSync(reportFilePath, JSON.stringify(monitorReport, null, 2), "utf8");
+
+    // 发送飞书推送
+    try {
+      console.log("📨 开始发送飞书推送...");
+      await sendMonitorReport(monitorReport);
+      console.log("✅ 飞书推送发送成功");
+    } catch (pushError) {
+      console.warn("⚠️ 飞书推送失败:", pushError.message);
+    }
 
     console.log(`\n✅ 监控完成`);
     console.log(`📄 报告已保存: ${reportFilePath}`);
