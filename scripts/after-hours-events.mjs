@@ -5,10 +5,10 @@
  * After-Hours Events Source Framework
  *
  * 支持事件类型:
- * 1. 公司公告 (Company Announcement) - 本地新闻数据库
- * 2. 财报发布 (Earnings Report) - Mock（待接入 Tushare）
- * 3. 重要新闻 (Important News) - 本地新闻数据库 + 行业监控
- * 4. 价格异动 (Price Movement) - Mock（待接入新浪财经）
+ * 1. 公司公告 (Company Announcement) - 本地新闻数据库 ✅
+ * 2. 财报发布 (Earnings Report) - Tushare API ✅
+ * 3. 重要新闻 (Important News) - 本地新闻数据库 + 行业监控 ✅
+ * 4. 价格异动 (Price Movement) - 新浪财经实时行情 ✅
  *
  * 数据源整合说明 (2026-03-20):
  * - 重要新闻：整合 industry-news-monitor.js 的 fetchIndustryNews() 函数
@@ -64,7 +64,7 @@ const CONFIG = {
       name: '价格异动',
       priority: 'high',
       mockDataCount: 4,
-      useRealData: false // 待接入新浪财经
+      useRealData: true // ✅ 接入新浪财经实时行情
     }
   },
 
@@ -262,6 +262,161 @@ function analyzeNewsSentiment(title, content) {
   negativeWords.forEach(w => { if (text.includes(w)) score -= 0.2; });
   
   return Math.max(-1, Math.min(1, score));
+}
+
+/**
+ * 从新浪财经获取实时行情
+ * 接口：http://hq.sinajs.cn/list=sh600000,sz000001,...
+ * 返回：股票名称，当前价，涨跌额，涨跌幅，成交量，成交额等
+ */
+async function fetchPriceMovementsFromSina(limit = 10) {
+  const axios = (await import('axios')).default;
+  
+  // 从数据库获取监控股票列表
+  const sqlite3 = (await import('sqlite3')).default;
+  const db = new sqlite3.Database(STOCK_DB_PATH);
+  
+  const stocks = await new Promise((resolve) => {
+    db.all('SELECT ts_code, stock_name FROM stocks WHERE monitor = 1 LIMIT 50', [], (err, rows) => {
+      if (err) {
+        console.log('[价格异动] 读取股票列表失败，使用默认列表');
+        resolve([
+          { ts_code: '300308.SZ', stock_name: '中际旭创' },
+          { ts_code: '300192.SZ', stock_name: '科德教育' },
+          { ts_code: '300460.SZ', stock_name: '惠伦晶体' },
+          { ts_code: '688012.SH', stock_name: '中微公司' },
+          { ts_code: '002475.SZ', stock_name: '立讯精密' }
+        ]);
+      } else {
+        resolve(rows || []);
+      }
+      db.close();
+    });
+  });
+  
+  if (stocks.length === 0) {
+    console.log('[价格异动] 无监控股票');
+    return [];
+  }
+  
+  // 转换为新浪财经格式：sh600000, sz000001
+  const sinaCodes = stocks.map(s => {
+    const code = s.ts_code.split('.')[0];
+    const suffix = s.ts_code.endsWith('.SH') ? 'sh' : 'sz';
+    return `${suffix}${code}`;
+  });
+  
+  const events = [];
+  const batchSize = 20; // 新浪接口最多支持 20 个代码一次查询
+  
+  for (let i = 0; i < sinaCodes.length; i += batchSize) {
+    const batch = sinaCodes.slice(i, i + batchSize);
+    const codesParam = batch.join(',');
+    
+    try {
+      const response = await axios.get(`http://hq.sinajs.cn/list=${codesParam}`, {
+        timeout: 5000,
+        headers: {
+          'Referer': 'https://finance.sina.com.cn/',
+          'User-Agent': 'Mozilla/5.0'
+        }
+      });
+      
+      const lines = response.data.split('\n');
+      lines.forEach((line, idx) => {
+        if (!line.trim()) return;
+        
+        // 解析新浪行情数据
+        // var hq_str_sh600000="浦发银行，9.50,9.48,9.47,9.51,9.46,9.47,9.48,..."
+        const match = line.match(/hq_str_(sh|sz)(\d+)="([^"]+)"/);
+        if (!match) return;
+        
+        const [, prefix, code, data] = match;
+        const elements = data.split(',');
+        
+        if (elements.length < 32) return; // 数据不完整
+        
+        const stockName = elements[0];
+        const currentPrice = parseFloat(elements[3]) || 0;
+        const prevClose = parseFloat(elements[2]) || 0;
+        const openPrice = parseFloat(elements[1]) || 0;
+        const highPrice = parseFloat(elements[4]) || 0;
+        const lowPrice = parseFloat(elements[5]) || 0;
+        const volume = parseInt(elements[8]) || 0; // 成交量（股）
+        const amount = parseFloat(elements[9]) || 0; // 成交额（元）
+        
+        const changeAmount = currentPrice - prevClose;
+        const changePercent = prevClose > 0 ? (changeAmount / prevClose * 100) : 0;
+        
+        // 判断异动类型
+        let movementType = null;
+        let priority = 'low';
+        
+        if (changePercent >= 9.5) {
+          movementType = '涨停';
+          priority = 'high';
+        } else if (changePercent <= -9.5) {
+          movementType = '跌停';
+          priority = 'high';
+        } else if (changePercent >= 5) {
+          movementType = '大涨';
+          priority = 'medium';
+        } else if (changePercent <= -5) {
+          movementType = '大跌';
+          priority = 'medium';
+        } else if (Math.abs(changePercent) >= 3) {
+          movementType = '异动';
+          priority = 'low';
+        }
+        
+        // 只记录异动股票
+        if (!movementType) return;
+        
+        const tsCode = `${code}.${prefix.toUpperCase()}`;
+        const stockInfo = stocks.find(s => s.ts_code === tsCode);
+        
+        // 优先使用数据库中的股票名称，避免新浪返回的 GBK 编码问题
+        const finalStockName = stockInfo?.stock_name || tsCode;
+        
+        events.push({
+          id: `PM-${tsCode}-${Date.now()}`,
+          type: 'price_movement',
+          source: 'sina',
+          title: `${movementType}：${changePercent > 0 ? '+' : ''}${changePercent.toFixed(2)}%`,
+          content: `${finalStockName}，现价${currentPrice.toFixed(2)}元，涨跌${changeAmount > 0 ? '+' : ''}${changeAmount.toFixed(2)}元，成交量${(volume/10000).toFixed(1)}万手，成交额${(amount/100000000).toFixed(2)}亿元`,
+          stockCode: tsCode,
+          stockName: finalStockName,
+          eventTime: new Date(),
+          publishTime: new Date(),
+          priority,
+          changePercent: parseFloat(changePercent.toFixed(2)),
+          changeAmount: parseFloat(changeAmount.toFixed(2)),
+          currentPrice: parseFloat(currentPrice.toFixed(2)),
+          openPrice: parseFloat(openPrice.toFixed(2)),
+          highPrice: parseFloat(highPrice.toFixed(2)),
+          lowPrice: parseFloat(lowPrice.toFixed(2)),
+          volume,
+          amount,
+          volumeRatio: 1.0, // 新浪财经不提供量比，需要计算
+          movementType,
+          metadata: { 
+            market: prefix.toUpperCase(), 
+            triggerTime: new Date().toLocaleTimeString('zh-CN', { timeZone: 'Asia/Shanghai' }),
+            prevClose: prevClose
+          }
+        });
+      });
+      
+    } catch (error) {
+      console.warn(`[价格异动] 批次 ${i / batchSize + 1} 获取失败：${error.message}`);
+    }
+    
+    // 避免请求过快
+    await new Promise(r => setTimeout(r, 100));
+  }
+  
+  console.log(`[价格异动] 从新浪财经获取 ${events.length} 条异动数据`);
+  return events;
 }
 
 /**
@@ -681,9 +836,17 @@ class ImportantNewsAdapter extends EventSourceAdapter {
 }
 
 class PriceMovementAdapter extends EventSourceAdapter {
-  _fetchImpl() {
-    // 待接入新浪财经实时行情
-    console.log(`[${this.name}] 使用 Mock 数据（待接入新浪财经）`);
+  async _fetchImpl() {
+    if (this.config.useRealData) {
+      console.log(`[${this.name}] 从新浪财经获取实时行情数据...`);
+      const events = await fetchPriceMovementsFromSina(this.config.mockDataCount);
+      if (events && events.length > 0) {
+        console.log(`[${this.name}] 获取 ${events.length} 条价格异动`);
+        return events;
+      }
+    }
+    // 降级到 Mock 数据
+    console.log(`[${this.name}] 使用 Mock 数据（降级）`);
     return EventGenerators.generatePriceMovements(this.config.mockDataCount);
   }
 }
