@@ -253,50 +253,56 @@
       <p class="subtitle">管理您的模拟交易账户，追踪投资表现</p>
     </section>
     
-    <div class="card summary-card" id="summary-section">
-      <h2>账户总览</h2>
-      <div class="stats-grid" id="stats-grid">
-        <div class="stat-item">
-          <div class="stat-label">初始资金</div>
-          <div class="stat-value" id="initial-cash"><span class="stat-hint">请选择账户</span></div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-label">当前现金</div>
-          <div class="stat-value" id="current-cash"><span class="stat-hint">请选择账户</span></div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-label">持仓市值</div>
-          <div class="stat-value" id="position-value"><span class="stat-hint">请选择账户</span></div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-label">总资产</div>
-          <div class="stat-value" id="total-value"><span class="stat-hint">请选择账户</span></div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-label">累计收益</div>
-          <div class="stat-value" id="total-return"><span class="stat-hint">请选择账户</span></div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-label">收益率</div>
-          <div class="stat-value" id="return-rate"><span class="stat-hint">请选择账户</span></div>
-        </div>
-      </div>
-    </div>
-    
-    <div class="card">
-      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-        <h2>账户列表</h2>
-        <button class="btn btn-primary" onclick="showCreateModal()">+ 创建账户</button>
-      </div>
-      <div id="account-list">
-        <div class="empty-state-guide">
-          <div class="icon">🎯</div>
-          <div class="title">开始您的模拟投资之旅</div>
-          <div class="desc">创建第一个模拟账户，体验真实的股票交易模拟，<br>追踪投资表现，提升投资技能</div>
-          <button class="btn btn-primary" onclick="showCreateModal()">创建第一个账户</button>
+    <!-- 账户总览 -->
+    <section class="panel summary-card">
+      <div class="panel-inner">
+        <h2 class="section-title">账户总览</h2>
+        <div class="stats-grid" id="stats-grid">
+          <div class="stat-item">
+            <div class="stat-label">初始资金</div>
+            <div class="stat-value" id="initial-cash"><span class="stat-hint">请选择账户</span></div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">当前现金</div>
+            <div class="stat-value" id="current-cash"><span class="stat-hint">请选择账户</span></div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">持仓市值</div>
+            <div class="stat-value" id="position-value"><span class="stat-hint">请选择账户</span></div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">总资产</div>
+            <div class="stat-value" id="total-value"><span class="stat-hint">请选择账户</span></div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">累计收益</div>
+            <div class="stat-value" id="total-return"><span class="stat-hint">请选择账户</span></div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">收益率</div>
+            <div class="stat-value" id="return-rate"><span class="stat-hint">请选择账户</span></div>
+          </div>
         </div>
       </div>
-    </div>
+    </section>
+
+    <!-- 账户列表 -->
+    <section class="panel">
+      <div class="panel-inner">
+        <div class="status-row">
+          <h2 class="section-title">账户列表</h2>
+          <button class="button" onclick="showCreateModal()">+ 创建账户</button>
+        </div>
+        <div id="account-list">
+          <div class="empty-state-guide">
+            <div class="icon">🎯</div>
+            <div class="title">开始您的模拟投资之旅</div>
+            <div class="desc">创建第一个模拟账户，体验真实的股票交易模拟，<br>追踪投资表现，提升投资技能</div>
+            <button class="button" onclick="showCreateModal()">创建第一个账户</button>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
   
   <!-- 创建账户弹窗 -->

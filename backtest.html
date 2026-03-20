@@ -691,31 +691,111 @@
         alert('请先选择条件单');
         return;
       }
+      await loadConditionalOrderById(orderId);
+    }
 
+    // 通过 ID 加载条件单
+    async function loadConditionalOrderById(orderId) {
       try {
+        // 先尝试从 localStorage 获取（从条件单页面跳转时存储的）
+        const storedData = localStorage.getItem('backtest_conditional_order');
+        if (storedData) {
+          const parsedData = JSON.parse(storedData);
+          if (parsedData.id == orderId) {
+            displayConditionalOrderPreview(parsedData);
+            localStorage.removeItem('backtest_conditional_order');
+            return;
+          }
+        }
+
+        // 从 API 获取
         const res = await fetch(`/api/conditional-order/${orderId}`);
         const data = await res.json();
-        
+
         if (data.success) {
-          const previewEl = document.getElementById('conditionalOrderPreview');
-          const contentEl = document.getElementById('conditionalOrderContent');
-          
-          contentEl.innerHTML = `
-            <div><strong>股票：</strong>${data.order.stockCode}</div>
-            <div><strong>条件类型：</strong>${data.order.conditionType}</div>
-            <div><strong>条件值：</strong>${data.order.conditionValue}</div>
-            <div><strong>操作：</strong>${data.order.action}</div>
-            <div><strong>价格：</strong>￥${data.order.price}</div>
-            <div><strong>数量：</strong>${data.order.quantity}股</div>
-          `;
-          previewEl.style.display = 'block';
+          displayConditionalOrderPreview(data.order || data.data);
         } else {
-          alert('加载条件单失败：' + data.message);
+          alert('加载条件单失败：' + (data.message || data.error));
         }
       } catch (err) {
         console.error('加载条件单失败:', err);
         alert('加载条件单失败：' + err.message);
       }
+    }
+
+    // 显示条件单预览
+    function displayConditionalOrderPreview(order) {
+      loadedConditionalOrder = order;
+
+      const previewEl = document.getElementById('conditionalOrderPreview');
+      const contentEl = document.getElementById('conditionalOrderContent');
+      const emptyHint = document.getElementById('conditionalEmptyHint');
+
+      // 格式化条件显示
+      const conditionsText = order.conditions ?
+        order.conditions.map(c => `${getConditionName(c.type)} ${c.operator} ${c.value}`).join('、') : '-';
+
+      contentEl.innerHTML = `
+        <div style="display: grid; gap: 8px;">
+          <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+            <span style="color: var(--text-soft);">股票代码</span>
+            <span style="color: var(--text); font-weight: 500;">${order.ts_code || order.stockCode || '-'}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+            <span style="color: var(--text-soft);">股票名称</span>
+            <span style="color: var(--text); font-weight: 500;">${order.stock_name || order.stockName || '-'}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+            <span style="color: var(--text-soft);">交易动作</span>
+            <span style="color: ${(order.action || order.tradeType) === 'buy' ? 'var(--bad)' : 'var(--good)'}; font-weight: 500;">${(order.action || order.tradeType) === 'buy' ? '买入' : '卖出'}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+            <span style="color: var(--text-soft);">触发条件</span>
+            <span style="color: var(--text); font-weight: 500;">${conditionsText}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+            <span style="color: var(--text-soft);">有效期</span>
+            <span style="color: var(--text); font-weight: 500;">${order.start_date || order.startDate || '-'} 至 ${order.end_date || order.endDate || '-'}</span>
+          </div>
+          ${order.quantity || order.amount ? `
+          <div style="display: flex; justify-content: space-between; padding: 8px 0;">
+            <span style="color: var(--text-soft);">交易数量</span>
+            <span style="color: var(--text); font-weight: 500;">${order.quantity ? order.quantity + '股' : order.amount ? '¥' + order.amount : '-'}</span>
+          </div>
+          ` : ''}
+        </div>
+      `;
+
+      previewEl.style.display = 'block';
+      if (emptyHint) emptyHint.style.display = 'none';
+
+      // 自动添加股票到已选列表
+      const stockCode = order.ts_code || order.stockCode;
+      const stockName = order.stock_name || order.stockName || stockCode;
+      if (stockCode && !selectedStocks.some(s => s.code === stockCode)) {
+        addStock(stockCode, stockName);
+      }
+    }
+
+    // 清除条件单选择
+    function clearConditionalOrder() {
+      loadedConditionalOrder = null;
+      document.getElementById('conditionalOrderPreview').style.display = 'none';
+      document.getElementById('conditionalEmptyHint').style.display = 'block';
+      document.getElementById('conditionalOrderSelect').value = '';
+    }
+
+    // 获取条件名称
+    function getConditionName(type) {
+      const names = {
+        'price': '股价',
+        'pct_change': '涨跌幅',
+        'volume_ratio': '量比',
+        'rsi': 'RSI',
+        'macd_cross': 'MACD信号',
+        'ma_cross': '均线交叉'
+      };
+      return names[type] || type;
     }
 
     // 搜索股票（API调用，支持模糊搜索）
@@ -849,6 +929,26 @@
             },
             buyCondition: { type: 'boll_lower', operator: '<=' },
             sellCondition: { type: 'boll_upper', operator: '>=' }
+          };
+
+        case 'conditional':
+          if (!loadedConditionalOrder) {
+            return null;
+          }
+          return {
+            name: '条件单策略',
+            type: 'conditional',
+            params: {
+              orderId: loadedConditionalOrder.id,
+              conditions: loadedConditionalOrder.conditions,
+              action: loadedConditionalOrder.action || loadedConditionalOrder.tradeType,
+              quantity: loadedConditionalOrder.quantity,
+              amount: loadedConditionalOrder.amount
+            },
+            buyCondition: (loadedConditionalOrder.action || loadedConditionalOrder.tradeType) === 'buy' ?
+              loadedConditionalOrder.conditions : null,
+            sellCondition: (loadedConditionalOrder.action || loadedConditionalOrder.tradeType) === 'sell' ?
+              loadedConditionalOrder.conditions : null
           };
 
         default:
