@@ -375,6 +375,98 @@ async function fetchEarningsReportsFromTushare(days = 7) {
 }
 
 /**
+ * 从 Tushare 获取上市公司公告
+ */
+async function fetchCompanyAnnouncementsFromTushare(days = 7) {
+  if (!TUSHARE_TOKEN) {
+    console.log('[公司公告] 未配置 TUSHARE_TOKEN，使用 Mock 数据');
+    return null;
+  }
+
+  console.log('[公司公告] 从 Tushare 获取公告数据...');
+
+  // 使用 anns_d 接口获取全量公告数据
+  const startDate = getDaysAgo(days).replace(/-/g, '');
+  const endDate = getFutureDate(1).replace(/-/g, '');
+
+  const data = await tushareRequest('anns_d', {
+    start_date: startDate,
+    end_date: endDate
+  });
+
+  if (!data || !data.data || !data.data.items) {
+    console.log('[公司公告] Tushare 无近期公告数据，使用新闻数据库降级');
+    return null;
+  }
+
+  const fields = data.data.fields;
+  const items = data.data.items;
+
+  // 字段映射
+  const fieldIndex = {};
+  fields.forEach((field, index) => {
+    fieldIndex[field] = index;
+  });
+
+  const events = [];
+  const processedCompanies = new Set();
+
+  items.slice(0, 20).forEach(item => {
+    const tsCode = item[fieldIndex.ts_code];
+    const annDate = item[fieldIndex.ann_date];
+    const name = item[fieldIndex.name];
+    const title = item[fieldIndex.title];
+    const url = item[fieldIndex.url];
+    const recTime = item[fieldIndex.rec_time];
+
+    // 避免同一天同一公司多条记录
+    const key = `${tsCode}_${annDate}_${title.substring(0, 20)}`;
+    if (processedCompanies.has(key)) return;
+    processedCompanies.add(key);
+
+    events.push({
+      id: `ANN-${tsCode}-${annDate}-${title.substring(0, 10)}`,
+      type: 'company_announcement',
+      source: 'tushare',
+      title: title,
+      content: `公告日期：${annDate}`,
+      stockCode: tsCode,
+      stockName: name,
+      eventTime: new Date(annDate),
+      publishTime: new Date(recTime || annDate),
+      priority: 'high',
+      announcementType: extractAnnouncementType(title),
+      filingNumber: null,
+      pdfUrl: url,
+      metadata: { ts_code: tsCode, ann_date: annDate, url: url }
+    });
+  });
+
+  console.log(`[公司公告] 从 Tushare 获取 ${events.length} 条公告数据`);
+  return events;
+}
+
+/**
+ * 从公告标题提取公告类型
+ */
+function extractAnnouncementType(title) {
+  if (title.includes('董事会')) return '董事会决议';
+  if (title.includes('监事会')) return '监事会决议';
+  if (title.includes('股东大会')) return '股东大会';
+  if (title.includes('年报')) return '定期报告';
+  if (title.includes('季报')) return '定期报告';
+  if (title.includes('半年报')) return '定期报告';
+  if (title.includes('业绩预告')) return '业绩预告';
+  if (title.includes('重组')) return '重大资产重组';
+  if (title.includes('收购')) return '收购';
+  if (title.includes('减持')) return '股东减持';
+  if (title.includes('增持')) return '股东增持';
+  if (title.includes('担保')) return '对外担保';
+  if (title.includes('诉讼')) return '重大诉讼';
+  return '其他公告';
+}
+
+/**
  * 获取 N 天前的日期 (YYYYMMDD)
  */
 function getDaysAgo(days) {
