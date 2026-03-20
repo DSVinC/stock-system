@@ -110,11 +110,21 @@ node scripts/feishu-push.mjs "测试消息"
         {
           "stock_code": "sh600519",
           "monitor_assessment": {
-            "decision": "买入",
-            "report_score": 5,
-            "key_watch_points": ["..."],
-            "risk_controls": ["..."],
-            "strategy": {...}
+            "action": "继续跟踪",
+            "risk_level": "low",
+            "summary": "持仓盈利，技术指标良好",
+            "follow_ups": ["关注财报发布", "跟踪行业动态"],
+            "watch_items": [],
+            "risk_alerts": []
+          },
+          "report": {
+            "parsed_data": {
+              "decision": "买入",
+              "report_score": 5,
+              "strategy": {"buyZone": "...", "stopLoss": "...", "targetPrice": "..."},
+              "key_watch_points": ["..."],
+              "risk_controls": ["..."]
+            }
           }
         }
       ],
