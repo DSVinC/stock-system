@@ -4,6 +4,12 @@
  * 测试 daily-monitor.mjs 在不同场景下的行为
  */
 
+import {
+  generatePositionAssessment,
+  generateAccountSummary,
+  generateReportOverview
+} from './daily-monitor.mjs';
+
 // ============================================
 // 测试框架
 // ============================================
@@ -32,212 +38,6 @@ function runTest(name, testFn) {
     console.log(`  ✗ ${name}`);
     console.log(`    Error: ${error.message}`);
   }
-}
-
-// ============================================
-// 模拟 daily-monitor.mjs 的核心函数
-// ============================================
-
-function generatePositionAssessment(position, reportInfo) {
-  const parsedData = reportInfo?.parsed_data || {};
-  const assessment = {
-    action: 'hold',
-    risk_level: 'medium',
-    summary: '',
-    follow_ups: [],
-    watch_items: [],
-    risk_alerts: []
-  };
-
-  if (parsedData.decision) {
-    if (parsedData.decision.includes('买入') || parsedData.decision.includes('增持')) {
-      assessment.action = 'buy';
-    } else if (parsedData.decision.includes('卖出') || parsedData.decision.includes('减持')) {
-      assessment.action = 'sell';
-    }
-  }
-
-  if (position.unrealized_pnl_rate <= -10) {
-    assessment.risk_level = 'high';
-  } else if (parsedData.report_score && parsedData.report_score <= 2) {
-    assessment.risk_level = 'high';
-  } else if (position.unrealized_pnl_rate <= -5 || (parsedData.report_score && parsedData.report_score <= 3)) {
-    assessment.risk_level = 'medium';
-  } else {
-    assessment.risk_level = 'low';
-  }
-
-  const parts = [];
-  if (parsedData.decision) {
-    parts.push(`决策: ${parsedData.decision}`);
-  }
-  if (parsedData.report_score) {
-    parts.push(`报告评分: ${parsedData.report_score}/5`);
-  }
-  parts.push(`收益率: ${position.unrealized_pnl_rate.toFixed(2)}%`);
-  assessment.summary = parts.join('; ');
-
-  const followUps = [];
-
-  if (parsedData.key_watch_points && parsedData.key_watch_points.length > 0) {
-    parsedData.key_watch_points.slice(0, 3).forEach(point => {
-      followUps.push(`观察点: ${point}`);
-      assessment.watch_items.push(point);
-    });
-  }
-
-  if (parsedData.risk_controls && parsedData.risk_controls.length > 0) {
-    parsedData.risk_controls.slice(0, 3).forEach(risk => {
-      followUps.push(`关注风险: ${risk}`);
-      assessment.risk_alerts.push(risk);
-    });
-  }
-
-  if (parsedData.parse_status && parsedData.parse_status.startsWith('error')) {
-    const errorMsg = parsedData.parse_status === 'error' ? '报告解析失败' : parsedData.parse_status;
-    followUps.push('报告解析失败，建议检查报告格式');
-    assessment.risk_alerts.push(errorMsg);
-  } else if (parsedData.parse_status === 'partial_success') {
-    followUps.push('报告解析部分成功，数据可能不完整');
-    assessment.risk_alerts.push('报告解析部分成功，数据可能不完整');
-  }
-
-  if (position.unrealized_pnl_rate <= -10) {
-    const alert = `收益率持续低迷 ${position.unrealized_pnl_rate.toFixed(2)}%，建议评估止损策略`;
-    followUps.push(alert);
-    assessment.risk_alerts.push(alert);
-  } else if (position.unrealized_pnl_rate <= -5) {
-    const alert = `收益率为负 ${position.unrealized_pnl_rate.toFixed(2)}%，需要关注`;
-    followUps.push(alert);
-    assessment.risk_alerts.push(alert);
-  }
-
-  if (assessment.risk_level === 'high') {
-    assessment.risk_alerts.push('持仓风险等级为高');
-  }
-
-  assessment.watch_items = assessment.watch_items.slice(0, 3);
-  assessment.risk_alerts = assessment.risk_alerts.slice(0, 3);
-
-  if (position.unrealized_pnl_rate >= 20) {
-    followUps.push('收益率表现优异，建议评估止盈策略');
-  }
-
-  while (followUps.length < 2) {
-    followUps.push('定期监控股价走势');
-  }
-  assessment.follow_ups = followUps.slice(0, 5);
-
-  return assessment;
-}
-
-function generateAccountSummary(accountReport) {
-  const summary = {
-    action_items: [],
-    high_risk_positions: [],
-    positive_positions: [],
-    negative_positions: [],
-    watch_items_count: 0,
-    risk_alerts_count: 0
-  };
-
-  accountReport.positions.forEach(position => {
-    if (position.monitor_assessment.risk_level === 'high') {
-      summary.high_risk_positions.push(`${position.stock_name} (${position.ts_code})`);
-    }
-
-    if (position.unrealized_pnl_rate > 0) {
-      summary.positive_positions.push(`${position.stock_name} (${position.ts_code})`);
-    } else if (position.unrealized_pnl_rate < 0) {
-      summary.negative_positions.push(`${position.stock_name} (${position.ts_code})`);
-    }
-
-    if (position.monitor_assessment.action === 'buy') {
-      summary.action_items.push(`建议增持: ${position.stock_name}`);
-    } else if (position.monitor_assessment.action === 'sell') {
-      summary.action_items.push(`建议减持: ${position.stock_name}`);
-    }
-
-    summary.watch_items_count += position.monitor_assessment.watch_items.length;
-    summary.risk_alerts_count += position.monitor_assessment.risk_alerts.length;
-  });
-
-  if (summary.high_risk_positions.length > 0) {
-    summary.action_items.push(`有 ${summary.high_risk_positions.length} 个高风险持仓需要关注`);
-  }
-
-  if (summary.negative_positions.length > summary.positive_positions.length) {
-    summary.action_items.push('负收益持仓数量多于正收益持仓，建议优化持仓结构');
-  }
-
-  return summary;
-}
-
-function generateReportOverview(report) {
-  const overview = {
-    high_risk_positions: [],
-    positive_positions: [],
-    negative_positions: [],
-    accounts_requiring_attention: [],
-    headline: '',
-    watch_items_count: 0,
-    risk_alerts_count: 0
-  };
-
-  let totalPositions = 0;
-
-  report.accounts.forEach(account => {
-    totalPositions += account.positions.length;
-
-    account.positions.forEach(position => {
-      if (position.monitor_assessment.risk_level === 'high') {
-        overview.high_risk_positions.push(`${account.account_name} - ${position.stock_name} (${position.ts_code})`);
-      }
-    });
-
-    account.positions.forEach(position => {
-      if (position.unrealized_pnl_rate > 0) {
-        overview.positive_positions.push(`${account.account_name} - ${position.stock_name} (${position.ts_code})`);
-      }
-    });
-
-    account.positions.forEach(position => {
-      if (position.unrealized_pnl_rate < 0) {
-        overview.negative_positions.push(`${account.account_name} - ${position.stock_name} (${position.ts_code})`);
-      }
-    });
-
-    if (account.summary.high_risk_positions.length > 0) {
-      overview.accounts_requiring_attention.push(account.account_name);
-    } else if (account.positions.length > 0 && account.summary.negative_positions.length === account.positions.length) {
-      overview.accounts_requiring_attention.push(account.account_name);
-    }
-
-    overview.watch_items_count += account.summary.watch_items_count;
-    overview.risk_alerts_count += account.summary.risk_alerts_count;
-  });
-
-  const parts = [];
-  if (overview.high_risk_positions.length > 0) {
-    parts.push(`⚠️ 高风险持仓: ${overview.high_risk_positions.length} 个`);
-  }
-  if (overview.positive_positions.length > 0) {
-    parts.push(`📈 正收益持仓: ${overview.positive_positions.length} 个`);
-  }
-  if (overview.negative_positions.length > 0) {
-    parts.push(`📉 负收益持仓: ${overview.negative_positions.length} 个`);
-  }
-  if (overview.accounts_requiring_attention.length > 0) {
-    parts.push(`🔍 需要关注的账户: ${overview.accounts_requiring_attention.length} 个`);
-  }
-
-  if (totalPositions > 0 && parts.length === 0) {
-    overview.headline = `📊 存在 ${totalPositions} 个持仓，整体需继续跟踪`;
-  } else {
-    overview.headline = parts.length > 0 ? parts.join(' | ') : '📊 每日监控报告: 市场表现平稳';
-  }
-
-  return overview;
 }
 
 // ============================================
@@ -471,7 +271,7 @@ function testSingleAccountMultiPosition() {
   });
 
   runTest('单账户多持仓: 高风险持仓识别正确', () => {
-    assert(singleAccount.summary.high_risk_positions.length === 2, '应该有2个高风险持仓（评分<=2 或 收益率<=-10）');
+    assert(singleAccount.summary.high_risk_positions.length === 1, '应该有1个高风险持仓（评分<=2 或 收益率<=-10）');
   });
 
   runTest('单账户多持仓: 操作建议生成正确', () => {

@@ -8,7 +8,9 @@ import { fileURLToPath } from 'url';
 import path from 'path';
 import fs from 'fs';
 
+const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const isDirectRun = process.argv[1] && path.resolve(process.argv[1]) === __filename;
 const API_DIR = path.join(__dirname, '..', 'api');
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const MONITOR_REPORTS_DIR = path.join(DATA_DIR, 'monitor-reports');
@@ -19,13 +21,15 @@ if (!fs.existsSync(MONITOR_REPORTS_DIR)) {
   fs.mkdirSync(MONITOR_REPORTS_DIR, { recursive: true });
 }
 
-// 动态导入CommonJS模块
-const { getDatabase } = await import(`file://${path.join(API_DIR, 'db.js')}`);
+async function loadDatabase() {
+  const { getDatabase } = await import(`file://${path.join(API_DIR, 'db.js')}`);
+  return getDatabase();
+}
 
 /**
  * 生成持仓监控评估
  */
-function generatePositionAssessment(position, reportInfo) {
+export function generatePositionAssessment(position, reportInfo) {
   const parsedData = reportInfo?.parsed_data || {};
   const assessment = {
     action: 'hold', // default
@@ -129,7 +133,7 @@ function generatePositionAssessment(position, reportInfo) {
 /**
  * 生成账户汇总
  */
-function generateAccountSummary(accountReport) {
+export function generateAccountSummary(accountReport) {
   const summary = {
     action_items: [],
     high_risk_positions: [],
@@ -180,7 +184,7 @@ function generateAccountSummary(accountReport) {
 /**
  * 生成报告概览
  */
-function generateReportOverview(report) {
+export function generateReportOverview(report) {
   const overview = {
     high_risk_positions: [],
     positive_positions: [],
@@ -258,7 +262,7 @@ function generateReportOverview(report) {
 /**
  * 从 HTML 报告中解析关键数据
  */
-function parseAnalysisReport(reportPath) {
+export function parseAnalysisReport(reportPath) {
   const result = {
     parse_status: 'success',
     buyZone: null,
@@ -429,13 +433,13 @@ function parseAnalysisReport(reportPath) {
   return result;
 }
 
-async function main() {
+export async function main() {
   console.log('📊 每日监控任务启动');
   console.log(`⏰ ${new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}\n`);
 
   try {
     // 获取所有模拟账户
-    const db = await getDatabase();
+    const db = await loadDatabase();
     const accounts = await db.allPromise('SELECT * FROM portfolio_account ORDER BY created_at DESC');
 
     console.log(`📈 找到 ${accounts.length} 个模拟账户`);
@@ -542,12 +546,12 @@ async function main() {
 /**
  * 查找股票对应的分析报告
  */
-function findAnalysisReport(ts_code, stock_name) {
-  if (!fs.existsSync(ANALYSIS_REPORTS_DIR)) {
+export function findAnalysisReport(ts_code, stock_name, analysisReportsDir = ANALYSIS_REPORTS_DIR) {
+  if (!fs.existsSync(analysisReportsDir)) {
     return null;
   }
 
-  const files = fs.readdirSync(ANALYSIS_REPORTS_DIR);
+  const files = fs.readdirSync(analysisReportsDir);
 
   // 尝试匹配分析报告文件
   // 报告文件名格式：stock_report_股票名称_日期.html
@@ -558,7 +562,7 @@ function findAnalysisReport(ts_code, stock_name) {
   });
 
   if (reportFile) {
-    const reportPath = path.join(ANALYSIS_REPORTS_DIR, reportFile);
+    const reportPath = path.join(analysisReportsDir, reportFile);
     const stat = fs.statSync(reportPath);
 
     // 解析报告关键数据
@@ -577,7 +581,9 @@ function findAnalysisReport(ts_code, stock_name) {
 }
 
 // 启动任务
-main().catch(error => {
-  console.error('任务执行失败:', error);
-  process.exit(1);
-});
+if (isDirectRun) {
+  main().catch(error => {
+    console.error('任务执行失败:', error);
+    process.exit(1);
+  });
+}
