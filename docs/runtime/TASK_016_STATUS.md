@@ -164,7 +164,12 @@
 
 ## 9. 交接说明
 
-接手者先读本文件，再看 [TASK_016_MONITOR_GUIDE.md](/Users/vvc/.openclaw/workspace/stock-system/docs/guides/TASK_016_MONITOR_GUIDE.md)、[daily-monitor.mjs](/Users/vvc/.openclaw/workspace/stock-system/scripts/daily-monitor.mjs)、[after-hours-events.mjs](/Users/vvc/.openclaw/workspace/stock-system/scripts/after-hours-events.mjs)、[feishu-push.mjs](/Users/vvc/.openclaw/workspace/stock-system/scripts/feishu-push.mjs)。当前应按"3 个脚本独立可运行，但未自动串联"的事实继续推进。
+接手者先读本文件，再看 [TASK_016_MONITOR_GUIDE.md](/Users/vvc/.openclaw/workspace/stock-system/docs/guides/TASK_016_MONITOR_GUIDE.md)、[daily-monitor.mjs](/Users/vvc/.openclaw/workspace/stock-system/scripts/daily-monitor.mjs)、[after-hours-events.mjs](/Users/vvc/.openclaw/workspace/stock-system/scripts/after-hours-events.mjs)、[feishu-push.mjs](/Users/vvc/.openclaw/workspace/stock-system/scripts/feishu-push.mjs)。
+
+**当前状态**：✅ 3 个脚本已实现自动闭环
+- `daily-monitor.mjs` 主流程自动调用 `collectAfterHoursEvents()` 和 `sendMonitorReport()`
+- 盘后事件采集完成后自动发送飞书推送
+- 文档与实现已对齐（v2.1）
 
 ---
 

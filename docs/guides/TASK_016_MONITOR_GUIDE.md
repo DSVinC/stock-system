@@ -76,7 +76,6 @@ node scripts/daily-monitor.mjs
 📈 找到 5 个模拟账户
 
 🔍 检查账户：联调测试账户 (ID: 5)
-🔍 检查账户：联调测试账户 (ID: 4)
 🔍 检查账户：测试账户 (ID: 1)
    📦 股票：中际旭创 (300308.SZ)
 
@@ -86,16 +85,19 @@ node scripts/daily-monitor.mjs
 ✓ [公司公告] 获取 10 条事件
 [财报发布] 获取 17 条财报
 ✓ [财报发布] 获取 17 条事件
+✅ 收集到 67 条盘后事件
 
 📨 开始发送飞书推送...
 ✅ 飞书推送发送成功
 
 📄 报告已保存：data/monitor-reports/monitor_report_2026-03-20.json
+
+✅ 监控完成
+
 📊 统计信息:
    - 账户数：5
    - 持仓数：1
    - 失败股票：0
-   - 盘后事件：67
 ```
 
 **生成文件**：
@@ -154,6 +156,9 @@ node scripts/feishu-push.mjs "测试消息"
           },
           "report": {
             "file_name": "stock_report_中际旭创_20260314.html",
+            "file_path": "/Users/vvc/.openclaw/workspace/stock-system/report/analysis/stock_report_中际旭创_20260314.html",
+            "created_at": "2026-03-14T03:25:58.392Z",
+            "size": 12737,
             "parsed_data": {
               "decision": "买入",
               "report_score": 5,
@@ -178,19 +183,39 @@ node scripts/feishu-push.mjs "测试消息"
       }
     }
   ],
+  "failed_stocks": [],
+  "report_version": "1.0.0",
+  "metadata": {
+    "market_date": "2026-03-20",
+    "environment": "development",
+    "source": "daily-monitor"
+  },
   "overview": {
-    "headline": "存在 1 个持仓，整体需继续跟踪",
-    "watch_items_count": 1,
+    "headline": "📊 存在 1 个持仓，整体需继续跟踪",
+    "high_risk_positions": [],
+    "positive_positions": [],
+    "negative_positions": [],
+    "accounts_requiring_attention": [],
+    "watch_items_count": 3,
     "risk_alerts_count": 3
   },
   "after_hours_events": [
     {
-      "id": "ANN-300308.SZ-2026-03-20",
+      "id": "ANN-24506",
       "type": "company_announcement",
-      "source": "新闻数据库",
+      "source": "监管公告",
       "title": "关于奥维通信股份有限公司股票终止上市的公告",
-      "stockCode": "300308.SZ",
-      "priority": "high"
+      "content": "<p>...</p>",
+      "stockCode": null,
+      "stockName": null,
+      "eventTime": "2026-03-19T16:00:00.000Z",
+      "publishTime": "2026-03-19T23:01:01.000Z",
+      "priority": "high",
+      "announcementType": "监管公告",
+      "metadata": {
+        "newsId": 24506,
+        "originalLink": "http://www.szse.cn/disclosure/notice/company/t20260320_619516.html"
+      }
     }
   ]
 }
@@ -206,6 +231,9 @@ node scripts/feishu-push.mjs "测试消息"
 | `account_count` | number | 账户总数 |
 | `total_positions` | number | 持仓总数 |
 | `accounts` | array | 账户列表 |
+| `failed_stocks` | array | 匹配失败的股票列表 |
+| `report_version` | string | 报告版本号 |
+| `metadata` | object | 元数据（market_date/environment/source） |
 | `overview` | object | 全局概览 |
 | `after_hours_events` | array | 盘后事件列表 |
 
@@ -231,6 +259,7 @@ node scripts/feishu-push.mjs "测试消息"
 | `stock_name` | string | 股票名称 |
 | `quantity` | number | 持仓数量 |
 | `avg_price` | number | 成本价 |
+| `cost_amount` | number | 成本金额 |
 | `current_price` | number | 当前价 |
 | `market_value` | number | 市值 |
 | `unrealized_pnl` | number | 浮动盈亏（元） |
@@ -249,6 +278,16 @@ node scripts/feishu-push.mjs "测试消息"
 | `watch_items` | array | 关注事项 | ["催化验证：800G/1.6T..."] |
 | `risk_alerts` | array | 风险预警 | ["硬止损：若出现..."] |
 
+#### report 字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `file_name` | string | 报告文件名 |
+| `file_path` | string | 报告文件完整路径 |
+| `created_at` | string | 报告创建时间 |
+| `size` | number | 报告文件大小（字节） |
+| `parsed_data` | object | 解析后的报告数据 |
+
 #### report.parsed_data 字段
 
 | 字段 | 类型 | 说明 |
@@ -258,6 +297,35 @@ node scripts/feishu-push.mjs "测试消息"
 | `strategy` | object | 策略建议（aggressive/balanced/conservative） |
 | `key_watch_points` | array | 关键关注点 |
 | `risk_controls` | array | 风险控制措施 |
+
+#### overview 字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `headline` | string | 概览标题 |
+| `high_risk_positions` | array | 高风险持仓列表 |
+| `positive_positions` | array | 正收益持仓列表 |
+| `negative_positions` | array | 负收益持仓列表 |
+| `accounts_requiring_attention` | array | 需要关注的账户列表 |
+| `watch_items_count` | number | 关注事项总数 |
+| `risk_alerts_count` | number | 风险预警总数 |
+
+#### after_hours_events 字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | string | 事件 ID |
+| `type` | string | 事件类型（company_announcement/financial_report/news） |
+| `source` | string | 数据来源 |
+| `title` | string | 事件标题 |
+| `content` | string | 事件内容（HTML） |
+| `stockCode` | string|null | 相关股票代码 |
+| `stockName` | string|null | 相关股票名称 |
+| `eventTime` | string | 事件时间 |
+| `publishTime` | string | 发布时间 |
+| `priority` | string | 优先级（high/medium/low） |
+| `announcementType` | string | 公告类型（仅公告类事件） |
+| `metadata` | object | 元数据 |
 
 ---
 
@@ -308,8 +376,12 @@ openclaw cron add daily-monitor '{"schedule":{"kind":"cron","expr":"30 15 * * 1-
 
 **解决**:
 1. 确认 `report/analysis/` 目录下有对应股票的分析报告
-2. 报告文件名格式：`stock_report_<股票名称>_<日期>.html`
-3. 示例：`stock_report_中际旭创_20260314.html`
+2. 报告文件为 `.html` 格式
+3. **匹配规则**：文件名包含 `stock_name`（股票名称）或 `ts_code`（股票代码）即可
+4. 示例：
+   - `stock_report_中际旭创_20260314.html` ✅
+   - `stock_report_300308.SZ_20260314.html` ✅
+   - `analysis_中际旭创.html` ✅
 
 ---
 
@@ -334,7 +406,8 @@ openclaw cron add daily-monitor '{"schedule":{"kind":"cron","expr":"30 15 * * 1-
 | v1.2 | 2026-03-20 | 接入 Tushare 财报接口 |
 | v1.3 | 2026-03-20 | 修复导入副作用，添加 dotenv 支持 |
 | v2.0 | 2026-03-20 | 全面修正文档与实现不一致（JSON 结构/日志格式/字段说明） |
+| v2.1 | 2026-03-20 | 补齐缺失字段（failed_stocks/report_version/metadata/overview 完整结构/report.file_path 等） |
 
 ---
 
-*最后更新：2026-03-20 20:05*
+*最后更新：2026-03-20 20:13*
