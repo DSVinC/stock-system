@@ -124,6 +124,42 @@
       line-height: 1.6;
     }
 
+    /* 条件单策略样式 */
+    .conditional-info {
+      padding: 20px;
+      border-radius: 12px;
+      background: rgba(96, 165, 250, 0.05);
+      border: 1px solid rgba(96, 165, 250, 0.1);
+    }
+    .info-text {
+      color: var(--text-soft);
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+    .info-card {
+      padding: 16px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--line);
+    }
+    .conditional-preview {
+      margin-top: 16px;
+      padding: 16px;
+      border-radius: 10px;
+      background: rgba(34, 197, 94, 0.08);
+      border: 1px solid rgba(34, 197, 94, 0.2);
+    }
+    .conditional-preview h5 {
+      color: var(--accent);
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+    #conditionalOrderContent {
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
     /* 股票搜索 */
     .stock-search-wrap {
       position: relative;
@@ -373,9 +409,10 @@
           <select id="strategySelect" class="form-select" onchange="onStrategyChange()">
             <option value="">-- 请选择策略 --</option>
             <option value="double_ma">双均线策略</option>
-            <option value="rsi">RSI 策略</option>
-            <option value="macd">MACD 策略</option>
-            <option value="bollinger">布林带策略</option>
+            <option value="rsi">RSI 超买超卖策略</option>
+            <option value="macd">MACD 金叉死叉策略</option>
+            <option value="bollinger">布林带突破策略</option>
+            <option value="conditional">自定义条件单策略（从条件单导入）</option>
           </select>
         </div>
 
@@ -445,6 +482,26 @@
             </div>
           </div>
           <p class="param-hint">策略说明：价格跌破下轨时买入，突破上轨时卖出。默认周期 20 日，标准差 2 倍。</p>
+        </div>
+
+        <!-- 条件单策略参数 -->
+        <div id="params_conditional" class="strategy-params">
+          <h4 class="params-title">自定义条件单策略</h4>
+          <div class="conditional-info">
+            <p class="info-text">从条件单管理系统导入已保存的条件单策略</p>
+            <div class="info-card">
+              <label>选择已保存的条件单</label>
+              <select id="conditionalOrderSelect" class="form-select">
+                <option value="">-- 请选择条件单 --</option>
+              </select>
+              <button class="button button-small" onclick="loadConditionalOrder()" style="margin-top: 12px;">加载条件单</button>
+            </div>
+            <div id="conditionalOrderPreview" class="conditional-preview" style="display: none;">
+              <h5>已加载条件单预览</h5>
+              <div id="conditionalOrderContent"></div>
+            </div>
+          </div>
+          <p class="param-hint">提示：请先在"条件单"页面创建并保存条件单策略</p>
         </div>
 
         <!-- 股票选择 -->
@@ -552,6 +609,71 @@
         if (paramsEl) {
           paramsEl.classList.add('active');
         }
+
+        // 如果是条件单策略，加载条件单列表
+        if (strategy === 'conditional') {
+          loadConditionalOrderList();
+        }
+      }
+    }
+
+    // 加载条件单列表
+    async function loadConditionalOrderList() {
+      try {
+        const res = await fetch('/api/conditional-order/list');
+        const data = await res.json();
+        const selectEl = document.getElementById('conditionalOrderSelect');
+        
+        if (data.success && data.orders && data.orders.length > 0) {
+          // 清空现有选项（保留第一个）
+          selectEl.innerHTML = '<option value="">-- 请选择条件单 --</option>';
+          
+          data.orders.forEach(order => {
+            const option = document.createElement('option');
+            option.value = order.id;
+            option.textContent = `${order.stockCode} - ${order.conditionType} - ${order.status === 'active' ? '生效中' : '已暂停'}`;
+            selectEl.appendChild(option);
+          });
+        } else {
+          selectEl.innerHTML = '<option value="">暂无可用条件单</option>';
+        }
+      } catch (err) {
+        console.error('加载条件单列表失败:', err);
+        document.getElementById('conditionalOrderSelect').innerHTML = '<option value="">加载失败</option>';
+      }
+    }
+
+    // 加载选中的条件单
+    async function loadConditionalOrder() {
+      const orderId = document.getElementById('conditionalOrderSelect').value;
+      if (!orderId) {
+        alert('请先选择条件单');
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/conditional-order/${orderId}`);
+        const data = await res.json();
+        
+        if (data.success) {
+          const previewEl = document.getElementById('conditionalOrderPreview');
+          const contentEl = document.getElementById('conditionalOrderContent');
+          
+          contentEl.innerHTML = `
+            <div><strong>股票：</strong>${data.order.stockCode}</div>
+            <div><strong>条件类型：</strong>${data.order.conditionType}</div>
+            <div><strong>条件值：</strong>${data.order.conditionValue}</div>
+            <div><strong>操作：</strong>${data.order.action}</div>
+            <div><strong>价格：</strong>￥${data.order.price}</div>
+            <div><strong>数量：</strong>${data.order.quantity}股</div>
+          `;
+          previewEl.style.display = 'block';
+        } else {
+          alert('加载条件单失败：' + data.message);
+        }
+      } catch (err) {
+        console.error('加载条件单失败:', err);
+        alert('加载条件单失败：' + err.message);
       }
     }
 
