@@ -2,10 +2,100 @@
  * 回测模块
  * 支持历史数据回放、策略验证、收益统计
  * 安全修复版：接入真实历史数据
+ * 策略扩展版：支持双均线、RSI、MACD、布林带策略
  */
 
 const { getDatabase } = require('./db');
 const { checkCondition } = require('./conditional-order');
+
+/**
+ * 计算简单移动平均线
+ */
+function calculateSMA(prices, period) {
+  if (prices.length < period) return null;
+  const sum = prices.slice(-period).reduce((a, b) => a + b, 0);
+  return sum / period;
+}
+
+/**
+ * 计算 EMA
+ */
+function calculateEMA(prices, period) {
+  if (prices.length < period) return null;
+  const multiplier = 2 / (period + 1);
+  let ema = prices.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  for (let i = period; i < prices.length; i++) {
+    ema = (prices[i] - ema) * multiplier + ema;
+  }
+  return ema;
+}
+
+/**
+ * 计算 RSI
+ */
+function calculateRSI(prices, period = 14) {
+  if (prices.length < period + 1) return 50; // 默认返回中性值
+
+  let gains = 0, losses = 0;
+  for (let i = prices.length - period; i < prices.length; i++) {
+    const change = prices[i] - prices[i - 1];
+    if (change > 0) gains += change;
+    else losses -= change;
+  }
+
+  const avgGain = gains / period;
+  const avgLoss = losses / period;
+
+  if (avgLoss === 0) return 100;
+  const rs = avgGain / avgLoss;
+  return 100 - (100 / (1 + rs));
+}
+
+/**
+ * 计算 MACD
+ */
+function calculateMACD(prices, fastPeriod = 12, slowPeriod = 26, signalPeriod = 9) {
+  if (prices.length < slowPeriod + signalPeriod) return null;
+
+  const emaFast = calculateEMA(prices, fastPeriod);
+  const emaSlow = calculateEMA(prices, slowPeriod);
+  const macdLine = emaFast - emaSlow;
+
+  // 计算信号线（MACD 的 EMA）
+  const macdHistory = [];
+  for (let i = slowPeriod - 1; i < prices.length; i++) {
+    const slicePrices = prices.slice(0, i + 1);
+    const fast = calculateEMA(slicePrices, fastPeriod);
+    const slow = calculateEMA(slicePrices, slowPeriod);
+    macdHistory.push(fast - slow);
+  }
+
+  const signalLine = calculateEMA(macdHistory, signalPeriod);
+
+  return {
+    macd: macdLine,
+    signal: signalLine,
+    histogram: macdLine - signalLine
+  };
+}
+
+/**
+ * 计算布林带
+ */
+function calculateBollinger(prices, period = 20, stdDev = 2) {
+  if (prices.length < period) return null;
+
+  const slice = prices.slice(-period);
+  const sma = slice.reduce((a, b) => a + b, 0) / period;
+  const variance = slice.reduce((sum, p) => sum + Math.pow(p - sma, 2), 0) / period;
+  const std = Math.sqrt(variance);
+
+  return {
+    middle: sma,
+    upper: sma + stdDev * std,
+    lower: sma - stdDev * std
+  };
+}
 
 /**
  * 回测引擎类
@@ -20,7 +110,7 @@ class BacktestEngine {
       stocks: config.stocks || [], // 回测股票池
       ...config
     };
-    
+
     // 回测状态
     this.state = {
       cash: this.config.initialCash,
@@ -30,7 +120,10 @@ class BacktestEngine {
       currentDate: null,
       currentPrice: {}
     };
-    
+
+    // 历史价格缓存（用于技术指标计算）
+    this.priceHistory = {}; // {ts_code: [prices]}
+
     // 统计指标
     this.metrics = {
       totalReturn: 0,
