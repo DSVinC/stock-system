@@ -67,7 +67,7 @@ export async function sendFeishuPrivateMessage(receiveId, text) {
       const accessToken = await getAccessToken();
 
       // 发送消息
-      const response = await fetch('https://open.feishu.cn/open-apis/im/v1/messages', {
+      const response = await fetch('https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=open_id', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
