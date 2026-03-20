@@ -452,6 +452,7 @@
   <script>
     let currentFilter = 'all';
     let currentAccountId = null;
+    let ordersData = []; // 存储当前加载的条件单数据
 
     async function api(url, options = {}) {
       const response = await fetch(url, {
@@ -469,6 +470,7 @@
     async function loadOrders() {
       const accountId = getAccountId();
       if (!accountId) {
+        ordersData = [];
         document.getElementById('order-list').innerHTML = '<div class="empty-state"><p class="empty-copy">请先选择账户</p></div>';
         return;
       }
@@ -481,9 +483,13 @@
       const listEl = document.getElementById('order-list');
 
       if (!result.success || result.data.length === 0) {
+        ordersData = [];
         listEl.innerHTML = '<div class="empty-state"><p class="empty-title">暂无条件单</p><p class="empty-copy">点击上方按钮创建</p></div>';
         return;
       }
+
+      // 保存数据供导出使用
+      ordersData = result.data;
 
       listEl.innerHTML = `
         <div class="table-wrap">
@@ -643,77 +649,6 @@
       }
     }
 
-    // 初始化
-    loadOrders();
-
-    // 存储当前加载的条件单数据
-    let ordersData = [];
-
-    // 修改 loadOrders 保存数据
-    const originalLoadOrders = loadOrders;
-    loadOrders = async function() {
-      const accountId = getAccountId();
-      if (!accountId) {
-        document.getElementById('order-list').innerHTML = '<div class="empty-state"><p class="empty-copy">请先选择账户</p></div>';
-        return;
-      }
-
-      const url = currentFilter === 'all'
-        ? `/api/conditional-order?account_id=${accountId}`
-        : `/api/conditional-order?account_id=${accountId}&status=${currentFilter}`;
-
-      const result = await api(url);
-      const listEl = document.getElementById('order-list');
-
-      if (!result.success || result.data.length === 0) {
-        ordersData = [];
-        listEl.innerHTML = '<div class="empty-state"><p class="empty-title">暂无条件单</p><p class="empty-copy">点击上方按钮创建</p></div>';
-        return;
-      }
-
-      // 保存数据供导出使用
-      ordersData = result.data;
-
-      listEl.innerHTML = `
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>状态</th>
-                <th>股票</th>
-                <th>动作</th>
-                <th>条件</th>
-                <th>有效期</th>
-                <th>触发</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${result.data.map(order => `
-                <tr>
-                  <td><span class="status-badge status-${order.status}">${getStatusText(order.status)}</span></td>
-                  <td>${order.ts_code}<br><small style="color:var(--text-soft)">${order.stock_name}</small></td>
-                  <td><span class="action-tag ${order.action === 'buy' ? 'buy' : 'sell'}">${order.action === 'buy' ? '买入' : '卖出'}</span></td>
-                  <td>${formatConditions(order.conditions)}</td>
-                  <td>${order.start_date} 至 ${order.end_date}</td>
-                  <td>${order.trigger_count}/${order.max_trigger_count}</td>
-                  <td>
-                    <div class="action-buttons">
-                      <button class="action-btn primary" onclick="exportToBacktest(${order.id})">导入回测</button>
-                      <button class="action-btn" onclick="copyOrderData(${order.id})">复制</button>
-                      ${order.status === 'pending' ? `
-                        <button class="action-btn danger" onclick="cancelOrder(${order.id})">取消</button>
-                      ` : ''}
-                    </div>
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-      `;
-    };
-
     // 导出条件单到回测系统
     function exportToBacktest(orderId) {
       const order = ordersData.find(o => o.id === orderId);
@@ -793,6 +728,9 @@
         toast.classList.remove('show');
       }, 2000);
     }
+
+    // 初始化
+    loadOrders();
   </script>
 </body>
 </html>
