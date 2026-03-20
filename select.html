@@ -6,6 +6,34 @@
   <title>A股投资系统 | 选股筛选</title>
   <link rel="stylesheet" href="./pages/style.css">
   <style>
+    .top-nav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px;
+      margin-bottom: 20px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      backdrop-filter: blur(18px);
+    }
+    .top-nav a {
+      padding: 10px 16px;
+      border-radius: 10px;
+      color: var(--text-soft);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+    .top-nav a:hover {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+    }
+    .top-nav a.active {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent);
+    }
     .filter-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
