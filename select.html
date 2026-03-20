@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A股投资系统 | 选股筛选</title>
+  <link rel="stylesheet" href="./pages/style.css">
+  <style>
+    .filter-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.5rem;
+      margin-top: 1rem;
+    }
+    .filter-card {
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 20px;
+      padding: 1.25rem;
+    }
+    .filter-title {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .filter-title .icon {
+      font-size: 1.25rem;
+    }
+    .range-inputs {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .range-inputs .input {
+      flex: 1;
+      min-height: 44px;
+      text-align: center;
+    }
+    .range-inputs .separator {
+      color: var(--text-soft);
+      font-size: 0.875rem;
+    }
+    .checkbox-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .checkbox-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 0.875rem;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      cursor: pointer;
+      transition: all 0.18s ease;
+    }
+    .checkbox-item:hover {
+      background: rgba(96, 165, 250, 0.1);
+      border-color: rgba(96, 165, 250, 0.2);
+    }
+    .checkbox-item.active {
+      background: rgba(96, 165, 250, 0.15);
+      border-color: var(--accent);
+      color: var(--text);
+    }
+    .checkbox-item input {
+      display: none;
+    }
+    .filter-actions {
+      display: flex;
+      gap: 1rem;
+      margin-top: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .result-count {
+      margin-bottom: 1rem;
+      color: var(--text-soft);
+    }
+    .result-count strong {
+      color: var(--accent);
+    }
+    .stock-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .stock-table th,
+    .stock-table td {
+      padding: 1rem;
+      text-align: left;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .stock-table th {
+      background: rgba(16, 31, 54, 0.88);
+      color: var(--text-faint);
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .stock-table tbody tr {
+      cursor: pointer;
+      transition: background 0.18s ease;
+    }
+    .stock-table tbody tr:hover {
+      background: rgba(96, 165, 250, 0.08);
+    }
+    .stock-table .stock-name {
+      font-weight: 600;
+      color: var(--text);
+    }
+    .stock-table .stock-code {
+      color: var(--info);
+      font-size: 0.875rem;
+    }
+    .stock-table .positive {
+      color: var(--good);
+    }
+    .stock-table .negative {
+      color: var(--bad);
+    }
+    .stock-table .neutral {
+      color: var(--warn);
+    }
+    .top-nav {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .nav-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.625rem 1rem;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--text-soft);
+      text-decoration: none;
+      font-size: 0.875rem;
+      transition: all 0.18s ease;
+    }
+    .nav-item:hover {
+      background: rgba(96, 165, 250, 0.1);
+      border-color: rgba(96, 165, 250, 0.2);
+      color: var(--text);
+    }
+    .nav-item.active {
+      background: rgba(96, 165, 250, 0.15);
+      border-color: var(--accent);
+      color: var(--text);
+    }
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(4, 8, 17, 0.4);
+    }
+    .loading-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(8, 17, 31, 0.85);
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    .loading-overlay.active {
+      display: flex;
+    }
+    .loading-spinner {
+      width: 48px;
+      height: 48px;
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <main class="page-shell">
+    <!-- Top Navigation -->
+    <nav class="top-nav">
+      <a href="./index.html" class="nav-item">首页</a>
+      <a href="./select.html" class="nav-item active">选股筛选</a>
+      <a href="./analysis.html" class="nav-item">个股分析</a>
+      <a href="./monitor-pool.html" class="nav-item">监控池</a>
+      <a href="./portfolio.html" class="nav-item">账户管理</a>
+      <a href="./conditional-order.html" class="nav-item">条件单</a>
+      <a href="./backtest.html" class="nav-item">回测</a>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Stock Selection</p>
+        <h1>选股筛选</h1>
+        <p>多维度股票筛选工具，支持基本面、技术面、资金面等多重条件组合，精准定位目标股票。</p>
+      </div>
+    </section>
+
+    <!-- Filter Section -->
+    <section class="panel">
+      <div class="panel-inner">
+        <h2 class="section-title">筛选条件</h2>
+        <p class="section-copy">设置筛选参数，点击"开始筛选"获取符合条件的股票列表</p>
+      </div>
+
+      <div class="filter-grid">
+        <!-- PE Filter -->
+        <div class="filter-card">
+          <div class="filter-title">
+            <span class="icon">📊</span>
+            PE 市盈率
+          </div>
+          <div class="range-inputs">
+            <input type="number" class="input" id="peMin" placeholder="最小值" step="0.1">
+            <span class="separator">至</span>
+            <input type="number" class="input" id="peMax" placeholder="最大值" step="0.1">
+          </div>
+        </div>
+
+        <!-- PB Filter -->
+        <div class="filter-card">
+          <div class="filter-title">
+            <span class="icon">📈</span>
+            PB 市净率
+          </div>
+          <div class="range-inputs">
+            <input type="number" class="input" id="pbMin" placeholder="最小值" step="0.1">
+            <span class="separator">至</span>
+            <input type="number" class="input" id="pbMax" placeholder="最大值" step="0.1">
+          </div>
+        </div>
+
+        <!-- ROE Filter -->
+        <div class="filter-card">
+          <div class="filter-title">
+            <span class="icon">🎯</span>
+            ROE 净资产收益率
+          </div>
+          <div class="range-inputs">
+            <input type="number" class="input" id="roeMin" placeholder="最小值 %" step="0.1">
+            <span class="separator">至</span>
+            <input type="number" class="input" id="roeMax" placeholder="最大值 %" step="0.1">
+          </div>
+        </div>
+
+        <!-- Technical Indicators -->
+        <div class="filter-card">
+          <div class="filter-title">
+            <span class="icon">📉</span>
+            技术指标
+          </div>
+          <div class="checkbox-group">
+            <label class="checkbox-item" data-filter="ma5_up">
+              <input type="checkbox">
+              MA5 上穿 MA10
+            </label>
+            <label class="checkbox-item" data-filter="ma10_up">
+              <input type="checkbox">
+              MA10 上穿 MA20
+            </label>
+            <label class="checkbox-item" data-filter="macd_gold">
+              <input type="checkbox">
+              MACD 金叉
+            </label>
+            <label class="checkbox-item" data-filter="rsi_oversold">
+              <input type="checkbox">
+              RSI 超卖 (RSI&lt;30)
+            </label>
+            <label class="checkbox-item" data-filter="rsi_overbought">
+              <input type="checkbox">
+              RSI 超买 (RSI&gt;70)
+            </label>
+            <label class="checkbox-item" data-filter="kdj_gold">
+              <input type="checkbox">
+              KDJ 金叉
+            </label>
+          </div>
+        </div>
+
+        <!-- Capital Flow -->
+        <div class="filter-card">
+          <div class="filter-title">
+            <span class="icon">💰</span>
+            资金面
+          </div>
+          <div class="checkbox-group">
+            <label class="checkbox-item" data-filter="north_inflow">
+              <input type="checkbox">
+              北向资金净流入
+            </label>
+            <label class="checkbox-item" data-filter="main_inflow">
+              <input type="checkbox">
+              主力资金净流入
+            </label>
+            <label class="checkbox-item" data-filter="super_large_in">
+              <input type="checkbox">
+              超大单净流入
+            </label>
+            <label class="checkbox-item" data-filter="large_in">
+              <input type="checkbox">
+              大单净流入
+            </label>
+          </div>
+        </div>
+
+        <!-- Growth -->
+        <div class="filter-card">
+          <div class="filter-title">
+            <span class="icon">🌱</span>
+            成长性
+          </div>
+          <div class="range-inputs" style="margin-bottom: 0.75rem;">
+            <input type="number" class="input" id="revenueGrowthMin" placeholder="营收增长 %" step="0.1">
+            <span class="separator">至</span>
+            <input type="number" class="input" id="revenueGrowthMax" placeholder="营收增长 %" step="0.1">
+          </div>
+          <div class="range-inputs">
+            <input type="number" class="input" id="profitGrowthMin" placeholder="净利润增长 %" step="0.1">
+            <span class="separator">至</span>
+            <input type="number" class="input" id="profitGrowthMax" placeholder="净利润增长 %" step="0.1">
+          </div>
+        </div>
+      </div>
+
+      <div class="filter-actions">
+        <button id="filterBtn" class="button button-large" type="button">开始筛选</button>
+        <button id="resetBtn" class="button button-secondary" type="button">重置条件</button>
+      </div>
+    </section>
+
+    <!-- Results Section -->
+    <section class="panel">
+      <div class="panel-inner">
+        <h2 class="section-title">筛选结果</h2>
+        <p class="result-count">共找到 <strong id="resultCount">0</strong> 只符合条件的股票</p>
+      </div>
+
+      <div id="resultsContainer">
+        <div class="empty-state" id="emptyState">
+          <div class="empty-title">暂无筛选结果</div>
+          <p class="empty-copy">设置筛选条件后点击"开始筛选"</p>
+        </div>
+
+        <div class="table-wrap" id="tableWrap" style="display: none;">
+          <table class="stock-table">
+            <thead>
+              <tr>
+                <th>股票名称</th>
+                <th>股票代码</th>
+                <th>PE</th>
+                <th>PB</th>
+                <th>ROE</th>
+                <th>营收增长</th>
+                <th>净利润增长</th>
+                <th>北向资金</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="resultsBody">
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-spinner"></div>
+  </div>
+
+  <script>
+    // DOM Elements
+    const filterBtn = document.getElementById('filterBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const resultCount = document.getElementById('resultCount');
+    const emptyState = document.getElementById('emptyState');
+    const tableWrap = document.getElementById('tableWrap');
+    const resultsBody = document.getElementById('resultsBody');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+
+    // Checkbox toggle
+    document.querySelectorAll('.checkbox-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const checkbox = item.querySelector('input');
+        checkbox.checked = !checkbox.checked;
+        item.classList.toggle('active', checkbox.checked);
+      });
+    });
+
+    // Get filter values
+    function getFilterValues() {
+      const filters = {
+        pe: { min: parseFloat(document.getElementById('peMin').value) || null, max: parseFloat(document.getElementById('peMax').value) || null },
+        pb: { min: parseFloat(document.getElementById('pbMin').value) || null, max: parseFloat(document.getElementById('pbMax').value) || null },
+        roe: { min: parseFloat(document.getElementById('roeMin').value) || null, max: parseFloat(document.getElementById('roeMax').value) || null },
+        revenueGrowth: { min: parseFloat(document.getElementById('revenueGrowthMin').value) || null, max: parseFloat(document.getElementById('revenueGrowthMax').value) || null },
+        profitGrowth: { min: parseFloat(document.getElementById('profitGrowthMin').value) || null, max: parseFloat(document.getElementById('profitGrowthMax').value) || null },
+        technical: [],
+        capital: []
+      };
+
+      // Get technical filters
+      document.querySelectorAll('.checkbox-item[data-filter]').forEach(item => {
+        const filter = item.dataset.filter;
+        const checkbox = item.querySelector('input');
+        if (checkbox.checked) {
+          if (['north_inflow', 'main_inflow', 'super_large_in', 'large_in'].includes(filter)) {
+            filters.capital.push(filter);
+          } else {
+            filters.technical.push(filter);
+          }
+        }
+      });
+
+      return filters;
+    }
+
+    // Reset filters
+    function resetFilters() {
+      document.querySelectorAll('.filter-grid input').forEach(input => {
+        input.value = '';
+      });
+      document.querySelectorAll('.checkbox-item').forEach(item => {
+        item.classList.remove('active');
+        item.querySelector('input').checked = false;
+      });
+    }
+
+    // Format number
+    function formatNumber(value, decimals = 2) {
+      if (value === null || value === undefined) return '-';
+      return Number(value).toFixed(decimals);
+    }
+
+    // Format percentage
+    function formatPercent(value) {
+      if (value === null || value === undefined) return '-';
+      const num = Number(value);
+      const cls = num > 0 ? 'positive' : num < 0 ? 'negative' : 'neutral';
+      return `<span class="${cls}">${num > 0 ? '+' : ''}${num.toFixed(2)}%</span>`;
+    }
+
+    // Render results
+    function renderResults(stocks) {
+      resultsBody.innerHTML = '';
+
+      if (stocks.length === 0) {
+        emptyState.style.display = 'block';
+        tableWrap.style.display = 'none';
+        resultCount.textContent = '0';
+        return;
+      }
+
+      emptyState.style.display = 'none';
+      tableWrap.style.display = 'block';
+      resultCount.textContent = stocks.length;
+
+      stocks.forEach(stock => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>
+            <div class="stock-name">${stock.name || '-'}</div>
+          </td>
+          <td>
+            <div class="stock-code">${stock.code || '-'}</div>
+          </td>
+          <td>${formatNumber(stock.pe)}</td>
+          <td>${formatNumber(stock.pb)}</td>
+          <td>${formatNumber(stock.roe)}%</td>
+          <td>${formatPercent(stock.revenue_growth)}</td>
+          <td>${formatPercent(stock.profit_growth)}</td>
+          <td>${formatPercent(stock.north_fund)}</td>
+          <td>
+            <button class="button-secondary view-analysis-btn" data-name="${stock.name}" data-code="${stock.code}">分析</button>
+          </td>
+        `;
+        resultsBody.appendChild(tr);
+      });
+
+      // Add click handlers for analysis buttons
+      document.querySelectorAll('.view-analysis-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const name = btn.dataset.name;
+          const code = btn.dataset.code;
+          window.location.href = `./analysis.html?stock=${encodeURIComponent(name)}&code=${encodeURIComponent(code)}`;
+        });
+      });
+
+      // Add click handlers for rows
+      document.querySelectorAll('#resultsBody tr').forEach(tr => {
+        tr.addEventListener('click', () => {
+          const name = tr.querySelector('.stock-name').textContent;
+          const code = tr.querySelector('.stock-code').textContent;
+          window.location.href = `./analysis.html?stock=${encodeURIComponent(name)}&code=${encodeURIComponent(code)}`;
+        });
+      });
+    }
+
+    // Show/hide loading
+    function setLoading(loading) {
+      loadingOverlay.classList.toggle('active', loading);
+      filterBtn.disabled = loading;
+    }
+
+    // Perform filter
+    async function performFilter() {
+      const filters = getFilterValues();
+
+      setLoading(true);
+
+      try {
+        // Try to call the API
+        const response = await fetch('/api/stock/screen', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(filters)
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          renderResults(data.stocks || []);
+        } else {
+          // If API fails, show sample data
+          const sampleData = generateSampleData();
+          renderResults(sampleData);
+        }
+      } catch (error) {
+        // If no API, show sample data for demo
+        const sampleData = generateSampleData();
+        renderResults(sampleData);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    // Generate sample data for demo
+    function generateSampleData() {
+      const stocks = [
+        { name: '贵州茅台', code: '600519.SH', pe: 28.5, pb: 8.2, roe: 31.2, revenue_growth: 15.8, profit_growth: 18.3, north_fund: 2.5 },
+        { name: '宁德时代', code: '300750.SZ', pe: 22.3, pb: 5.1, roe: 18.5, revenue_growth: 45.2, profit_growth: 52.1, north_fund: 3.8 },
+        { name: '比亚迪', code: '002594.SZ', pe: 35.2, pb: 6.8, roe: 16.8, revenue_growth: 62.5, profit_growth: 78.9, north_fund: 5.2 },
+        { name: '招商银行', code: '600036.SH', pe: 5.8, pb: 0.85, roe: 15.2, revenue_growth: 8.5, profit_growth: 12.3, north_fund: 1.2 },
+        { name: '中国平安', code: '601318.SH', pe: 8.2, pb: 0.92, roe: 12.5, revenue_growth: -3.2, profit_growth: -5.8, north_fund: -1.5 },
+        { name: '隆基绿能', code: '601012.SH', pe: 15.8, pb: 3.2, roe: 22.5, revenue_growth: 35.2, profit_growth: 42.8, north_fund: 2.1 },
+        { name: '恒瑞医药', code: '600276.SH', pe: 42.5, pb: 6.5, roe: 14.8, revenue_growth: 8.2, profit_growth: 12.5, north_fund: 0.8 },
+        { name: '中际旭创', code: '300308.SZ', pe: 28.5, pb: 7.2, roe: 25.6, revenue_growth: 85.2, profit_growth: 92.5, north_fund: 6.8 }
+      ];
+      return stocks;
+    }
+
+    // Event listeners
+    filterBtn.addEventListener('click', performFilter);
+    resetBtn.addEventListener('click', resetFilters);
+
+    // Initial demo data
+    renderResults(generateSampleData());
+  </script>
+</body>
+</html>
