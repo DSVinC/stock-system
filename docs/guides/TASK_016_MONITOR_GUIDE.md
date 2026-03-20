@@ -13,7 +13,7 @@
   - 生成监控报告并飞书推送
   
 - **`scripts/after-hours-events.mjs`** - 盘后事件采集
-  - 公司公告（新浪财经 `globalStockMajorEvents` / 本地新闻数据库）
+  - 公司公告（本地新闻数据库）
   - 财报发布（Tushare `disclosure_date`）
   - 重要新闻（本地新闻数据库 26,350+ 条）
   - 行业新闻（本地新闻数据库 + 申万行业分类 2021 版）
@@ -32,7 +32,7 @@
 
 | 事件类型 | 数据源 | 接口 | 状态 |
 |---------|--------|------|------|
-| 公司公告 | 新浪财经 + 本地新闻库 | `globalStockMajorEvents` | ✅ |
+| 公司公告 | 本地新闻数据库 | `news_raw` 表 | ✅ |
 | 财报发布 | Tushare Pro | `disclosure_date` | ✅ |
 | 重要新闻 | 本地新闻数据库 | `news_system/news.db` | ✅ |
 | 行业新闻 | 本地新闻数据库 | 申万行业分类 2021 版 | ✅ |
@@ -69,13 +69,33 @@ node scripts/daily-monitor.mjs
 **预期输出**：
 
 ```text
-[每日监控] 开始执行...
-[账户] 读取到 5 个模拟账户
-[持仓] 读取到 1 个持仓
-[分析报告] 成功匹配 1 份分析报告
-[盘后事件] 采集到 67 条事件
-[监控报告] 生成报告文件：data/monitor-reports/monitor_report_2026-03-20.json
+📊 每日监控任务启动
+⏰ 2026/3/20 20:04:46
+
+数据库已连接：/Volumes/SSD500/openclaw/stock-system/stock_system.db
+📈 找到 5 个模拟账户
+
+🔍 检查账户：联调测试账户 (ID: 5)
+🔍 检查账户：联调测试账户 (ID: 4)
+🔍 检查账户：测试账户 (ID: 1)
+   📦 股票：中际旭创 (300308.SZ)
+
+📊 开始收集盘后事件...
+========== 盘后事件采集开始 ==========
+[公司公告] 获取 10 条公告
+✓ [公司公告] 获取 10 条事件
+[财报发布] 获取 17 条财报
+✓ [财报发布] 获取 17 条事件
+
+📨 开始发送飞书推送...
 ✅ 飞书推送发送成功
+
+📄 报告已保存：data/monitor-reports/monitor_report_2026-03-20.json
+📊 统计信息:
+   - 账户数：5
+   - 持仓数：1
+   - 失败股票：0
+   - 盘后事件：67
 ```
 
 **生成文件**：
@@ -101,52 +121,75 @@ node scripts/feishu-push.mjs "测试消息"
 
 ```json
 {
-  "report_date": "2026-03-20",
-  "generated_at": "2026-03-20T19:00:00.000Z",
+  "generated_at": "2026-03-20T12:04:46.206Z",
+  "account_count": 5,
+  "total_positions": 1,
   "accounts": [
     {
-      "account_id": "acc_001",
+      "account_id": 1,
+      "account_name": "测试账户",
+      "total_value": 767768,
+      "total_return": -232232,
+      "return_rate": -0.232232,
+      "cash": 709768,
+      "position_count": 1,
       "positions": [
         {
-          "stock_code": "sh600519",
+          "ts_code": "300308.SZ",
+          "stock_name": "中际旭创",
+          "quantity": 500,
+          "avg_price": 580,
+          "cost_amount": 290000,
+          "current_price": 580,
+          "market_value": 290000,
+          "unrealized_pnl": 0,
+          "unrealized_pnl_rate": 0,
           "monitor_assessment": {
-            "action": "继续跟踪",
+            "action": "buy",
             "risk_level": "low",
-            "summary": "持仓盈利，技术指标良好",
-            "follow_ups": ["关注财报发布", "跟踪行业动态"],
-            "watch_items": [],
-            "risk_alerts": []
+            "summary": "决策：买入; 报告评分：5/5; 收益率：0.00%",
+            "follow_ups": ["观察点：催化验证：800G/1.6T 产品放量"],
+            "watch_items": ["催化验证：800G/1.6T 产品放量"],
+            "risk_alerts": ["硬止损：若出现 海外需求波动，应重新评估持仓假设"]
           },
           "report": {
+            "file_name": "stock_report_中际旭创_20260314.html",
             "parsed_data": {
               "decision": "买入",
               "report_score": 5,
-              "strategy": {"buyZone": "...", "stopLoss": "...", "targetPrice": "..."},
-              "key_watch_points": ["..."],
-              "risk_controls": ["..."]
+              "strategy": {
+                "aggressive": "可考虑小仓位启动跟踪...",
+                "balanced": "优先等待景气验证...",
+                "conservative": "以风险控制优先..."
+              },
+              "key_watch_points": ["催化验证：800G/1.6T 产品放量"],
+              "risk_controls": ["硬止损：若出现 海外需求波动..."]
             }
           }
         }
       ],
       "summary": {
-        "total_value": 1000000,
+        "action_items": [],
+        "high_risk_positions": [],
+        "positive_positions": [],
+        "negative_positions": [],
         "watch_items_count": 1,
-        "risk_alerts_count": 0
+        "risk_alerts_count": 3
       }
     }
   ],
   "overview": {
     "headline": "存在 1 个持仓，整体需继续跟踪",
     "watch_items_count": 1,
-    "risk_alerts_count": 0
+    "risk_alerts_count": 3
   },
   "after_hours_events": [
     {
-      "id": "ANN-sh600519-2026-03-20",
+      "id": "ANN-300308.SZ-2026-03-20",
       "type": "company_announcement",
-      "source": "新浪财经",
-      "title": "贵州茅台重大事项公告",
-      "stockCode": "sh600519",
+      "source": "新闻数据库",
+      "title": "关于奥维通信股份有限公司股票终止上市的公告",
+      "stockCode": "300308.SZ",
       "priority": "high"
     }
   ]
@@ -155,18 +198,66 @@ node scripts/feishu-push.mjs "测试消息"
 
 ### 3.2 关键字段说明
 
-| 字段 | 说明 |
-|------|------|
-| `monitor_assessment.action` | 监控行动建议（继续跟踪/减仓/清仓等） |
-| `monitor_assessment.risk_level` | 风险等级（low/medium/high） |
-| `monitor_assessment.summary` | 监控摘要 |
-| `monitor_assessment.follow_ups` | 后续跟踪事项列表 |
-| `monitor_assessment.watch_items` | 关注事项列表 |
-| `monitor_assessment.risk_alerts` | 风险预警列表 |
-| `position.report.parsed_data.decision` | 投资决策（买入/卖出/持有/观望） |
-| `position.report.parsed_data.report_score` | 报告评分（1-5） |
-| `position.report.parsed_data.strategy` | 策略建议（含买点、止损、目标价） |
-| `after_hours_events` | 盘后事件列表 |
+#### 顶层字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `generated_at` | string | ISO 8601 时间戳 |
+| `account_count` | number | 账户总数 |
+| `total_positions` | number | 持仓总数 |
+| `accounts` | array | 账户列表 |
+| `overview` | object | 全局概览 |
+| `after_hours_events` | array | 盘后事件列表 |
+
+#### 账户层字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `account_id` | number | 账户 ID（数字） |
+| `account_name` | string | 账户名称 |
+| `total_value` | number | 总资产 |
+| `total_return` | number | 总盈亏（元） |
+| `return_rate` | number | 收益率（小数） |
+| `cash` | number | 现金 |
+| `position_count` | number | 持仓数量 |
+| `positions` | array | 持仓列表 |
+| `summary` | object | 账户摘要 |
+
+#### 持仓层字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `ts_code` | string | 股票代码（格式：`300308.SZ`） |
+| `stock_name` | string | 股票名称 |
+| `quantity` | number | 持仓数量 |
+| `avg_price` | number | 成本价 |
+| `current_price` | number | 当前价 |
+| `market_value` | number | 市值 |
+| `unrealized_pnl` | number | 浮动盈亏（元） |
+| `unrealized_pnl_rate` | number | 浮动盈亏比例 |
+| `monitor_assessment` | object | 监控评估 |
+| `report` | object | 分析报告 |
+
+#### monitor_assessment 字段
+
+| 字段 | 类型 | 说明 | 示例值 |
+|------|------|------|--------|
+| `action` | string | 行动建议（英文枚举） | `buy` / `hold` / `sell` |
+| `risk_level` | string | 风险等级 | `low` / `medium` / `high` |
+| `summary` | string | 评估摘要 | "决策：买入; 报告评分：5/5" |
+| `follow_ups` | array | 后续跟踪事项 | ["观察点：催化验证..."] |
+| `watch_items` | array | 关注事项 | ["催化验证：800G/1.6T..."] |
+| `risk_alerts` | array | 风险预警 | ["硬止损：若出现..."] |
+
+#### report.parsed_data 字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `decision` | string | 投资决策（买入/卖出/持有/观望） |
+| `report_score` | number | 报告评分（1-5） |
+| `strategy` | object | 策略建议（aggressive/balanced/conservative） |
+| `key_watch_points` | array | 关键关注点 |
+| `risk_controls` | array | 风险控制措施 |
 
 ---
 
@@ -217,7 +308,8 @@ openclaw cron add daily-monitor '{"schedule":{"kind":"cron","expr":"30 15 * * 1-
 
 **解决**:
 1. 确认 `report/analysis/` 目录下有对应股票的分析报告
-2. 报告文件名格式：`stock_analysis_<股票代码>.json`
+2. 报告文件名格式：`stock_report_<股票名称>_<日期>.html`
+3. 示例：`stock_report_中际旭创_20260314.html`
 
 ---
 
@@ -241,7 +333,8 @@ openclaw cron add daily-monitor '{"schedule":{"kind":"cron","expr":"30 15 * * 1-
 | v1.1 | 2026-03-20 | 接入本地新闻数据库 |
 | v1.2 | 2026-03-20 | 接入 Tushare 财报接口 |
 | v1.3 | 2026-03-20 | 修复导入副作用，添加 dotenv 支持 |
+| v2.0 | 2026-03-20 | 全面修正文档与实现不一致（JSON 结构/日志格式/字段说明） |
 
 ---
 
-*最后更新：2026-03-20 19:40*
+*最后更新：2026-03-20 20:05*
