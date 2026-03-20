@@ -326,212 +326,154 @@
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>策略回测系统</h1>
+  <main class="page-shell">
+    <!-- 顶部导航 -->
+    <nav class="top-nav">
+      <a href="./index.html">首页</a>
+      <a href="./select.html">选股分析</a>
+      <a href="./analysis.html">个股分析</a>
+      <a href="./monitor-pool.html">监控池</a>
+      <a href="./portfolio.html">账户管理</a>
+      <a href="./conditional-order.html">条件单</a>
+      <a href="./backtest.html" class="active">回测系统</a>
+    </nav>
 
-    <div class="nav">
-      <a href="index.html">监控池</a>
-      <a href="select.html">选股</a>
-      <a href="analysis.html">分析</a>
-      <a href="portfolio.html">账户</a>
-      <a href="conditional-order.html">条件单</a>
-      <a href="backtest.html" class="active">回测</a>
-    </div>
+    <!-- 页面标题 -->
+    <section class="hero">
+      <p class="eyebrow">Backtest System</p>
+      <h1>策略回测</h1>
+      <p class="subtitle">验证交易策略的历史表现，优化参数配置</p>
+    </section>
 
     <!-- 回测配置 -->
-    <div class="card">
-      <div class="card-title">回测配置</div>
+    <section class="panel">
+      <div class="panel-inner">
+        <h2 class="section-title">回测配置</h2>
+        <p class="section-copy">设置回测时间范围、初始资金和选择策略进行测试</p>
 
-      <!-- 基础配置 -->
-      <div class="form-row">
-        <div class="form-group">
-          <label>开始日期</label>
-          <input type="date" id="startDate" value="2024-01-01">
-        </div>
-        <div class="form-group">
-          <label>结束日期</label>
-          <input type="date" id="endDate" value="2024-12-31">
-        </div>
-        <div class="form-group">
-          <label>初始资金</label>
-          <input type="number" id="initialCash" value="1000000" step="100000">
-        </div>
-      </div>
-
-      <!-- 策略选择 -->
-      <div class="form-group" style="margin-top: 15px;">
-        <label>选择策略</label>
-        <select id="strategySelect" onchange="onStrategyChange()">
-          <option value="">-- 请选择策略 --</option>
-          <option value="double_ma">双均线策略</option>
-          <option value="rsi">RSI 超买超卖策略</option>
-          <option value="macd">MACD 金叉死叉策略</option>
-          <option value="bollinger">布林带突破策略</option>
-          <option value="conditional">自定义条件单策略（从条件单导入）</option>
-        </select>
-      </div>
-
-      <!-- 双均线策略参数 -->
-      <div id="params_double_ma" class="strategy-params">
-        <h4 style="color:#00d4ff;margin-bottom:10px;font-size:0.95em;">双均线策略参数</h4>
-        <div class="param-row">
-          <div class="param-group">
-            <label>快线周期（日）</label>
-            <select id="ma_fast">
-              <option value="5">5 日</option>
-              <option value="10" selected>10 日</option>
-              <option value="15">15 日</option>
-              <option value="20">20 日</option>
-            </select>
+        <!-- 基础配置 -->
+        <div class="form-grid" style="margin-top: 20px;">
+          <div class="param-item">
+            <label>开始日期</label>
+            <input type="date" id="startDate" class="form-input" value="2024-01-01">
           </div>
-          <div class="param-group">
-            <label>慢线周期（日）</label>
-            <select id="ma_slow">
-              <option value="20">20 日</option>
-              <option value="30">30 日</option>
-              <option value="60" selected>60 日</option>
-              <option value="120">120 日</option>
-            </select>
+          <div class="param-item">
+            <label>结束日期</label>
+            <input type="date" id="endDate" class="form-input" value="2024-12-31">
           </div>
-          <div class="param-group">
-            <label>单次买入资金比例</label>
-            <select id="invest_ratio_ma">
-              <option value="0.2">20%</option>
-              <option value="0.3" selected>30%</option>
-              <option value="0.5">50%</option>
-            </select>
+          <div class="param-item">
+            <label>初始资金</label>
+            <input type="number" id="initialCash" class="form-input" value="1000000" step="100000">
           </div>
         </div>
-        <p class="help-text">策略说明：当快线上穿慢线时买入，快线下穿慢线时卖出。</p>
-      </div>
 
-      <!-- RSI 策略参数 -->
-      <div id="params_rsi" class="strategy-params">
-        <h4 style="color:#00d4ff;margin-bottom:10px;font-size:0.95em;">RSI 超买超卖策略参数</h4>
-        <div class="param-row">
-          <div class="param-group">
-            <label>RSI 周期</label>
-            <select id="rsi_period">
-              <option value="6">6 日</option>
-              <option value="14" selected>14 日</option>
-              <option value="21">21 日</option>
-            </select>
+        <!-- 策略选择 -->
+        <div class="param-item" style="margin-top: 20px;">
+          <label>选择策略</label>
+          <select id="strategySelect" class="form-select" onchange="onStrategyChange()">
+            <option value="">-- 请选择策略 --</option>
+            <option value="double_ma">双均线策略</option>
+            <option value="rsi">RSI 策略</option>
+            <option value="macd">MACD 策略</option>
+            <option value="bollinger">布林带策略</option>
+          </select>
+        </div>
+
+        <!-- 双均线策略参数 -->
+        <div id="params_double_ma" class="strategy-params">
+          <h4 class="params-title">双均线策略参数</h4>
+          <div class="params-grid">
+            <div class="param-item">
+              <label>短期均线周期（日）</label>
+              <input type="number" id="ma_short" value="5" min="1" max="50">
+            </div>
+            <div class="param-item">
+              <label>长期均线周期（日）</label>
+              <input type="number" id="ma_long" value="20" min="1" max="250">
+            </div>
           </div>
-          <div class="param-group">
-            <label>超卖阈值（买入）</label>
-            <input type="number" id="rsi_oversold" value="30" min="10" max="40">
+          <p class="param-hint">策略说明：当短期均线上穿长期均线时买入，下穿时卖出。默认参数为 5 日 / 20 日。</p>
+        </div>
+
+        <!-- RSI 策略参数 -->
+        <div id="params_rsi" class="strategy-params">
+          <h4 class="params-title">RSI 策略参数</h4>
+          <div class="params-grid">
+            <div class="param-item">
+              <label>超卖阈值（买入）</label>
+              <input type="number" id="rsi_oversold" value="30" min="10" max="40">
+            </div>
+            <div class="param-item">
+              <label>超买阈值（卖出）</label>
+              <input type="number" id="rsi_overbought" value="70" min="60" max="90">
+            </div>
           </div>
-          <div class="param-group">
-            <label>超买阈值（卖出）</label>
-            <input type="number" id="rsi_overbought" value="70" min="60" max="90">
+          <p class="param-hint">策略说明：RSI 低于超卖阈值时买入，高于超买阈值时卖出。默认超卖 30 / 超买 70。</p>
+        </div>
+
+        <!-- MACD 策略参数 -->
+        <div id="params_macd" class="strategy-params">
+          <h4 class="params-title">MACD 策略参数</h4>
+          <div class="params-grid">
+            <div class="param-item">
+              <label>快线周期</label>
+              <input type="number" id="macd_fast" value="12" min="5" max="30">
+            </div>
+            <div class="param-item">
+              <label>慢线周期</label>
+              <input type="number" id="macd_slow" value="26" min="10" max="60">
+            </div>
+            <div class="param-item">
+              <label>信号线周期</label>
+              <input type="number" id="macd_signal" value="9" min="5" max="20">
+            </div>
           </div>
-          <div class="param-group">
-            <label>单次买入资金比例</label>
-            <select id="invest_ratio_rsi">
-              <option value="0.2">20%</option>
-              <option value="0.3" selected>30%</option>
-              <option value="0.5">50%</option>
-            </select>
+          <p class="param-hint">策略说明：MACD 线上穿信号线（金叉）时买入，下穿信号线（死叉）时卖出。默认参数 12 / 26 / 9。</p>
+        </div>
+
+        <!-- 布林带策略参数 -->
+        <div id="params_bollinger" class="strategy-params">
+          <h4 class="params-title">布林带策略参数</h4>
+          <div class="params-grid">
+            <div class="param-item">
+              <label>周期（日）</label>
+              <input type="number" id="boll_period" value="20" min="5" max="100">
+            </div>
+            <div class="param-item">
+              <label>标准差倍数</label>
+              <input type="number" id="boll_std" value="2" min="1" max="3" step="0.5">
+            </div>
+          </div>
+          <p class="param-hint">策略说明：价格跌破下轨时买入，突破上轨时卖出。默认周期 20 日，标准差 2 倍。</p>
+        </div>
+
+        <!-- 股票选择 -->
+        <div class="param-item" style="margin-top: 24px;">
+          <label>添加回测股票</label>
+          <div class="stock-search-wrap">
+            <input type="text" id="stockSearch" class="form-input" placeholder="输入股票名称或代码搜索..." oninput="searchStocks(this.value)">
+            <div id="searchResults" class="search-results"></div>
+          </div>
+          <p class="hint-text">支持公司名称或代码模糊搜索</p>
+        </div>
+
+        <div class="param-item" style="margin-top: 16px;">
+          <label>已选股票（<span id="stockCount">0</span> 只）</label>
+          <div id="selectedStocks" class="selected-stocks">
+            <span style="color: var(--text-faint); font-size: 13px;">请在上方搜索并添加股票</span>
           </div>
         </div>
-        <p class="help-text">策略说明：RSI 低于超卖阈值时买入，高于超买阈值时卖出。</p>
-      </div>
 
-      <!-- MACD 策略参数 -->
-      <div id="params_macd" class="strategy-params">
-        <h4 style="color:#00d4ff;margin-bottom:10px;font-size:0.95em;">MACD 金叉死叉策略参数</h4>
-        <div class="param-row">
-          <div class="param-group">
-            <label>快线周期</label>
-            <input type="number" id="macd_fast" value="12" min="5" max="30">
-          </div>
-          <div class="param-group">
-            <label>慢线周期</label>
-            <input type="number" id="macd_slow" value="26" min="10" max="60">
-          </div>
-          <div class="param-group">
-            <label>信号线周期</label>
-            <input type="number" id="macd_signal" value="9" min="5" max="20">
-          </div>
-          <div class="param-group">
-            <label>单次买入资金比例</label>
-            <select id="invest_ratio_macd">
-              <option value="0.2">20%</option>
-              <option value="0.3" selected>30%</option>
-              <option value="0.5">50%</option>
-            </select>
-          </div>
-        </div>
-        <p class="help-text">策略说明：MACD 线上穿信号线（金叉）时买入，下穿信号线（死叉）时卖出。</p>
-      </div>
-
-      <!-- 布林带策略参数 -->
-      <div id="params_bollinger" class="strategy-params">
-        <h4 style="color:#00d4ff;margin-bottom:10px;font-size:0.95em;">布林带突破策略参数</h4>
-        <div class="param-row">
-          <div class="param-group">
-            <label>周期（日）</label>
-            <select id="boll_period">
-              <option value="10">10 日</option>
-              <option value="20" selected>20 日</option>
-              <option value="30">30 日</option>
-            </select>
-          </div>
-          <div class="param-group">
-            <label>标准差倍数</label>
-            <select id="boll_std">
-              <option value="1.5">1.5 倍</option>
-              <option value="2" selected>2 倍</option>
-              <option value="2.5">2.5 倍</option>
-            </select>
-          </div>
-          <div class="param-group">
-            <label>单次买入资金比例</label>
-            <select id="invest_ratio_boll">
-              <option value="0.2">20%</option>
-              <option value="0.3" selected>30%</option>
-              <option value="0.5">50%</option>
-            </select>
-          </div>
-        </div>
-        <p class="help-text">策略说明：价格跌破下轨时买入，突破上轨时卖出。</p>
-      </div>
-
-      <!-- 条件单导入 -->
-      <div id="params_conditional" class="strategy-params">
-        <div class="import-section">
-          <h4>从条件单导入策略</h4>
-          <p style="font-size:0.85em;color:#888;margin-bottom:10px;">选择已有的条件单作为回测策略</p>
-          <div id="conditionalOrderList" class="conditional-order-list">
-            <p style="color:#888;text-align:center;padding:20px;">加载中...</p>
-          </div>
+        <div class="panel-actions" style="margin-top: 24px;">
+          <button class="button button-large" onclick="runBacktest()">开始回测</button>
         </div>
       </div>
-
-      <!-- 股票选择 -->
-      <div class="form-group" style="margin-top: 20px;">
-        <label>添加回测股票</label>
-        <div class="stock-search-container">
-          <input type="text" id="stockSearch" class="stock-search-input" placeholder="输入股票名称或代码搜索..." oninput="searchStocks(this.value)">
-          <div id="searchResults" class="stock-search-results"></div>
-        </div>
-        <p class="help-text">支持公司名称或代码模糊搜索，点击搜索结果添加到回测列表</p>
-      </div>
-
-      <div class="form-group">
-        <label>已选股票（<span id="stockCount">0</span> 只）</label>
-        <div id="selectedStocks" class="selected-stocks">
-          <span style="color:#888;font-size:0.9em;">请在上方搜索并添加股票</span>
-        </div>
-      </div>
-
-      <button class="btn btn-primary" onclick="runBacktest()">开始回测</button>
-    </div>
+    </section>
 
     <!-- 回测结果 -->
-    <div id="resultContainer" style="display: none;">
-      <div class="card">
-        <div class="card-title">回测结果</div>
+    <section id="resultContainer" class="panel" style="display: none;">
+      <div class="panel-inner">
+        <h2 class="section-title">回测结果</h2>
         <div class="metrics-grid">
           <div class="metric-card">
             <div class="metric-value" id="totalReturn">--</div>
@@ -559,38 +501,40 @@
           </div>
         </div>
       </div>
+    </section>
 
-      <div class="card">
-        <div class="card-title">交易记录</div>
-        <table class="trades-table">
-          <thead>
-            <tr>
-              <th>日期</th>
-              <th>股票</th>
-              <th>操作</th>
-              <th>数量</th>
-              <th>价格</th>
-              <th>金额</th>
-              <th>盈亏</th>
-            </tr>
-          </thead>
-          <tbody id="tradesBody">
-          </tbody>
-        </table>
+    <section id="tradesContainer" class="panel" style="display: none;">
+      <div class="panel-inner">
+        <h2 class="section-title">交易记录</h2>
+        <div class="table-wrap">
+          <table class="trades-table">
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>股票</th>
+                <th>操作</th>
+                <th>数量</th>
+                <th>价格</th>
+                <th>金额</th>
+                <th>盈亏</th>
+              </tr>
+            </thead>
+            <tbody id="tradesBody">
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+    </section>
 
-    <div id="loading" class="loading" style="display: none;">
+    <div id="loading" class="loading-state" style="display: none;">
       回测进行中，请稍候...
     </div>
-    <div id="error" class="error" style="display: none;"></div>
-  </div>
+    <div id="error" class="error-state" style="display: none;"></div>
+  </main>
 
   <script>
     // 状态管理
     let selectedStocks = [];
-    let selectedConditionalOrder = null;
-    let conditionalOrders = [];
     let searchDebounceTimer = null;
 
     // 策略切换
@@ -607,11 +551,6 @@
         const paramsEl = document.getElementById(`params_${strategy}`);
         if (paramsEl) {
           paramsEl.classList.add('active');
-        }
-
-        // 如果选择条件单策略，加载条件单列表
-        if (strategy === 'conditional') {
-          loadConditionalOrders();
         }
       }
     }
@@ -638,17 +577,17 @@
 
           if (result.success && result.data && result.data.length > 0) {
             resultsEl.innerHTML = result.data.map(stock => `
-              <div class="stock-search-item" onclick="addStock('${stock.ts_code}', '${stock.name}')">
-                <span class="stock-name">${stock.name}</span>
-                <span class="stock-code">${stock.ts_code}</span>
+              <div class="search-item" onclick="addStock('${stock.ts_code}', '${stock.name}')">
+                <span class="item-name">${stock.name}</span>
+                <span class="item-code">${stock.ts_code}</span>
               </div>
             `).join('');
           } else {
-            resultsEl.innerHTML = '<div style="padding:15px;color:#888;text-align:center;">未找到匹配股票</div>';
+            resultsEl.innerHTML = '<div style="padding:15px;color:var(--text-faint);text-align:center;">未找到匹配股票</div>';
           }
           resultsEl.classList.add('active');
         } catch (err) {
-          resultsEl.innerHTML = '<div style="padding:15px;color:#ff4757;text-align:center;">搜索失败，请重试</div>';
+          resultsEl.innerHTML = '<div style="padding:15px;color:var(--bad);text-align:center;">搜索失败，请重试</div>';
           resultsEl.classList.add('active');
         }
       }, 300);
@@ -683,69 +622,16 @@
       countEl.textContent = selectedStocks.length;
 
       if (selectedStocks.length === 0) {
-        container.innerHTML = '<span style="color:#888;font-size:0.9em;">请在上方搜索并添加股票</span>';
+        container.innerHTML = '<span style="color: var(--text-faint); font-size: 13px;">请在上方搜索并添加股票</span>';
         return;
       }
 
       container.innerHTML = selectedStocks.map(stock => `
-        <span class="selected-stock-tag">
+        <span class="stock-tag">
           ${stock.name} (${stock.code})
-          <span class="remove-stock" onclick="removeStock('${stock.code}')">&times;</span>
+          <span class="remove-btn" onclick="removeStock('${stock.code}')">&times;</span>
         </span>
       `).join('');
-    }
-
-    // 加载条件单列表
-    async function loadConditionalOrders() {
-      const listEl = document.getElementById('conditionalOrderList');
-
-      try {
-        const response = await fetch('/api/conditional-order?status=pending');
-        const result = await response.json();
-
-        if (!result.success || !result.data || result.data.length === 0) {
-          listEl.innerHTML = '<p style="color:#888;text-align:center;padding:20px;">暂无可用的条件单</p>';
-          return;
-        }
-
-        conditionalOrders = result.data;
-        listEl.innerHTML = result.data.map(order => `
-          <div class="conditional-order-item" onclick="selectConditionalOrder(${order.id})" id="cond-order-${order.id}">
-            <div>
-              <strong>${order.stock_name}</strong>
-              <span style="color:#888;margin-left:8px;">${order.ts_code}</span>
-            </div>
-            <div>
-              <span class="badge ${order.action === 'buy' ? 'badge-buy' : 'badge-sell'}">${order.action === 'buy' ? '买入' : '卖出'}</span>
-              <span style="color:#888;margin-left:8px;font-size:0.85em;">${formatConditions(order.conditions)}</span>
-            </div>
-          </div>
-        `).join('');
-      } catch (err) {
-        listEl.innerHTML = '<p style="color:#ff4757;text-align:center;padding:20px;">加载条件单失败</p>';
-      }
-    }
-
-    // 选择条件单
-    function selectConditionalOrder(id) {
-      // 清除之前的选择
-      document.querySelectorAll('.conditional-order-item').forEach(el => {
-        el.classList.remove('selected');
-      });
-
-      // 标记当前选择
-      const itemEl = document.getElementById(`cond-order-${id}`);
-      if (itemEl) {
-        itemEl.classList.add('selected');
-      }
-
-      selectedConditionalOrder = conditionalOrders.find(o => o.id === id);
-    }
-
-    // 格式化条件
-    function formatConditions(conditions) {
-      if (!conditions || conditions.length === 0) return '-';
-      return conditions.map(c => `${c.type}${c.operator}${c.value}`).join(', ');
     }
 
     // 获取策略配置
@@ -758,9 +644,8 @@
             name: '双均线策略',
             type: 'double_ma',
             params: {
-              fast_period: parseInt(document.getElementById('ma_fast').value),
-              slow_period: parseInt(document.getElementById('ma_slow').value),
-              invest_ratio: parseFloat(document.getElementById('invest_ratio_ma').value)
+              short_period: parseInt(document.getElementById('ma_short').value),
+              long_period: parseInt(document.getElementById('ma_long').value)
             },
             buyCondition: { type: 'ma_cross', direction: 'up' },
             sellCondition: { type: 'ma_cross', direction: 'down' }
@@ -768,13 +653,11 @@
 
         case 'rsi':
           return {
-            name: 'RSI超买超卖策略',
+            name: 'RSI策略',
             type: 'rsi',
             params: {
-              period: parseInt(document.getElementById('rsi_period').value),
               oversold: parseInt(document.getElementById('rsi_oversold').value),
-              overbought: parseInt(document.getElementById('rsi_overbought').value),
-              invest_ratio: parseFloat(document.getElementById('invest_ratio_rsi').value)
+              overbought: parseInt(document.getElementById('rsi_overbought').value)
             },
             buyCondition: { type: 'rsi', operator: '<=', value: parseInt(document.getElementById('rsi_oversold').value) },
             sellCondition: { type: 'rsi', operator: '>=', value: parseInt(document.getElementById('rsi_overbought').value) }
@@ -782,13 +665,12 @@
 
         case 'macd':
           return {
-            name: 'MACD金叉死叉策略',
+            name: 'MACD策略',
             type: 'macd',
             params: {
               fast_period: parseInt(document.getElementById('macd_fast').value),
               slow_period: parseInt(document.getElementById('macd_slow').value),
-              signal_period: parseInt(document.getElementById('macd_signal').value),
-              invest_ratio: parseFloat(document.getElementById('invest_ratio_macd').value)
+              signal_period: parseInt(document.getElementById('macd_signal').value)
             },
             buyCondition: { type: 'macd_cross', direction: 'golden' },
             sellCondition: { type: 'macd_cross', direction: 'death' }
@@ -796,30 +678,14 @@
 
         case 'bollinger':
           return {
-            name: '布林带突破策略',
+            name: '布林带策略',
             type: 'bollinger',
             params: {
               period: parseInt(document.getElementById('boll_period').value),
-              std_dev: parseFloat(document.getElementById('boll_std').value),
-              invest_ratio: parseFloat(document.getElementById('invest_ratio_boll').value)
+              std_dev: parseFloat(document.getElementById('boll_std').value)
             },
             buyCondition: { type: 'boll_lower', operator: '<=' },
             sellCondition: { type: 'boll_upper', operator: '>=' }
-          };
-
-        case 'conditional':
-          if (!selectedConditionalOrder) {
-            return null;
-          }
-          return {
-            name: `条件单策略 - ${selectedConditionalOrder.stock_name}`,
-            type: 'conditional',
-            params: {
-              order_id: selectedConditionalOrder.id
-            },
-            buyCondition: selectedConditionalOrder.action === 'buy' ? selectedConditionalOrder.conditions : null,
-            sellCondition: selectedConditionalOrder.action === 'sell' ? selectedConditionalOrder.conditions : null,
-            invest_ratio: 0.3
           };
 
         default:
@@ -914,10 +780,11 @@
           tradesBody.appendChild(row);
         });
       } else {
-        tradesBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #666;">暂无交易记录</td></tr>';
+        tradesBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-faint);">暂无交易记录</td></tr>';
       }
 
       document.getElementById('resultContainer').style.display = 'block';
+      document.getElementById('tradesContainer').style.display = 'block';
     }
 
     // 显示错误
@@ -928,7 +795,7 @@
 
     // 点击外部关闭搜索结果
     document.addEventListener('click', (e) => {
-      if (!e.target.closest('.stock-search-container')) {
+      if (!e.target.closest('.stock-search-wrap')) {
         document.getElementById('searchResults').classList.remove('active');
       }
     });
