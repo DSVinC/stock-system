@@ -160,15 +160,25 @@ node scripts/feishu-push.mjs "测试消息"
             "created_at": "2026-03-14T03:25:58.392Z",
             "size": 12737,
             "parsed_data": {
-              "decision": "买入",
-              "report_score": 5,
+              "parse_status": "partial_success",
+              "buyZone": null,
+              "stopLoss": null,
+              "targetPrice": null,
               "strategy": {
                 "aggressive": "可考虑小仓位启动跟踪...",
                 "balanced": "优先等待景气验证...",
                 "conservative": "以风险控制优先..."
               },
+              "decision": "买入",
+              "report_score": 5,
               "key_watch_points": ["催化验证：800G/1.6T 产品放量"],
-              "risk_controls": ["硬止损：若出现 海外需求波动..."]
+              "operation_suggestions": {
+                "short_term": "短线优先观察放量...",
+                "medium_term": "中线围绕订单兑现...",
+                "long_term": "长线关注行业渗透率..."
+              },
+              "risk_controls": ["硬止损：若出现 海外需求波动..."],
+              "footnote": "提示：当前模板尚未接入实时价格与估值数据..."
             }
           }
         }
@@ -292,11 +302,17 @@ node scripts/feishu-push.mjs "测试消息"
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
+| `parse_status` | string | 解析状态（success/partial_success/error） |
+| `buyZone` | array|null | 建仓区间 `[低价，高价]` |
+| `stopLoss` | number|null | 止损点价格 |
+| `targetPrice` | number|null | 目标价 |
 | `decision` | string | 投资决策（买入/卖出/持有/观望） |
 | `report_score` | number | 报告评分（1-5） |
 | `strategy` | object | 策略建议（aggressive/balanced/conservative） |
 | `key_watch_points` | array | 关键关注点 |
+| `operation_suggestions` | object | 操作建议（short_term/medium_term/long_term） |
 | `risk_controls` | array | 风险控制措施 |
+| `footnote` | string|null | 备注说明 |
 
 #### overview 字段
 
