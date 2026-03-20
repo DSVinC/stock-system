@@ -3,7 +3,7 @@
 > **任务 ID**: TASK_016
 > **任务名称**: 每日监控 - 技术指标 + 事件监控（盘后）
 > **当前负责人**: Claude Code 开发 / Codex 验收
-> **当前阶段**: completed (文档验收 V8 进行中，业务闭环已完成)
+> **当前阶段**: 业务开发已完成，文档验收 V8 收尾中
 > **最后更新：2026-03-20 20:20 (Asia/Shanghai) 【V8 修复完成】
 
 ---
@@ -54,7 +54,7 @@
 - 已识别前置依赖：模拟账户数据库、结构化策略数据、行业新闻监控脚本参考
 - 已实现 [daily-monitor.mjs](/Users/vvc/.openclaw/workspace/stock-system/scripts/daily-monitor.mjs)
 - 已实际执行脚本并生成报告 [monitor_report_2026-03-20.json](/Users/vvc/.openclaw/workspace/stock-system/data/monitor-reports/monitor_report_2026-03-20.json)
-- 已完成 HTML 报告解析增强：`parsed_data` 现包含 `decision`、`report_score`、`strategy`、`key_watch_points`、`operation_suggestions`、`risk_controls`、`footnote`
+- 已完成 HTML 报告解析增强：`parsed_data` 现包含 `parse_status`、`buyZone`、`stopLoss`、`targetPrice`、`decision`、`report_score`、`strategy`、`key_watch_points`、`operation_suggestions`、`risk_controls`、`footnote`
 - 已确认对当前报告模板采用 `partial_success` 降级标记，明确说明未输出伪精确数值型目标价
 - 已完成监控判断摘要生成：持仓层新增 `monitor_assessment`
 - 已完成账户级汇总生成：账户层新增 `summary`
@@ -94,10 +94,11 @@
   - `after-hours-events.mjs` 已接入本地新闻数据库
   - `feishu-push.mjs` 已改为飞书私聊 API
   - `daily-monitor.mjs` 已自动调用事件采集与推送脚本
-- ✅ **文档验收 V7 修复完成** (2026-03-20 20:20)
+- ✅ **文档验收 V8 修复完成** (2026-03-20 20:22)
   - `report.parsed_data` 字段已补齐（parse_status/buyZone/stopLoss/targetPrice/operation_suggestions/footnote）
-  - `TASK_016_STATUS.md` 状态已统一
-- 🔄 **V8 验收中**：等待 Codex 确认文档与实现完全一致
+  - `TASK_016_STATUS.md` 状态已统一（业务完成/文档收尾）
+  - 旧摘要已更新为完整字段列表
+- 🔄 **待 V8 确认**：等待 Codex 最终确认
 
 ---
 
@@ -152,7 +153,7 @@
   - 重要新闻：从 `news_raw` 表获取最近 24 小时高优先级新闻
 - 执行命令：`node scripts/feishu-push.mjs "TASK_016 acceptance smoke test"`
 - 结果：✅ **通过**；飞书私聊推送成功 (使用 `FEISHU_APP_ID` / `FEISHU_APP_SECRET`)
-- 额外验证：确认 `parsed_data` 中存在 `decision=买入`、`report_score=5`、`strategy`、`key_watch_points`、`operation_suggestions`、`risk_controls`、`footnote`
+- 额外验证：确认 `parsed_data` 中包含完整字段 `parse_status`、`buyZone`、`stopLoss`、`targetPrice`、`decision`、`report_score`、`strategy`、`key_watch_points`、`operation_suggestions`、`risk_controls`、`footnote`
 - 额外验证：确认生成文件包含 `overview`、账户 `summary`、持仓 `monitor_assessment`
 - 额外验证：确认 `monitor_assessment` 包含 `watch_items`、`risk_alerts`
 - 额外验证：确认账户 `summary` 与顶层 `overview` 包含 `watch_items_count`、`risk_alerts_count`
