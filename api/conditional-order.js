@@ -368,6 +368,7 @@ function addMonths(date, months) {
 
 module.exports = {
   getConditionalOrders,
+  getConditionalOrder,
   createConditionalOrder,
   updateConditionalOrder,
   deleteConditionalOrder,
