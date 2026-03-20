@@ -293,12 +293,6 @@
     }
 
     @media (max-width: 860px) {
-      .page-header {
-        flex-direction: column;
-        gap: 12px;
-        align-items: stretch;
-      }
-
       .form-row {
         grid-template-columns: 1fr;
       }
@@ -319,15 +313,23 @@
 </head>
 <body>
   <main class="page-shell">
-    <header class="page-header">
-      <h1 class="page-title">条件单管理</h1>
-      <nav class="page-nav">
-        <a href="index.html">监控池</a>
-        <a href="analysis.html">个股分析</a>
-        <a href="portfolio.html">账户</a>
-        <a href="conditional-order.html">条件单</a>
-      </nav>
-    </header>
+    <!-- 顶部导航 -->
+    <nav class="top-nav">
+      <a href="./index.html">首页</a>
+      <a href="./select.html">选股分析</a>
+      <a href="./analysis.html">个股分析</a>
+      <a href="./monitor-pool.html">监控池</a>
+      <a href="./portfolio.html">账户管理</a>
+      <a href="./conditional-order.html" class="active">条件单</a>
+      <a href="./backtest.html">回测系统</a>
+    </nav>
+
+    <!-- 页面标题 -->
+    <section class="hero">
+      <p class="eyebrow">Conditional Order</p>
+      <h1>条件单管理</h1>
+      <p class="subtitle">创建和管理智能条件单，自动化您的交易策略</p>
+    </section>
 
     <section class="panel">
       <div class="panel-inner">
