@@ -197,7 +197,32 @@ openclaw skills info sina-ashare-mcp
 - `docs/monitor-guide.md` - 监控服务使用指南
 - `docs/backtest_integration_plan.md` - 回测集成方案
 
+## 部署
+
+### 本地开发（macOS）
+
+```bash
+# 配置定时任务（每个交易日 15:30 执行）
+crontab -e
+# 添加：30 15 * * 1-5 cd /Users/vvc/.openclaw/workspace/stock-system && node scripts/daily-monitor.mjs >> logs/daily-monitor.log 2>&1
+```
+
+### 生产环境（Linux 服务器）
+
+详细部署指南请参考 [DEPLOYMENT.md](DEPLOYMENT.md)，支持：
+- **crontab**：简单 VPS/云服务器
+- **systemd timer**：现代 Linux（推荐）
+- **Docker**：容器化部署
+
+### 环境变量配置
+
+```bash
+cp .env.example .env
+# 编辑 .env 填入飞书配置（FEISHU_APP_ID / FEISHU_APP_SECRET）
+```
+
+---
+
 ## 许可证
 
 MIT
-# Codex Review 测试
