@@ -85,6 +85,34 @@ async function getConditionalOrders(req, res) {
 }
 
 /**
+ * 获取单个条件单详情
+ * GET /api/conditional-order/:id
+ */
+async function getConditionalOrder(req, res) {
+  try {
+    const { id } = req.params;
+    const db = await getDatabase();
+    
+    const order = await db.getPromise('SELECT * FROM conditional_order WHERE id = ?', [id]);
+    
+    if (!order) {
+      return res.status(404).json({ success: false, error: '条件单不存在' });
+    }
+    
+    // 安全解析 conditions JSON
+    const parsedOrder = {
+      ...order,
+      conditions: safeJsonParse(order.conditions, [])
+    };
+    
+    res.json({ success: true, data: parsedOrder });
+  } catch (error) {
+    console.error('获取条件单详情失败:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+/**
  * 创建条件单
  * POST /api/conditional-order
  */

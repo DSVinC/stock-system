@@ -25,7 +25,7 @@
 
 ## 2. 标准调用方式
 
-推荐使用一次性、非交互、无会话持久化的调用方式，避免旧上下文污染新任务。
+推荐使用一次性、非交互、无会话持久化的调用方式，避免旧上下文污染新任务；默认保留 skills 生效。
 
 ```bash
 cat <<'EOF' >/tmp/claude_task.txt
@@ -49,7 +49,6 @@ EOF
 
 claude -p \
   --no-session-persistence \
-  --disable-slash-commands \
   --dangerously-skip-permissions \
   --output-format json \
   --add-dir /Users/vvc/.openclaw/workspace/stock-system \
@@ -60,9 +59,13 @@ claude -p \
 
 - `-p`：一次性输出并退出
 - `--no-session-persistence`：避免旧任务污染当前任务
-- `--disable-slash-commands`：减少插件、skills 和额外规则干扰
 - `--output-format json`：便于后续核对结果
 - `--add-dir`：限制访问范围在当前项目目录
+
+说明：
+
+- 当前项目默认要求 Claude 带 skill 启动，因此**不要默认添加** `--disable-slash-commands`
+- 只有在明确需要“干净执行器模式”排查问题时，才临时禁用 slash commands / skills
 
 ---
 
@@ -72,6 +75,8 @@ claude -p \
 
 ```text
 你在 /Users/vvc/.openclaw/workspace/stock-system 仓库中开发。
+
+请先遵循当前项目相关技能与文档。
 
 只修改 [文件路径]。
 
@@ -188,6 +193,13 @@ Claude 返回后，不直接相信自然语言结果，必须独立复验：
 - 本地验收
 - 交接记录
 
+在本项目中，推荐 Claude 先遵循以下项目侧规范：
+
+- `/Users/vvc/.openclaw/workspace/skills/项目操作规范/SKILL.md`
+- `/Users/vvc/.openclaw/workspace/skills/multi-codex-agent/SKILL.md`
+- `/Users/vvc/.openclaw/workspace/stock-system/docs/README.md`
+- `/Users/vvc/.openclaw/workspace/stock-system/docs/runtime/TASK_{ID}_STATUS.md`
+
 ---
 
 ## 8. 当前最佳实践
@@ -199,6 +211,12 @@ Claude 返回后，不直接相信自然语言结果，必须独立复验：
 3. Claude 返回后做独立验收
 4. 验收通过后更新 `memory/project_log.md`
 5. 再决定是否提交 GitHub PR 和触发 Code Review
+
+如果当前任务依赖项目技能与规范，派发 prompt 时应明确写出：
+
+- 先遵循项目技能
+- 再执行当前小任务
+- 最后只输出修改文件、执行命令和关键结果
 
 一句话原则：
 

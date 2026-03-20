@@ -152,6 +152,8 @@ async function bootstrap() {
     const conditionalOrder = require('./conditional-order');
     const router = require('express').Router();
     router.get('/', conditionalOrder.getConditionalOrders);
+    router.get('/list', conditionalOrder.getConditionalOrders);
+    router.get('/:id', conditionalOrder.getConditionalOrder);
     router.post('/', conditionalOrder.createConditionalOrder);
     router.put('/:id', conditionalOrder.updateConditionalOrder);
     router.delete('/:id', conditionalOrder.deleteConditionalOrder);
