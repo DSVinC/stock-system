@@ -29,6 +29,10 @@ const STOCK_SYSTEM_DIR = path.join(SCRIPTS_DIR, '..');
 const NEWS_DB_PATH = path.join(STOCK_SYSTEM_DIR, '..', 'news_system', 'news.db');
 const STOCK_DB_PATH = path.join(STOCK_SYSTEM_DIR, 'data', 'stock_system.db');
 
+// Tushare API 配置
+const TUSHARE_URL = 'https://api.tushare.pro';
+const TUSHARE_TOKEN = process.env.TUSHARE_TOKEN || '';
+
 // ==================== 配置 ====================
 const CONFIG = {
   // 事件源开关配置
@@ -44,8 +48,8 @@ const CONFIG = {
       enabled: true,
       name: '财报发布',
       priority: 'high',
-      mockDataCount: 2,
-      useRealData: false // 待接入 Tushare
+      mockDataCount: 20,
+      useRealData: true // ✅ 使用 Tushare 披露日期表
     },
     importantNews: {
       enabled: true,
@@ -260,6 +264,146 @@ function analyzeNewsSentiment(title, content) {
   return Math.max(-1, Math.min(1, score));
 }
 
+/**
+ * Tushare API 请求
+ */
+async function tushareRequest(apiName, params = {}) {
+  if (!TUSHARE_TOKEN) {
+    console.warn('[Tushare] 未配置 TUSHARE_TOKEN，使用 Mock 数据');
+    return null;
+  }
+
+  try {
+    const response = await fetch(TUSHARE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        api_name: apiName,
+        token: TUSHARE_TOKEN,
+        params: params,
+        fields: []
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Tushare API 请求失败：${response.status}`);
+    }
+
+    const data = await response.json();
+    if (data.code !== 0) {
+      throw new Error(data.msg || 'Tushare API 返回错误');
+    }
+
+    return data;
+  } catch (error) {
+    console.warn(`[Tushare] ${apiName} 请求失败:`, error.message);
+    return null;
+  }
+}
+
+/**
+ * 从 Tushare 获取财报发布日期
+ */
+async function fetchEarningsReportsFromTushare(days = 7) {
+  if (!TUSHARE_TOKEN) {
+    console.log('[财报发布] 未配置 TUSHARE_TOKEN，使用 Mock 数据');
+    return null;
+  }
+
+  console.log('[财报发布] 从 Tushare 获取财报数据...');
+
+  // 使用披露日程表获取近期财报披露计划
+  // ann_date: 最新披露公告日，格式 YYYYMMDD
+  const startDate = getDaysAgo(days).replace(/-/g, '');
+  const endDate = getFutureDate(7).replace(/-/g, '');
+
+  const data = await tushareRequest('disclosure_date', {
+    ann_date: startDate
+  });
+
+  if (!data || !data.data || !data.data.items) {
+    console.log('[财报发布] Tushare 无近期财报数据，使用 Mock 数据降级');
+    return null;
+  }
+
+  const fields = data.data.fields;
+  const items = data.data.items;
+
+  // 字段映射
+  const fieldIndex = {};
+  fields.forEach((field, index) => {
+    fieldIndex[field] = index;
+  });
+
+  const events = [];
+  const processedCompanies = new Set();
+
+  items.slice(0, 20).forEach(item => {
+    const tsCode = item[fieldIndex.ts_code];
+    const annDate = item[fieldIndex.ann_date]; // 公告日期
+    const endDate = item[fieldIndex.end_date]; // 报告期
+    const reportType = determineReportType(endDate);
+
+    // 避免同一天同一公司多条记录
+    const key = `${tsCode}_${annDate}`;
+    if (processedCompanies.has(key)) return;
+    processedCompanies.add(key);
+
+    events.push({
+      id: `RPT-${tsCode}-${annDate}`,
+      type: 'earnings_report',
+      source: 'tushare',
+      title: `${reportType}披露`,
+      content: `公告日期：${annDate}, 报告期：${endDate}`,
+      stockCode: tsCode,
+      stockName: null,
+      eventTime: new Date(annDate),
+      publishTime: new Date(annDate),
+      priority: 'high',
+      reportType: reportType,
+      reportPeriod: endDate,
+      revenue: null,
+      netProfit: null,
+      eps: null,
+      yoyGrowth: null,
+      metadata: { ts_code: tsCode, ann_date: annDate, end_date: endDate }
+    });
+  });
+
+  console.log(`[财报发布] 从 Tushare 获取 ${events.length} 条财报数据`);
+  return events;
+}
+
+/**
+ * 获取 N 天前的日期 (YYYYMMDD)
+ */
+function getDaysAgo(days) {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date.toISOString().split('T')[0].replace(/-/g, '');
+}
+
+/**
+ * 获取未来 7 天的日期 (YYYYMMDD)
+ */
+function getFutureDate(days) {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date.toISOString().split('T')[0].replace(/-/g, '');
+}
+
+/**
+ * 判断财报类型
+ */
+function determineReportType(endDate) {
+  const month = parseInt(endDate.substring(4, 6));
+  if (month === 12) return '年报';
+  if (month === 3) return '一季报';
+  if (month === 6) return '半年报';
+  if (month === 9) return '三季报';
+  return '季报';
+}
+
 // ==================== 事件数据结构 ====================
 
 /**
@@ -417,9 +561,17 @@ class CompanyAnnouncementAdapter extends EventSourceAdapter {
 }
 
 class EarningsReportAdapter extends EventSourceAdapter {
-  _fetchImpl() {
-    // 待接入 Tushare 财报数据
-    console.log(`[${this.name}] 使用 Mock 数据（待接入 Tushare）`);
+  async _fetchImpl() {
+    if (this.config.useRealData) {
+      console.log(`[${this.name}] 从 Tushare 获取真实财报数据...`);
+      const events = await fetchEarningsReportsFromTushare(7);
+      if (events && events.length > 0) {
+        console.log(`[${this.name}] 获取 ${events.length} 条财报`);
+        return events;
+      }
+    }
+    // 降级到 Mock 数据
+    console.log(`[${this.name}] 使用 Mock 数据（降级）`);
     return EventGenerators.generateEarningsReports(this.config.mockDataCount);
   }
 }
@@ -505,9 +657,10 @@ class EventAggregator {
 
 async function main() {
   console.log(`[${new Date().toISOString()}] 盘后事件源接入框架启动`);
-  console.log('版本：1.1.0 (整合本地新闻数据库)');
-  console.log('支持事件源：公司公告 (真实) | 财报发布 (Mock) | 重要新闻 (真实) | 价格异动 (Mock)');
-  console.log(`新闻数据库：${NEWS_DB_PATH}\n`);
+  console.log('版本：1.2.0 (整合本地新闻数据库 + Tushare 财报)');
+  console.log('支持事件源：公司公告 (真实) | 财报发布 (Tushare) | 重要新闻 (真实) | 价格异动 (Mock)');
+  console.log(`新闻数据库：${NEWS_DB_PATH}`);
+  console.log(`Tushare API: ${TUSHARE_TOKEN ? '✅ 已配置' : '❌ 未配置'}\n`);
 
   // 检查新闻数据库是否存在
   if (!fs.existsSync(NEWS_DB_PATH)) {
