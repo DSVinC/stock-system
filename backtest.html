@@ -20,6 +20,23 @@
       margin-bottom: 30px;
       font-size: 2em;
     }
+    .nav {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .nav a {
+      color: #a0a0a0;
+      text-decoration: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      transition: all 0.3s;
+    }
+    .nav a:hover, .nav a.active {
+      color: #00d4ff;
+      background: rgba(0,212,255,0.1);
+    }
     .card {
       background: rgba(255,255,255,0.05);
       border-radius: 12px;
@@ -55,6 +72,10 @@
       color: #e0e0e0;
       font-size: 14px;
     }
+    .form-group input:focus, .form-group select:focus {
+      outline: none;
+      border-color: #00d4ff;
+    }
     .btn {
       padding: 12px 24px;
       border: none;
@@ -71,6 +92,137 @@
       transform: translateY(-2px);
       box-shadow: 0 4px 12px rgba(0,212,255,0.4);
     }
+    .btn-secondary {
+      background: rgba(255,255,255,0.1);
+      color: #e0e0e0;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+    .btn-secondary:hover {
+      background: rgba(255,255,255,0.15);
+    }
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+    .btn-danger {
+      background: rgba(255,71,87,0.2);
+      color: #ff4757;
+      border: 1px solid rgba(255,71,87,0.3);
+    }
+
+    /* 策略参数面板 */
+    .strategy-params {
+      background: rgba(0,0,0,0.2);
+      border-radius: 8px;
+      padding: 15px;
+      margin-top: 15px;
+      display: none;
+    }
+    .strategy-params.active {
+      display: block;
+    }
+    .param-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin-bottom: 10px;
+    }
+    .param-group label {
+      display: block;
+      margin-bottom: 5px;
+      color: #a0a0a0;
+      font-size: 0.85em;
+    }
+    .param-group input, .param-group select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 4px;
+      background: rgba(0,0,0,0.3);
+      color: #e0e0e0;
+      font-size: 13px;
+    }
+
+    /* 股票搜索 */
+    .stock-search-container {
+      position: relative;
+    }
+    .stock-search-input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 6px;
+      background: rgba(0,0,0,0.3);
+      color: #e0e0e0;
+      font-size: 14px;
+    }
+    .stock-search-results {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: rgba(26,26,46,0.98);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 6px;
+      max-height: 300px;
+      overflow-y: auto;
+      z-index: 100;
+      display: none;
+    }
+    .stock-search-results.active {
+      display: block;
+    }
+    .stock-search-item {
+      padding: 10px 15px;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .stock-search-item:hover {
+      background: rgba(0,212,255,0.1);
+    }
+    .stock-search-item:last-child {
+      border-bottom: none;
+    }
+    .stock-search-item .stock-code {
+      color: #00d4ff;
+      font-size: 0.9em;
+    }
+    .stock-search-item .stock-name {
+      color: #e0e0e0;
+    }
+
+    /* 已选股票列表 */
+    .selected-stocks {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+      min-height: 40px;
+      padding: 10px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 6px;
+    }
+    .selected-stock-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: rgba(0,212,255,0.15);
+      border: 1px solid rgba(0,212,255,0.3);
+      border-radius: 20px;
+      font-size: 13px;
+    }
+    .selected-stock-tag .remove-stock {
+      cursor: pointer;
+      color: #ff4757;
+      font-size: 16px;
+      line-height: 1;
+    }
+
+    /* 回测结果 */
     .metrics-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -130,29 +282,55 @@
       border-radius: 6px;
       margin-top: 15px;
     }
-    .nav {
-      display: flex;
-      gap: 15px;
-      margin-bottom: 20px;
-      flex-wrap: wrap;
+
+    /* 条件单导入区域 */
+    .import-section {
+      margin-top: 15px;
+      padding: 15px;
+      background: rgba(0,212,255,0.05);
+      border-radius: 8px;
+      border: 1px dashed rgba(0,212,255,0.3);
     }
-    .nav a {
-      color: #a0a0a0;
-      text-decoration: none;
-      padding: 8px 16px;
-      border-radius: 6px;
-      transition: all 0.3s;
-    }
-    .nav a:hover, .nav a.active {
+    .import-section h4 {
       color: #00d4ff;
+      margin-bottom: 10px;
+      font-size: 0.95em;
+    }
+    .conditional-order-list {
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .conditional-order-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 4px;
+      margin-bottom: 6px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .conditional-order-item:hover {
       background: rgba(0,212,255,0.1);
+    }
+    .conditional-order-item.selected {
+      background: rgba(0,212,255,0.2);
+      border: 1px solid rgba(0,212,255,0.4);
+    }
+
+    /* 帮助提示 */
+    .help-text {
+      font-size: 0.8em;
+      color: #888;
+      margin-top: 4px;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>📊 策略回测系统</h1>
-    
+    <h1>策略回测系统</h1>
+
     <div class="nav">
       <a href="index.html">监控池</a>
       <a href="select.html">选股</a>
@@ -164,7 +342,9 @@
 
     <!-- 回测配置 -->
     <div class="card">
-      <div class="card-title">⚙️ 回测配置</div>
+      <div class="card-title">回测配置</div>
+
+      <!-- 基础配置 -->
       <div class="form-row">
         <div class="form-group">
           <label>开始日期</label>
@@ -179,36 +359,181 @@
           <input type="number" id="initialCash" value="1000000" step="100000">
         </div>
       </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>股票代码（逗号分隔）</label>
-          <input type="text" id="stocks" value="300308.SZ,000001.SZ" placeholder="如: 300308.SZ,000001.SZ">
+
+      <!-- 策略选择 -->
+      <div class="form-group" style="margin-top: 15px;">
+        <label>选择策略</label>
+        <select id="strategySelect" onchange="onStrategyChange()">
+          <option value="">-- 请选择策略 --</option>
+          <option value="double_ma">双均线策略</option>
+          <option value="rsi">RSI 超买超卖策略</option>
+          <option value="macd">MACD 金叉死叉策略</option>
+          <option value="bollinger">布林带突破策略</option>
+          <option value="conditional">自定义条件单策略（从条件单导入）</option>
+        </select>
+      </div>
+
+      <!-- 双均线策略参数 -->
+      <div id="params_double_ma" class="strategy-params">
+        <h4 style="color:#00d4ff;margin-bottom:10px;font-size:0.95em;">双均线策略参数</h4>
+        <div class="param-row">
+          <div class="param-group">
+            <label>快线周期（日）</label>
+            <select id="ma_fast">
+              <option value="5">5 日</option>
+              <option value="10" selected>10 日</option>
+              <option value="15">15 日</option>
+              <option value="20">20 日</option>
+            </select>
+          </div>
+          <div class="param-group">
+            <label>慢线周期（日）</label>
+            <select id="ma_slow">
+              <option value="20">20 日</option>
+              <option value="30">30 日</option>
+              <option value="60" selected>60 日</option>
+              <option value="120">120 日</option>
+            </select>
+          </div>
+          <div class="param-group">
+            <label>单次买入资金比例</label>
+            <select id="invest_ratio_ma">
+              <option value="0.2">20%</option>
+              <option value="0.3" selected>30%</option>
+              <option value="0.5">50%</option>
+            </select>
+          </div>
         </div>
-        <div class="form-group">
-          <label>买入条件</label>
-          <select id="buyCondition">
-            <option value="pe_low">PE < 20（低估值）</option>
-            <option value="price_drop">价格跌幅 > 5%</option>
-            <option value="custom">自定义</option>
-          </select>
+        <p class="help-text">策略说明：当快线上穿慢线时买入，快线下穿慢线时卖出。</p>
+      </div>
+
+      <!-- RSI 策略参数 -->
+      <div id="params_rsi" class="strategy-params">
+        <h4 style="color:#00d4ff;margin-bottom:10px;font-size:0.95em;">RSI 超买超卖策略参数</h4>
+        <div class="param-row">
+          <div class="param-group">
+            <label>RSI 周期</label>
+            <select id="rsi_period">
+              <option value="6">6 日</option>
+              <option value="14" selected>14 日</option>
+              <option value="21">21 日</option>
+            </select>
+          </div>
+          <div class="param-group">
+            <label>超卖阈值（买入）</label>
+            <input type="number" id="rsi_oversold" value="30" min="10" max="40">
+          </div>
+          <div class="param-group">
+            <label>超买阈值（卖出）</label>
+            <input type="number" id="rsi_overbought" value="70" min="60" max="90">
+          </div>
+          <div class="param-group">
+            <label>单次买入资金比例</label>
+            <select id="invest_ratio_rsi">
+              <option value="0.2">20%</option>
+              <option value="0.3" selected>30%</option>
+              <option value="0.5">50%</option>
+            </select>
+          </div>
         </div>
-        <div class="form-group">
-          <label>卖出条件</label>
-          <select id="sellCondition">
-            <option value="profit_10">盈利10%</option>
-            <option value="loss_5">亏损5%</option>
-            <option value="pe_high">PE > 40</option>
-          </select>
+        <p class="help-text">策略说明：RSI 低于超卖阈值时买入，高于超买阈值时卖出。</p>
+      </div>
+
+      <!-- MACD 策略参数 -->
+      <div id="params_macd" class="strategy-params">
+        <h4 style="color:#00d4ff;margin-bottom:10px;font-size:0.95em;">MACD 金叉死叉策略参数</h4>
+        <div class="param-row">
+          <div class="param-group">
+            <label>快线周期</label>
+            <input type="number" id="macd_fast" value="12" min="5" max="30">
+          </div>
+          <div class="param-group">
+            <label>慢线周期</label>
+            <input type="number" id="macd_slow" value="26" min="10" max="60">
+          </div>
+          <div class="param-group">
+            <label>信号线周期</label>
+            <input type="number" id="macd_signal" value="9" min="5" max="20">
+          </div>
+          <div class="param-group">
+            <label>单次买入资金比例</label>
+            <select id="invest_ratio_macd">
+              <option value="0.2">20%</option>
+              <option value="0.3" selected>30%</option>
+              <option value="0.5">50%</option>
+            </select>
+          </div>
+        </div>
+        <p class="help-text">策略说明：MACD 线上穿信号线（金叉）时买入，下穿信号线（死叉）时卖出。</p>
+      </div>
+
+      <!-- 布林带策略参数 -->
+      <div id="params_bollinger" class="strategy-params">
+        <h4 style="color:#00d4ff;margin-bottom:10px;font-size:0.95em;">布林带突破策略参数</h4>
+        <div class="param-row">
+          <div class="param-group">
+            <label>周期（日）</label>
+            <select id="boll_period">
+              <option value="10">10 日</option>
+              <option value="20" selected>20 日</option>
+              <option value="30">30 日</option>
+            </select>
+          </div>
+          <div class="param-group">
+            <label>标准差倍数</label>
+            <select id="boll_std">
+              <option value="1.5">1.5 倍</option>
+              <option value="2" selected>2 倍</option>
+              <option value="2.5">2.5 倍</option>
+            </select>
+          </div>
+          <div class="param-group">
+            <label>单次买入资金比例</label>
+            <select id="invest_ratio_boll">
+              <option value="0.2">20%</option>
+              <option value="0.3" selected>30%</option>
+              <option value="0.5">50%</option>
+            </select>
+          </div>
+        </div>
+        <p class="help-text">策略说明：价格跌破下轨时买入，突破上轨时卖出。</p>
+      </div>
+
+      <!-- 条件单导入 -->
+      <div id="params_conditional" class="strategy-params">
+        <div class="import-section">
+          <h4>从条件单导入策略</h4>
+          <p style="font-size:0.85em;color:#888;margin-bottom:10px;">选择已有的条件单作为回测策略</p>
+          <div id="conditionalOrderList" class="conditional-order-list">
+            <p style="color:#888;text-align:center;padding:20px;">加载中...</p>
+          </div>
         </div>
       </div>
-      <button class="btn btn-primary" onclick="runBacktest()">🚀 开始回测</button>
+
+      <!-- 股票选择 -->
+      <div class="form-group" style="margin-top: 20px;">
+        <label>添加回测股票</label>
+        <div class="stock-search-container">
+          <input type="text" id="stockSearch" class="stock-search-input" placeholder="输入股票名称或代码搜索..." oninput="searchStocks(this.value)">
+          <div id="searchResults" class="stock-search-results"></div>
+        </div>
+        <p class="help-text">支持公司名称或代码模糊搜索，点击搜索结果添加到回测列表</p>
+      </div>
+
+      <div class="form-group">
+        <label>已选股票（<span id="stockCount">0</span> 只）</label>
+        <div id="selectedStocks" class="selected-stocks">
+          <span style="color:#888;font-size:0.9em;">请在上方搜索并添加股票</span>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="runBacktest()">开始回测</button>
     </div>
 
     <!-- 回测结果 -->
     <div id="resultContainer" style="display: none;">
-      <!-- 关键指标 -->
       <div class="card">
-        <div class="card-title">📈 回测结果</div>
+        <div class="card-title">回测结果</div>
         <div class="metrics-grid">
           <div class="metric-card">
             <div class="metric-value" id="totalReturn">--</div>
@@ -237,9 +562,8 @@
         </div>
       </div>
 
-      <!-- 交易记录 -->
       <div class="card">
-        <div class="card-title">📝 交易记录</div>
+        <div class="card-title">交易记录</div>
         <table class="trades-table">
           <thead>
             <tr>
@@ -259,52 +583,301 @@
     </div>
 
     <div id="loading" class="loading" style="display: none;">
-      ⏳ 回测进行中，请稍候...
+      回测进行中，请稍候...
     </div>
     <div id="error" class="error" style="display: none;"></div>
   </div>
 
   <script>
+    // 状态管理
+    let selectedStocks = [];
+    let selectedConditionalOrder = null;
+    let conditionalOrders = [];
+
+    // 常用股票列表（用于搜索）
+    const stockDatabase = [
+      { code: '300308.SZ', name: '中际旭创' },
+      { code: '000001.SZ', name: '平安银行' },
+      { code: '000002.SZ', name: '万科A' },
+      { code: '000858.SZ', name: '五粮液' },
+      { code: '002415.SZ', name: '海康威视' },
+      { code: '600519.SH', name: '贵州茅台' },
+      { code: '600036.SH', name: '招商银行' },
+      { code: '601318.SH', name: '中国平安' },
+      { code: '000333.SZ', name: '美的集团' },
+      { code: '002594.SZ', name: '比亚迪' },
+      { code: '300750.SZ', name: '宁德时代' },
+      { code: '600900.SH', name: '长江电力' },
+      { code: '601012.SH', name: '隆基绿能' },
+      { code: '002475.SZ', name: '立讯精密' },
+      { code: '300059.SZ', name: '东方财富' },
+      { code: '002352.SZ', name: '顺丰控股' },
+      { code: '000651.SZ', name: '格力电器' },
+      { code: '600276.SH', name: '恒瑞医药' },
+      { code: '603259.SH', name: '药明康德' },
+      { code: '688981.SH', name: '中芯国际' },
+      { code: '600009.SH', name: '上海机场' },
+      { code: '000568.SZ', name: '泸州老窖' },
+      { code: '002304.SZ', name: '洋河股份' },
+      { code: '600887.SH', name: '伊利股份' },
+      { code: '000538.SZ', name: '云南白药' },
+      { code: '002714.SZ', name: '牧原股份' },
+      { code: '002230.SZ', name: '科大讯飞' },
+      { code: '300014.SZ', name: '亿纬锂能' },
+      { code: '002129.SZ', name: 'TCL中环' },
+      { code: '600585.SH', name: '海螺水泥' }
+    ];
+
+    // 策略切换
+    function onStrategyChange() {
+      const strategy = document.getElementById('strategySelect').value;
+
+      // 隐藏所有参数面板
+      document.querySelectorAll('.strategy-params').forEach(el => {
+        el.classList.remove('active');
+      });
+
+      // 显示对应参数面板
+      if (strategy) {
+        const paramsEl = document.getElementById(`params_${strategy}`);
+        if (paramsEl) {
+          paramsEl.classList.add('active');
+        }
+
+        // 如果选择条件单策略，加载条件单列表
+        if (strategy === 'conditional') {
+          loadConditionalOrders();
+        }
+      }
+    }
+
+    // 搜索股票
+    function searchStocks(keyword) {
+      const resultsEl = document.getElementById('searchResults');
+
+      if (!keyword || keyword.trim().length < 1) {
+        resultsEl.classList.remove('active');
+        return;
+      }
+
+      keyword = keyword.trim().toLowerCase();
+
+      // 过滤匹配的股票
+      const matches = stockDatabase.filter(stock =>
+        stock.name.toLowerCase().includes(keyword) ||
+        stock.code.toLowerCase().includes(keyword) ||
+        stock.code.replace(/\.(SZ|SH)/i, '').includes(keyword)
+      ).slice(0, 10);
+
+      if (matches.length === 0) {
+        resultsEl.innerHTML = '<div style="padding:15px;color:#888;text-align:center;">未找到匹配股票</div>';
+      } else {
+        resultsEl.innerHTML = matches.map(stock => `
+          <div class="stock-search-item" onclick="addStock('${stock.code}', '${stock.name}')">
+            <span class="stock-name">${stock.name}</span>
+            <span class="stock-code">${stock.code}</span>
+          </div>
+        `).join('');
+      }
+
+      resultsEl.classList.add('active');
+    }
+
+    // 添加股票
+    function addStock(code, name) {
+      // 检查是否已添加
+      if (selectedStocks.some(s => s.code === code)) {
+        return;
+      }
+
+      selectedStocks.push({ code, name });
+      renderSelectedStocks();
+
+      // 清空搜索框
+      document.getElementById('stockSearch').value = '';
+      document.getElementById('searchResults').classList.remove('active');
+    }
+
+    // 移除股票
+    function removeStock(code) {
+      selectedStocks = selectedStocks.filter(s => s.code !== code);
+      renderSelectedStocks();
+    }
+
+    // 渲染已选股票
+    function renderSelectedStocks() {
+      const container = document.getElementById('selectedStocks');
+      const countEl = document.getElementById('stockCount');
+
+      countEl.textContent = selectedStocks.length;
+
+      if (selectedStocks.length === 0) {
+        container.innerHTML = '<span style="color:#888;font-size:0.9em;">请在上方搜索并添加股票</span>';
+        return;
+      }
+
+      container.innerHTML = selectedStocks.map(stock => `
+        <span class="selected-stock-tag">
+          ${stock.name} (${stock.code})
+          <span class="remove-stock" onclick="removeStock('${stock.code}')">&times;</span>
+        </span>
+      `).join('');
+    }
+
+    // 加载条件单列表
+    async function loadConditionalOrders() {
+      const listEl = document.getElementById('conditionalOrderList');
+
+      try {
+        const response = await fetch('/api/conditional-order?status=pending');
+        const result = await response.json();
+
+        if (!result.success || !result.data || result.data.length === 0) {
+          listEl.innerHTML = '<p style="color:#888;text-align:center;padding:20px;">暂无可用的条件单</p>';
+          return;
+        }
+
+        conditionalOrders = result.data;
+        listEl.innerHTML = result.data.map(order => `
+          <div class="conditional-order-item" onclick="selectConditionalOrder(${order.id})" id="cond-order-${order.id}">
+            <div>
+              <strong>${order.stock_name}</strong>
+              <span style="color:#888;margin-left:8px;">${order.ts_code}</span>
+            </div>
+            <div>
+              <span class="badge ${order.action === 'buy' ? 'badge-buy' : 'badge-sell'}">${order.action === 'buy' ? '买入' : '卖出'}</span>
+              <span style="color:#888;margin-left:8px;font-size:0.85em;">${formatConditions(order.conditions)}</span>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        listEl.innerHTML = '<p style="color:#ff4757;text-align:center;padding:20px;">加载条件单失败</p>';
+      }
+    }
+
+    // 选择条件单
+    function selectConditionalOrder(id) {
+      // 清除之前的选择
+      document.querySelectorAll('.conditional-order-item').forEach(el => {
+        el.classList.remove('selected');
+      });
+
+      // 标记当前选择
+      const itemEl = document.getElementById(`cond-order-${id}`);
+      if (itemEl) {
+        itemEl.classList.add('selected');
+      }
+
+      selectedConditionalOrder = conditionalOrders.find(o => o.id === id);
+    }
+
+    // 格式化条件
+    function formatConditions(conditions) {
+      if (!conditions || conditions.length === 0) return '-';
+      return conditions.map(c => `${c.type}${c.operator}${c.value}`).join(', ');
+    }
+
+    // 获取策略配置
+    function getStrategyConfig() {
+      const strategyType = document.getElementById('strategySelect').value;
+
+      switch (strategyType) {
+        case 'double_ma':
+          return {
+            name: '双均线策略',
+            type: 'double_ma',
+            params: {
+              fast_period: parseInt(document.getElementById('ma_fast').value),
+              slow_period: parseInt(document.getElementById('ma_slow').value),
+              invest_ratio: parseFloat(document.getElementById('invest_ratio_ma').value)
+            },
+            buyCondition: { type: 'ma_cross', direction: 'up' },
+            sellCondition: { type: 'ma_cross', direction: 'down' }
+          };
+
+        case 'rsi':
+          return {
+            name: 'RSI超买超卖策略',
+            type: 'rsi',
+            params: {
+              period: parseInt(document.getElementById('rsi_period').value),
+              oversold: parseInt(document.getElementById('rsi_oversold').value),
+              overbought: parseInt(document.getElementById('rsi_overbought').value),
+              invest_ratio: parseFloat(document.getElementById('invest_ratio_rsi').value)
+            },
+            buyCondition: { type: 'rsi', operator: '<=', value: parseInt(document.getElementById('rsi_oversold').value) },
+            sellCondition: { type: 'rsi', operator: '>=', value: parseInt(document.getElementById('rsi_overbought').value) }
+          };
+
+        case 'macd':
+          return {
+            name: 'MACD金叉死叉策略',
+            type: 'macd',
+            params: {
+              fast_period: parseInt(document.getElementById('macd_fast').value),
+              slow_period: parseInt(document.getElementById('macd_slow').value),
+              signal_period: parseInt(document.getElementById('macd_signal').value),
+              invest_ratio: parseFloat(document.getElementById('invest_ratio_macd').value)
+            },
+            buyCondition: { type: 'macd_cross', direction: 'golden' },
+            sellCondition: { type: 'macd_cross', direction: 'death' }
+          };
+
+        case 'bollinger':
+          return {
+            name: '布林带突破策略',
+            type: 'bollinger',
+            params: {
+              period: parseInt(document.getElementById('boll_period').value),
+              std_dev: parseFloat(document.getElementById('boll_std').value),
+              invest_ratio: parseFloat(document.getElementById('invest_ratio_boll').value)
+            },
+            buyCondition: { type: 'boll_lower', operator: '<=' },
+            sellCondition: { type: 'boll_upper', operator: '>=' }
+          };
+
+        case 'conditional':
+          if (!selectedConditionalOrder) {
+            return null;
+          }
+          return {
+            name: `条件单策略 - ${selectedConditionalOrder.stock_name}`,
+            type: 'conditional',
+            params: {
+              order_id: selectedConditionalOrder.id
+            },
+            buyCondition: selectedConditionalOrder.action === 'buy' ? selectedConditionalOrder.conditions : null,
+            sellCondition: selectedConditionalOrder.action === 'sell' ? selectedConditionalOrder.conditions : null,
+            invest_ratio: 0.3
+          };
+
+        default:
+          return null;
+      }
+    }
+
+    // 运行回测
     async function runBacktest() {
+      const strategyConfig = getStrategyConfig();
+
+      if (!strategyConfig) {
+        showError('请选择策略并完成参数配置');
+        return;
+      }
+
+      if (selectedStocks.length === 0) {
+        showError('请至少添加一只回测股票');
+        return;
+      }
+
       const startDate = document.getElementById('startDate').value;
       const endDate = document.getElementById('endDate').value;
       const initialCash = parseInt(document.getElementById('initialCash').value);
-      const stocksInput = document.getElementById('stocks').value;
-      const stocks = stocksInput.split(',').map(s => s.trim()).filter(s => s);
-      
-      const buyConditionType = document.getElementById('buyCondition').value;
-      const sellConditionType = document.getElementById('sellCondition').value;
-      
-      // 构建条件
-      let buyCondition, sellCondition;
-      
-      switch(buyConditionType) {
-        case 'pe_low':
-          buyCondition = { type: 'pe', operator: '<=', value: 20 };
-          break;
-        case 'price_drop':
-          buyCondition = { type: 'price', operator: '<=', value: 100 }; // 简化处理
-          break;
-        default:
-          buyCondition = { type: 'pe', operator: '<=', value: 30 };
-      }
-      
-      switch(sellConditionType) {
-        case 'profit_10':
-          sellCondition = { type: 'price', operator: '>=', value: 1000 }; // 简化
-          break;
-        case 'loss_5':
-          sellCondition = { type: 'price', operator: '<=', value: 0 };
-          break;
-        case 'pe_high':
-          sellCondition = { type: 'pe', operator: '>=', value: 40 };
-          break;
-      }
-      
+
       document.getElementById('loading').style.display = 'block';
       document.getElementById('resultContainer').style.display = 'none';
       document.getElementById('error').style.display = 'none';
-      
+
       try {
         const response = await fetch('/api/backtest/run', {
           method: 'POST',
@@ -313,17 +886,13 @@
             startDate,
             endDate,
             initialCash,
-            stocks,
-            strategy: {
-              name: 'PE估值策略',
-              buyCondition,
-              sellCondition
-            }
+            stocks: selectedStocks.map(s => s.code),
+            strategy: strategyConfig
           })
         });
-        
+
         const result = await response.json();
-        
+
         if (result.success) {
           displayResults(result.data);
         } else {
@@ -335,27 +904,30 @@
         document.getElementById('loading').style.display = 'none';
       }
     }
-    
+
+    // 显示结果
     function displayResults(data) {
-      const summary = data.summary;
-      const metrics = data.metrics;
-      
+      const summary = data.summary || data.metrics || {};
+
       // 更新指标
-      document.getElementById('totalReturn').textContent = '¥' + (summary.totalReturn || 0).toLocaleString();
-      document.getElementById('totalReturn').className = 'metric-value ' + (summary.totalReturn >= 0 ? 'positive' : 'negative');
-      
-      document.getElementById('returnRate').textContent = ((summary.returnRate || 0) * 100).toFixed(2) + '%';
-      document.getElementById('returnRate').className = 'metric-value ' + (summary.returnRate >= 0 ? 'positive' : 'negative');
-      
+      const totalReturn = summary.totalReturn || 0;
+      const returnRate = summary.returnRate || 0;
+
+      document.getElementById('totalReturn').textContent = '¥' + totalReturn.toLocaleString();
+      document.getElementById('totalReturn').className = 'metric-value ' + (totalReturn >= 0 ? 'positive' : 'negative');
+
+      document.getElementById('returnRate').textContent = (returnRate * 100).toFixed(2) + '%';
+      document.getElementById('returnRate').className = 'metric-value ' + (returnRate >= 0 ? 'positive' : 'negative');
+
       document.getElementById('maxDrawdown').textContent = ((summary.maxDrawdown || 0) * 100).toFixed(2) + '%';
       document.getElementById('sharpeRatio').textContent = (summary.sharpeRatio || 0).toFixed(2);
       document.getElementById('winRate').textContent = ((summary.winRate || 0) * 100).toFixed(1) + '%';
       document.getElementById('tradeCount').textContent = summary.tradeCount || 0;
-      
+
       // 更新交易记录
       const tradesBody = document.getElementById('tradesBody');
       tradesBody.innerHTML = '';
-      
+
       if (data.trades && data.trades.length > 0) {
         data.trades.forEach(trade => {
           const row = document.createElement('tr');
@@ -373,14 +945,25 @@
       } else {
         tradesBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #666;">暂无交易记录</td></tr>';
       }
-      
+
       document.getElementById('resultContainer').style.display = 'block';
     }
-    
+
+    // 显示错误
     function showError(message) {
       document.getElementById('error').textContent = message;
       document.getElementById('error').style.display = 'block';
     }
+
+    // 点击外部关闭搜索结果
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.stock-search-container')) {
+        document.getElementById('searchResults').classList.remove('active');
+      }
+    });
+
+    // 初始化
+    renderSelectedStocks();
   </script>
 </body>
 </html>
