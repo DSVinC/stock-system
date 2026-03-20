@@ -1,7 +1,7 @@
 /**
  * 飞书推送模块
- * 用于发送监控报告、风险预警、个股提醒和每日摘要到飞书
- * 支持命令行和模块调用两种方式
+ * 用于发送监控报告、风险预警、个股提醒和每日摘要到飞书私聊
+ * 使用飞书开放平台 API（非 webhook）
  */
 
 /**
@@ -21,36 +21,65 @@ const MAX_RETRIES = 3;
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
- * 发送纯文本消息到飞书群聊
- * @param {string} text - 要发送的文本消息
- * @returns {Promise<{success: boolean, data?: any, error?: string}>}
+ * 获取飞书 app access token
+ * @returns {Promise<string|null>}
  */
-export async function sendFeishuTextMessage(text) {
-  const webhookUrl = process.env.FEISHU_WEBHOOK_URL;
+async function getAccessToken() {
+  const appId = process.env.FEISHU_APP_ID;
+  const appSecret = process.env.FEISHU_APP_SECRET;
 
-  if (!webhookUrl) {
-    return {
-      success: false,
-      error: 'Missing FEISHU_WEBHOOK_URL environment variable'
-    };
+  if (!appId || !appSecret) {
+    throw new Error('Missing FEISHU_APP_ID or FEISHU_APP_SECRET environment variable');
   }
 
-  const payload = {
-    msg_type: 'text',
-    content: {
-      text: String(text)
-    }
-  };
+  const response = await fetch('https://open.feishu.cn/open-apis/auth/v3/app_access_token/internal', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      app_id: appId,
+      app_secret: appSecret
+    })
+  });
 
+  const data = await response.json();
+
+  if (!response.ok || data.code !== 0) {
+    throw new Error(`获取 token 失败：${data.msg || response.statusText}`);
+  }
+
+  return data.app_access_token;
+}
+
+/**
+ * 发送消息到飞书私聊
+ * @param {string} receiveId - 接收者 open_id
+ * @param {string} text - 消息内容
+ * @returns {Promise<{success: boolean, data?: any, error?: string}>}
+ */
+export async function sendFeishuPrivateMessage(receiveId, text) {
   let lastError;
+
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const response = await fetch(webhookUrl, {
+      // 获取 access token
+      const accessToken = await getAccessToken();
+
+      // 发送消息
+      const response = await fetch('https://open.feishu.cn/open-apis/im/v1/messages', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          receive_id: receiveId,
+          msg_type: 'text',
+          content: JSON.stringify({
+            text: String(text)
+          })
+        })
       });
 
       const data = await response.json();
@@ -88,15 +117,24 @@ export async function sendFeishuTextMessage(text) {
  * @returns {Promise<{success: boolean, data?: any, error?: string}>}
  */
 export async function sendMonitorReport(report) {
-  const message = `📊 监控报告
-接收者: ${FEISHU_OPEN_ID}
-时间: ${new Date().toISOString()}
+  const message = `📊 每日监控报告
 
-${JSON.stringify(report, null, 2)}`;
+📈 账户概览：
+   - 账户数：${report.account_count || 0}
+   - 持仓数：${report.total_positions || 0}
+   - 总市值：¥${report.total_market_value?.toLocaleString() || '0'}
 
-  const result = await sendFeishuTextMessage(message);
+⚠️ 风险预警：${report.risk_alerts?.length || 0} 条
+👀 关注标的：${report.watch_items?.length || 0} 个
+📰 盘后事件：${report.after_hours_events?.length || 0} 条
+
+生成时间：${new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}`;
+
+  const result = await sendFeishuPrivateMessage(FEISHU_OPEN_ID, message);
   if (!result.success) {
-    console.error('[飞书推送失败] 监控报告:', result.error);
+    console.error('[飞书私聊推送失败] 监控报告:', result.error);
+  } else {
+    console.log('[飞书私聊推送成功] 监控报告已发送');
   }
   return result;
 }
@@ -107,19 +145,21 @@ ${JSON.stringify(report, null, 2)}`;
  * @returns {Promise<{success: boolean, data?: any, error?: string}>}
  */
 export async function sendRiskAlert(alerts) {
-  const alertsText = Array.isArray(alerts)
-    ? alerts.map(a => `- ${a.level || '未知'}: ${a.message || JSON.stringify(a)}`).join('\n')
-    : JSON.stringify(alerts, null, 2);
+  const alertsText = Array.isArray(alerts) && alerts.length > 0
+    ? alerts.map(a => `• [${a.level || '未知'}] ${a.message || a.title || '未知预警'}`).join('\n')
+    : '无风险预警';
 
   const message = `🚨 风险预警
-接收者: ${FEISHU_OPEN_ID}
-时间: ${new Date().toISOString()}
 
-${alertsText}`;
+${alertsText}
 
-  const result = await sendFeishuTextMessage(message);
+时间：${new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}`;
+
+  const result = await sendFeishuPrivateMessage(FEISHU_OPEN_ID, message);
   if (!result.success) {
-    console.error('[飞书推送失败] 风险预警:', result.error);
+    console.error('[飞书私聊推送失败] 风险预警:', result.error);
+  } else {
+    console.log('[飞书私聊推送成功] 风险预警已发送');
   }
   return result;
 }
@@ -131,19 +171,21 @@ ${alertsText}`;
  * @returns {Promise<{success: boolean, data?: any, error?: string}>}
  */
 export async function sendSingleStockAlert(stock, alert) {
-  const stockInfo = stock ? `${stock.name || stock.code || '未知'} (${stock.code || 'N/A'})` : '未知股票';
-  const alertInfo = alert ? `${alert.type || '提醒'}: ${alert.message || JSON.stringify(alert)}` : JSON.stringify(alert);
+  const stockInfo = stock ? `${stock.name || '未知'} (${stock.code || 'N/A'})` : '未知股票';
+  const alertInfo = alert ? `${alert.type || '提醒'}: ${alert.message || alert.title || '无详情'}` : '无详情';
 
   const message = `📈 个股提醒
-接收者: ${FEISHU_OPEN_ID}
-股票: ${stockInfo}
-时间: ${new Date().toISOString()}
 
-${alertInfo}`;
+股票：${stockInfo}
+${alertInfo}
 
-  const result = await sendFeishuTextMessage(message);
+时间：${new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}`;
+
+  const result = await sendFeishuPrivateMessage(FEISHU_OPEN_ID, message);
   if (!result.success) {
-    console.error('[飞书推送失败] 个股提醒:', result.error);
+    console.error('[飞书私聊推送失败] 个股提醒:', result.error);
+  } else {
+    console.log('[飞书私聊推送成功] 个股提醒已发送');
   }
   return result;
 }
@@ -155,17 +197,21 @@ ${alertInfo}`;
  */
 export async function sendDailySummary(summary) {
   const date = summary?.date || new Date().toISOString().split('T')[0];
-  const summaryText = summary?.summary || JSON.stringify(summary, null, 2);
+  const summaryText = summary?.summary || '今日无重要摘要';
 
   const message = `📋 每日摘要
-接收者: ${FEISHU_OPEN_ID}
-日期: ${date}
 
-${summaryText}`;
+日期：${date}
 
-  const result = await sendFeishuTextMessage(message);
+${summaryText}
+
+时间：${new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}`;
+
+  const result = await sendFeishuPrivateMessage(FEISHU_OPEN_ID, message);
   if (!result.success) {
-    console.error('[飞书推送失败] 每日摘要:', result.error);
+    console.error('[飞书私聊推送失败] 每日摘要:', result.error);
+  } else {
+    console.log('[飞书私聊推送成功] 每日摘要已发送');
   }
   return result;
 }
@@ -176,17 +222,24 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
   const handleResult = (result) => {
     if (result.success) {
-      console.log('Message sent successfully');
+      console.log('✅ 消息发送成功');
       process.exit(0);
     } else {
-      console.error(`Failed to send message: ${result.error}`);
+      console.error(`❌ 发送失败：${result.error}`);
       process.exit(1);
     }
   };
 
   switch (command) {
     case 'monitor-report':
-      sendMonitorReport({ type: 'monitor', timestamp: new Date().toISOString() }).then(handleResult);
+      sendMonitorReport({ 
+        account_count: 1, 
+        total_positions: 2, 
+        total_market_value: 100000,
+        risk_alerts: [],
+        watch_items: [],
+        after_hours_events: []
+      }).then(handleResult);
       break;
     case 'risk-alert':
       sendRiskAlert([{ type: 'risk', level: 'high', message: '测试预警' }]).then(handleResult);
@@ -198,14 +251,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       sendDailySummary({ date: new Date().toISOString().split('T')[0], summary: '今日摘要' }).then(handleResult);
       break;
     default:
-      // 默认行为：发送文本消息（保持向后兼容）
-      const message = process.argv[2];
+      // 默认行为：发送文本消息
+      const message = process.argv.slice(2).join(' ');
       if (!message) {
         console.error('Usage: node scripts/feishu-push.mjs "<message>"');
         console.error('       node scripts/feishu-push.mjs <command>');
         console.error('可用命令：monitor-report, risk-alert, stock-alert, daily-summary');
         process.exit(1);
       }
-      sendFeishuTextMessage(message).then(handleResult);
+      sendFeishuPrivateMessage(FEISHU_OPEN_ID, message).then(handleResult);
   }
 }
