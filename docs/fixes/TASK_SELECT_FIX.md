@@ -224,7 +224,7 @@ curl http://127.0.0.1:3000/api/industry/储能/stocks
 
 - 验收报告：`docs/acceptance/TASK_SELECT_UI_CODEX_ACCEPTANCE.md`
 - 修复计划：`docs/fixes/TASK_SELECT_FIX_PLAN.md`（已废弃）
-- 工作日志：`memory/project/stock_system/2026-03-21T23-00-00.json`（项目内留痕）
+- 工作日志：`memory/project/stock_system/2026-03-21T23-00-00.json`（项目内留痕，相对路径）
 
 ---
 
@@ -242,6 +242,7 @@ curl http://127.0.0.1:3000/api/industry/储能/stocks
 ### Git 提交记录
 
 ```
+3102dcb docs: 更新 TASK_SELECT_FIX.md 提交记录
 62681a1 docs: 修正 TASK_SELECT_FIX.md 文档不一致问题
 4089f0b fix: 修复 analysis.html 脚本语法错误（验收发现）
 0281f13 docs: 补充 TASK_SELECT_FIX 规范文档
