@@ -1,3 +1,18 @@
+/**
+ * API 模块：行业选股 (select.js)
+ * 
+ * 职责：负责行业方向数据的筛选和推荐
+ * - 读取选股报告数据 (report/selection/)
+ * - 计算四维度评分（社会经济趋势、政策方向、舆论热度、商业变现）
+ * - 生成行业推荐列表和成分股 picks
+ * 
+ * 主要接口：
+ * - GET /api/select - 获取行业方向推荐列表
+ * - GET /api/select/:name/picks - 获取指定行业的成分股 picks
+ * 
+ * 依赖：market-data.js (tushareRequest, getSelectionDatasets)
+ */
+
 const fs = require('node:fs');
 const path = require('node:path');
 const { createRequire } = require('node:module');

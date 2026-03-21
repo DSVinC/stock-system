@@ -1,3 +1,21 @@
+/**
+ * API 模块：个股分析报告 (analyze.js)
+ * 
+ * 职责：负责生成个股深度分析报告
+ * - 技术面分析（均线、MACD、KDJ、RSI、BOLL）
+ * - 基本面分析（财务指标、股东人数、收入趋势）
+ * - 资金面分析（主力资金、北向资金、资金流向）
+ * - 估值分析（PE 百分位、PB 百分位）
+ * - 综合评分和策略建议
+ * 
+ * 主要接口：
+ * - POST /api/analyze - 生成个股分析报告
+ * - GET /api/analyze/:code/history - 获取历史分析报告
+ * 
+ * 依赖：market-data.js (技术分析、财务数据、资金流)
+ *      score-factors.js (综合评分计算)
+ */
+
 const fs = require('node:fs');
 const path = require('node:path');
 const { createRequire } = require('node:module');
