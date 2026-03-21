@@ -34,18 +34,41 @@
       background: rgba(56, 189, 248, 0.15);
       color: var(--accent);
     }
-    .page-header {
+    .page-shell {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .hero {
       margin-bottom: 1.5rem;
     }
-    .page-header h1 {
+    .hero .eyebrow {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.5rem;
+    }
+    .hero h1 {
       font-size: 1.5rem;
       font-weight: 700;
       color: var(--text);
       margin-bottom: 0.5rem;
     }
-    .page-header p {
+    .hero > p {
       color: var(--text-soft);
       font-size: 0.875rem;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .panel-inner {
+      max-width: 100%;
     }
     .methodology-card {
       background: linear-gradient(180deg, rgba(56, 189, 248, 0.08), rgba(56, 189, 248, 0.02));
@@ -381,52 +404,53 @@
   </style>
 </head>
 <body>
-  <!-- 顶部导航 -->
-  <nav class="top-nav">
-    <a href="./index.html">首页</a>
-    <a href="./select.html" class="active">行业选股</a>
-    <a href="./analysis.html">个股分析</a>
-    <a href="./monitor-pool.html">监控池</a>
-    <a href="./portfolio.html">账户管理</a>
-    <a href="./conditional-order.html">条件单</a>
-    <a href="./backtest.html">回测系统</a>
-  </nav>
+  <main class="page-shell">
+    <nav class="top-nav">
+      <a href="./index.html">首页</a>
+      <a href="./select.html" class="active">行业选股</a>
+      <a href="./analysis.html">个股分析</a>
+      <a href="./monitor-pool.html">监控池</a>
+      <a href="./portfolio.html">账户管理</a>
+      <a href="./conditional-order.html">条件单</a>
+      <a href="./backtest.html">回测系统</a>
+    </nav>
 
-  <main class="container">
-    <!-- 页面标题 -->
-    <div class="page-header">
-      <h1>🎯 行业选股推荐</h1>
+    <section class="hero">
+      <p class="eyebrow">Industry Selection</p>
+      <h1>行业选股</h1>
       <p>基于四维度评估模型，筛选当前市场最具投资价值的行业方向</p>
-    </div>
+    </section>
 
-    <!-- 方法论说明 -->
-    <div class="methodology-card">
-      <div class="methodology-title">
-        <span>📊</span>
-        筛选方法论
-      </div>
-      <div class="methodology-dimensions">
-        <span class="dimension-tag">社会经济趋势</span>
-        <span class="dimension-tag">政策方向</span>
-        <span class="dimension-tag">舆论热度</span>
-        <span class="dimension-tag">商业变现</span>
-      </div>
-    </div>
+    <section class="panel">
+      <div class="panel-inner">
+        <!-- 方法论说明 -->
+        <div class="methodology-card">
+          <div class="methodology-title">
+            <span>📊</span>
+            筛选方法论
+          </div>
+          <div class="methodology-dimensions">
+            <span class="dimension-tag">社会经济趋势</span>
+            <span class="dimension-tag">政策方向</span>
+            <span class="dimension-tag">舆论热度</span>
+            <span class="dimension-tag">商业变现</span>
+          </div>
+        </div>
 
-    <!-- 开始选股按钮 -->
-    <div class="action-bar" id="actionBar">
-      <button class="start-btn" onclick="startSelection()">
-        🚀 开始选股
-      </button>
-    </div>
+        <!-- 开始选股按钮 -->
+        <div class="action-bar" id="actionBar">
+          <button class="start-btn" onclick="startSelection()">
+            🚀 开始选股
+          </button>
+        </div>
 
-    <!-- 选择提示和确定按钮 -->
-    <div style="display: none;" id="selectionControls">
-      <div class="selection-hint">
-        💡 点击卡片左侧复选框选择方向（可多选），点击卡片右侧展开详情
-      </div>
-      <div class="action-bar">
-        <button class="confirm-btn" id="confirmBtn" onclick="confirmSelection()" disabled>
+        <!-- 选择提示和确定按钮 -->
+        <div style="display: none;" id="selectionControls">
+          <div class="selection-hint">
+            💡 点击卡片左侧复选框选择方向（可多选），点击卡片右侧展开详情
+          </div>
+          <div class="action-bar">
+            <button class="confirm-btn" id="confirmBtn" onclick="confirmSelection()" disabled>
           ✅ 确定所选方向 (<span id="selectedCount">0</span>)
         </button>
       </div>
@@ -450,6 +474,8 @@
 
     <!-- 生成信息 -->
     <div class="generated-info" id="generatedInfo" style="display: none;"></div>
+      </div>
+    </section>
   </main>
 
   <script>
@@ -476,10 +502,10 @@
         card.classList.toggle('selected', selectedDirections.has(tsCode));
       }
       
-      // 同步更新复选框状态
-      const checkbox = card?.querySelector('input[type="checkbox"]');
-      if (checkbox) {
-        checkbox.checked = selectedDirections.has(tsCode);
+      // 同步更新自定义复选框状态
+      const checkboxCustom = card?.querySelector('.checkbox-custom');
+      if (checkboxCustom) {
+        checkboxCustom.classList.toggle('checked', selectedDirections.has(tsCode));
       }
     }
 

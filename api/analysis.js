@@ -11,8 +11,8 @@
  * - analysis.js: 调用 Python 脚本，生成 HTML 报告，用于深度分析
  * 
  * 主要接口：
- * - POST /api/analysis/generate - 生成 Python 分析报告
- * - GET /api/analysis/:code - 查看 HTML 报告
+ * - POST /api/analysis - 生成 Python 分析报告
+ * - POST /api/analysis/report - 生成报告并返回 HTML
  * 
  * 依赖：stock_analyzer.py (Python 分析脚本)
  */

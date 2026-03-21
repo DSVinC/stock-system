@@ -10,7 +10,7 @@
  * 
  * 主要接口：
  * - POST /api/analyze - 生成个股分析报告
- * - GET /api/analyze/:code/history - 获取历史分析报告
+ * - POST /api/analyze/report - 生成报告并落盘
  * 
  * 依赖：market-data.js (技术分析、财务数据、资金流)
  *      score-factors.js (综合评分计算)

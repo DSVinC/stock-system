@@ -8,7 +8,7 @@
  * 
  * 主要接口：
  * - GET /api/select - 获取行业方向推荐列表
- * - GET /api/select/:name/picks - 获取指定行业的成分股 picks
+ * - POST /api/select/report - 生成选股报告
  * 
  * 依赖：market-data.js (tushareRequest, getSelectionDatasets)
  */
