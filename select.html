@@ -492,15 +492,19 @@
     function confirmSelection() {
       if (selectedDirections.size === 0) return;
       
-      // 将选中的方向信息存储到 sessionStorage
+      // 将选中的方向信息存储到 localStorage（与 analysis.html 统一）
       const selectedData = Array.from(selectedDirections).map(code => {
         return window.directionData.find(d => d.ts_code === code);
       });
-      sessionStorage.setItem('selectedDirections', JSON.stringify(selectedData));
+      localStorage.setItem('selectedDirections', JSON.stringify(selectedData));
       
-      // 跳转到选股分析页面
-      const codes = Array.from(selectedDirections).join(',');
-      window.location.href = './analysis.html?directions=' + encodeURIComponent(codes);
+      // 跳转到选股分析页面 - 传递行业名称（与 analysis.html 统一）
+      const names = Array.from(selectedDirections).map(code => {
+        const d = window.directionData.find(x => x.ts_code === code);
+        return d ? d.name : code;
+      });
+      const params = names.map(n => `direction=${encodeURIComponent(n)}`).join('&');
+      window.location.href = `./analysis.html?${params}`;
     }
 
     // 加载行业选股数据

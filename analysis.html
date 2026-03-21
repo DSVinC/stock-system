@@ -385,10 +385,13 @@
       analyzeStatus.textContent = "分析中...";
 
       try {
+        // 将对象数组转换为字符串数组（后端期望格式）
+        const directionNames = directions.map(d => typeof d === 'string' ? d : d.name);
+        
         const response = await fetch("/api/analyze", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ directions }),
+          body: JSON.stringify({ directions: directionNames }),
         });
 
         if (!response.ok) {
@@ -476,22 +479,8 @@
     renderDirections();
     restoreAnalysis();
 
-    // 查看选股报告
-    document.getElementById('view-report').addEventListener('click', async () => {
-      try {
-        const response = await fetch('/api/select/report', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        const data = await response.json();
-        if (data.report_path && openSafeUrl(data.report_path)) {
-          
-        } else {
-          analyzeStatus.textContent = data?.message || '选股报告生成失败';
-        }
-      } catch (e) {
-        analyzeStatus.textContent = e.message || '选股报告生成失败';
-      }
+    // 查看选股报告 - 直接使用页面中的链接，无需额外绑定事件
+    // 原 view-report 事件绑定已移除（页面中无此 ID 元素）
     });
   </script>
 </body>

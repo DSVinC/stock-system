@@ -168,6 +168,15 @@ async function bootstrap() {
     mounted.push('/api/select');
   }
 
+  // 行业成分股 API
+  try {
+    const industry = require('./industry');
+    app.use('/api/industry', industry);
+    mounted.push('/api/industry');
+  } catch (e) {
+    console.log('[mountApi] industry 模块加载失败:', e.message);
+  }
+
   if (await mountApi('analyze.js', '/api/analyze').catch(() => false)) {
     mounted.push('/api/analyze');
   }
