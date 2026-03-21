@@ -83,17 +83,46 @@
       gap: 1.5rem;
       margin-bottom: 2rem;
     }
+    .action-bar {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin: 3rem 0;
+    }
+    .start-btn {
+      padding: 1rem 3rem;
+      background: linear-gradient(135deg, var(--accent), rgba(56, 189, 248, 0.8));
+      color: white;
+      border: none;
+      border-radius: 16px;
+      font-size: 1.125rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 20px rgba(56, 189, 248, 0.3);
+    }
+    .start-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 30px rgba(56, 189, 248, 0.4);
+    }
+    .start-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
     .direction-card {
       background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
       border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: 20px;
       padding: 1.5rem;
       transition: all 0.2s ease;
+      cursor: pointer;
       min-width: 0;
     }
     .direction-card:hover {
-      border-color: rgba(56, 189, 248, 0.3);
-      transform: translateY(-2px);
+      border-color: rgba(56, 189, 248, 0.5);
+      transform: translateY(-4px);
+      box-shadow: 0 8px 30px rgba(56, 189, 248, 0.15);
     }
     .direction-header {
       display: flex;
@@ -320,8 +349,15 @@
       </div>
     </div>
 
+    <!-- 开始选股按钮 -->
+    <div class="action-bar" id="actionBar">
+      <button class="start-btn" onclick="startSelection()">
+        🚀 开始选股
+      </button>
+    </div>
+
     <!-- 加载状态 -->
-    <div class="loading-state" id="loadingState">
+    <div class="loading-state" id="loadingState" style="display: none;">
       <div class="loading-spinner"></div>
       <p>正在分析市场数据，筛选优质行业方向...</p>
     </div>
@@ -330,7 +366,7 @@
     <div class="error-state" id="errorState" style="display: none;">
       <p>⚠️ 数据加载失败</p>
       <p id="errorMessage" style="margin-top: 0.5rem; font-size: 0.875rem;"></p>
-      <button class="refresh-btn" onclick="loadSelectionData()">重新加载</button>
+      <button class="refresh-btn" onclick="startSelection()">重新选股</button>
     </div>
 
     <!-- 行业方向列表 -->
@@ -341,14 +377,21 @@
   </main>
 
   <script>
+    // 开始选股
+    function startSelection() {
+      loadSelectionData();
+    }
+
     // 加载行业选股数据
     async function loadSelectionData() {
+      const actionBar = document.getElementById('actionBar');
       const loadingState = document.getElementById('loadingState');
       const errorState = document.getElementById('errorState');
       const directionsGrid = document.getElementById('directionsGrid');
       const generatedInfo = document.getElementById('generatedInfo');
       const errorMessage = document.getElementById('errorMessage');
 
+      actionBar.style.display = 'none';
       loadingState.style.display = 'block';
       errorState.style.display = 'none';
       directionsGrid.style.display = 'none';
@@ -452,28 +495,25 @@
             </div>
           </div>
 
-          <div class="picks-section">
-            <div class="picks-title">核心标的</div>
-            <div class="picks-list">
-              ${direction.picks.map(pick => `
-                <div class="pick-item" onclick="goToAnalysis('${pick.code}', '${pick.name}')">
-                  <div class="pick-left">
-                    <div class="pick-name">${pick.name}</div>
-                    <div class="pick-code">${pick.code}</div>
-                  </div>
-                  <div class="pick-metrics">
-                    <div class="mv">${pick.total_mv.toFixed(1)}亿</div>
-                    <div>PE ${pick.pe_ttm.toFixed(1)}</div>
-                  </div>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-
           <div class="reason-box">
             ${direction.reason}
           </div>
         `;
+
+        // 点击卡片跳转到个股分析页面，传递方向信息
+        card.addEventListener('click', () => {
+          // 将方向信息存储到 sessionStorage
+          sessionStorage.setItem('selectedDirection', JSON.stringify({
+            ts_code: direction.ts_code,
+            name: direction.name,
+            score: direction.score,
+            dimensions: direction.dimensions,
+            metrics: direction.metrics,
+            reason: direction.reason
+          }));
+          // 跳转到选股分析页面
+          window.location.href = './analysis.html?direction=' + encodeURIComponent(direction.ts_code);
+        });
 
         grid.appendChild(card);
       });
@@ -482,13 +522,7 @@
       document.getElementById('loadingState').style.display = 'none';
     }
 
-    // 跳转到个股分析
-    function goToAnalysis(code, name) {
-      window.location.href = `./analysis.html?stock=${encodeURIComponent(name)}&code=${encodeURIComponent(code)}`;
-    }
-
-    // 页面加载时获取数据
-    loadSelectionData();
+    // 页面加载时不自动获取数据，等待用户点击按钮
   </script>
 </body>
 </html>
