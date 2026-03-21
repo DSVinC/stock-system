@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>A股投资系统 | 选股筛选</title>
+  <title>A 股投资系统 | 行业选股</title>
   <link rel="stylesheet" href="./pages/style.css">
   <style>
     .top-nav {
@@ -34,568 +34,461 @@
       background: rgba(56, 189, 248, 0.15);
       color: var(--accent);
     }
-    .filter-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 1.5rem;
-      margin-top: 1rem;
+    .page-header {
+      margin-bottom: 1.5rem;
     }
-    .filter-card {
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      border-radius: 20px;
+    .page-header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+    }
+    .page-header p {
+      color: var(--text-soft);
+      font-size: 0.875rem;
+    }
+    .methodology-card {
+      background: linear-gradient(180deg, rgba(56, 189, 248, 0.08), rgba(56, 189, 248, 0.02));
+      border: 1px solid rgba(56, 189, 248, 0.15);
+      border-radius: 16px;
       padding: 1.25rem;
+      margin-bottom: 1.5rem;
     }
-    .filter-title {
-      font-size: 1rem;
-      font-weight: 600;
-      margin-bottom: 1rem;
-      color: var(--text);
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-    .filter-title .icon {
-      font-size: 1.25rem;
-    }
-    .range-inputs {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-    }
-    .range-inputs .input {
-      flex: 1;
-      min-height: 44px;
-      text-align: center;
-    }
-    .range-inputs .separator {
-      color: var(--text-soft);
+    .methodology-title {
       font-size: 0.875rem;
-    }
-    .checkbox-group {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-    }
-    .checkbox-item {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.5rem 0.875rem;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      cursor: pointer;
-      transition: all 0.18s ease;
-    }
-    .checkbox-item:hover {
-      background: rgba(96, 165, 250, 0.1);
-      border-color: rgba(96, 165, 250, 0.2);
-    }
-    .checkbox-item.active {
-      background: rgba(96, 165, 250, 0.15);
-      border-color: var(--accent);
-      color: var(--text);
-    }
-    .checkbox-item input {
-      display: none;
-    }
-    .filter-actions {
-      display: flex;
-      gap: 1rem;
-      margin-top: 1.5rem;
-      flex-wrap: wrap;
-    }
-    .result-count {
-      margin-bottom: 1rem;
-      color: var(--text-soft);
-    }
-    .result-count strong {
+      font-weight: 600;
       color: var(--accent);
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
     }
-    .stock-table {
-      width: 100%;
-      border-collapse: collapse;
+    .methodology-dimensions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      font-size: 0.8125rem;
+      color: var(--text-soft);
     }
-    .stock-table th,
-    .stock-table td {
-      padding: 1rem;
-      text-align: left;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    .dimension-tag {
+      padding: 0.25rem 0.75rem;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.1);
+      color: var(--accent);
+      font-weight: 500;
     }
-    .stock-table th {
-      background: rgba(16, 31, 54, 0.88);
-      color: var(--text-faint);
-      font-size: 0.75rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
+    .directions-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
     }
-    .stock-table tbody tr {
-      cursor: pointer;
-      transition: background 0.18s ease;
+    .direction-card {
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      padding: 1.5rem;
+      transition: all 0.2s ease;
+      min-width: 0;
     }
-    .stock-table tbody tr:hover {
-      background: rgba(96, 165, 250, 0.08);
+    .direction-card:hover {
+      border-color: rgba(56, 189, 248, 0.3);
+      transform: translateY(-2px);
     }
-    .stock-table .stock-name {
-      font-weight: 600;
+    .direction-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+      gap: 1rem;
+    }
+    .direction-name {
+      font-size: 1.125rem;
+      font-weight: 700;
       color: var(--text);
+      line-height: 1.3;
     }
-    .stock-table .stock-code {
-      color: var(--info);
+    .direction-score {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-shrink: 0;
+    }
+    .score-badge {
+      padding: 0.25rem 0.75rem;
+      border-radius: 999px;
       font-size: 0.875rem;
-    }
-    .stock-table .positive {
+      font-weight: 700;
+      background: rgba(34, 197, 94, 0.15);
       color: var(--good);
     }
-    .stock-table .negative {
-      color: var(--bad);
+    .score-label {
+      font-size: 0.75rem;
+      color: var(--text-faint);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
-    .stock-table .neutral {
-      color: var(--warn);
-    }
-    .top-nav {
+    .dimensions-bar {
       display: flex;
       gap: 0.5rem;
-      margin-bottom: 1.5rem;
-      flex-wrap: wrap;
-    }
-    .nav-item {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.625rem 1rem;
+      margin-bottom: 1rem;
+      padding: 0.75rem;
+      background: rgba(0, 0, 0, 0.2);
       border-radius: 12px;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      color: var(--text-soft);
-      text-decoration: none;
-      font-size: 0.875rem;
-      transition: all 0.18s ease;
     }
-    .nav-item:hover {
-      background: rgba(96, 165, 250, 0.1);
-      border-color: rgba(96, 165, 250, 0.2);
+    .dimension-item {
+      flex: 1;
+      text-align: center;
+    }
+    .dimension-value {
+      font-size: 1.125rem;
+      font-weight: 700;
       color: var(--text);
+      margin-bottom: 0.25rem;
     }
-    .nav-item.active {
-      background: rgba(96, 165, 250, 0.15);
-      border-color: var(--accent);
-      color: var(--text);
+    .dimension-label {
+      font-size: 0.6875rem;
+      color: var(--text-faint);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
-    .table-wrap {
-      overflow-x: auto;
-      border-radius: 20px;
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      background: rgba(4, 8, 17, 0.4);
+    .metrics-list {
+      margin-bottom: 1rem;
+      padding: 0.75rem;
+      background: rgba(0, 0, 0, 0.15);
+      border-radius: 12px;
     }
-    .loading-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(8, 17, 31, 0.85);
-      justify-content: center;
-      align-items: center;
-      z-index: 1000;
-    }
-    .loading-overlay.active {
+    .metric-row {
       display: flex;
+      justify-content: space-between;
+      font-size: 0.8125rem;
+      padding: 0.375rem 0;
+      color: var(--text-soft);
+      gap: 1rem;
+    }
+    .metric-row strong {
+      color: var(--text);
+      white-space: nowrap;
+    }
+    .metric-row .positive { color: var(--good); }
+    .metric-row .negative { color: var(--bad); }
+    .picks-section {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .picks-title {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-faint);
+      margin-bottom: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .picks-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .pick-item {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 1rem;
+      align-items: center;
+      padding: 0.625rem 0.875rem;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .pick-item:hover {
+      background: rgba(56, 189, 248, 0.1);
+    }
+    .pick-left {
+      display: flex;
+      flex-direction: column;
+      gap: 0.125rem;
+      min-width: 0;
+    }
+    .pick-name {
+      font-weight: 600;
+      color: var(--text);
+      font-size: 0.875rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .pick-code {
+      font-size: 0.75rem;
+      color: var(--info);
+    }
+    .pick-metrics {
+      text-align: right;
+      font-size: 0.75rem;
+      color: var(--text-soft);
+      white-space: nowrap;
+    }
+    .pick-metrics .mv {
+      color: var(--text);
+      font-weight: 600;
+    }
+    .reason-box {
+      margin-top: 1rem;
+      padding: 0.875rem;
+      background: rgba(56, 189, 248, 0.08);
+      border-left: 3px solid var(--accent);
+      border-radius: 8px;
+      font-size: 0.8125rem;
+      color: var(--text-soft);
+      line-height: 1.6;
+    }
+    .loading-state, .error-state {
+      text-align: center;
+      padding: 4rem 2rem;
+      color: var(--text-soft);
     }
     .loading-spinner {
       width: 48px;
       height: 48px;
-      border: 3px solid rgba(255, 255, 255, 0.1);
+      border: 3px solid rgba(56, 189, 248, 0.2);
       border-top-color: var(--accent);
       border-radius: 50%;
       animation: spin 1s linear infinite;
+      margin: 0 auto 1.5rem;
     }
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
+    .error-state {
+      color: var(--bad);
+    }
+    .refresh-btn {
+      margin-top: 1rem;
+      padding: 0.625rem 1.5rem;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .refresh-btn:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+    .generated-info {
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--text-faint);
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
   </style>
 </head>
 <body>
-  <main class="page-shell">
-    <!-- Top Navigation -->
-    <nav class="top-nav">
-      <a href="./index.html">首页</a>
-      <a href="./select.html" class="active">选股分析</a>
-      <a href="./analysis.html">个股分析</a>
-      <a href="./monitor-pool.html">监控池</a>
-      <a href="./portfolio.html">账户管理</a>
-      <a href="./conditional-order.html">条件单</a>
-      <a href="./backtest.html">回测系统</a>
-    </nav>
+  <!-- 顶部导航 -->
+  <nav class="top-nav">
+    <a href="./index.html">首页</a>
+    <a href="./analysis.html" class="active">选股分析</a>
+    <a href="./select.html">行业选股</a>
+    <a href="./monitor-pool.html">监控池</a>
+    <a href="./portfolio.html">账户管理</a>
+    <a href="./conditional-order.html">条件单</a>
+    <a href="./backtest.html">回测系统</a>
+  </nav>
 
-    <!-- Hero Section -->
-    <section class="hero">
-      <div class="hero-copy">
-        <p class="eyebrow">Stock Selection</p>
-        <h1>选股筛选</h1>
-        <p>多维度股票筛选工具，支持基本面、技术面、资金面等多重条件组合，精准定位目标股票。</p>
+  <main class="container">
+    <!-- 页面标题 -->
+    <div class="page-header">
+      <h1>🎯 行业选股推荐</h1>
+      <p>基于四维度评估模型，筛选当前市场最具投资价值的行业方向</p>
+    </div>
+
+    <!-- 方法论说明 -->
+    <div class="methodology-card">
+      <div class="methodology-title">
+        <span>📊</span>
+        筛选方法论
       </div>
-    </section>
-
-    <!-- Filter Section -->
-    <section class="panel">
-      <div class="panel-inner">
-        <h2 class="section-title">筛选条件</h2>
-        <p class="section-copy">设置筛选参数，点击"开始筛选"获取符合条件的股票列表</p>
+      <div class="methodology-dimensions">
+        <span class="dimension-tag">社会经济趋势</span>
+        <span class="dimension-tag">政策方向</span>
+        <span class="dimension-tag">舆论热度</span>
+        <span class="dimension-tag">商业变现</span>
       </div>
+    </div>
 
-      <div class="filter-grid">
-        <!-- PE Filter -->
-        <div class="filter-card">
-          <div class="filter-title">
-            <span class="icon">📊</span>
-            PE 市盈率
-          </div>
-          <div class="range-inputs">
-            <input type="number" class="input" id="peMin" placeholder="最小值" step="0.1">
-            <span class="separator">至</span>
-            <input type="number" class="input" id="peMax" placeholder="最大值" step="0.1">
-          </div>
-        </div>
+    <!-- 加载状态 -->
+    <div class="loading-state" id="loadingState">
+      <div class="loading-spinner"></div>
+      <p>正在分析市场数据，筛选优质行业方向...</p>
+    </div>
 
-        <!-- PB Filter -->
-        <div class="filter-card">
-          <div class="filter-title">
-            <span class="icon">📈</span>
-            PB 市净率
-          </div>
-          <div class="range-inputs">
-            <input type="number" class="input" id="pbMin" placeholder="最小值" step="0.1">
-            <span class="separator">至</span>
-            <input type="number" class="input" id="pbMax" placeholder="最大值" step="0.1">
-          </div>
-        </div>
+    <!-- 错误状态 -->
+    <div class="error-state" id="errorState" style="display: none;">
+      <p>⚠️ 数据加载失败</p>
+      <p id="errorMessage" style="margin-top: 0.5rem; font-size: 0.875rem;"></p>
+      <button class="refresh-btn" onclick="loadSelectionData()">重新加载</button>
+    </div>
 
-        <!-- ROE Filter -->
-        <div class="filter-card">
-          <div class="filter-title">
-            <span class="icon">🎯</span>
-            ROE 净资产收益率
-          </div>
-          <div class="range-inputs">
-            <input type="number" class="input" id="roeMin" placeholder="最小值 %" step="0.1">
-            <span class="separator">至</span>
-            <input type="number" class="input" id="roeMax" placeholder="最大值 %" step="0.1">
-          </div>
-        </div>
+    <!-- 行业方向列表 -->
+    <div class="directions-grid" id="directionsGrid" style="display: none;"></div>
 
-        <!-- Technical Indicators -->
-        <div class="filter-card">
-          <div class="filter-title">
-            <span class="icon">📉</span>
-            技术指标
-          </div>
-          <div class="checkbox-group">
-            <label class="checkbox-item" data-filter="ma5_up">
-              <input type="checkbox">
-              MA5 上穿 MA10
-            </label>
-            <label class="checkbox-item" data-filter="ma10_up">
-              <input type="checkbox">
-              MA10 上穿 MA20
-            </label>
-            <label class="checkbox-item" data-filter="macd_gold">
-              <input type="checkbox">
-              MACD 金叉
-            </label>
-            <label class="checkbox-item" data-filter="rsi_oversold">
-              <input type="checkbox">
-              RSI 超卖 (RSI&lt;30)
-            </label>
-            <label class="checkbox-item" data-filter="rsi_overbought">
-              <input type="checkbox">
-              RSI 超买 (RSI&gt;70)
-            </label>
-            <label class="checkbox-item" data-filter="kdj_gold">
-              <input type="checkbox">
-              KDJ 金叉
-            </label>
-          </div>
-        </div>
-
-        <!-- Capital Flow -->
-        <div class="filter-card">
-          <div class="filter-title">
-            <span class="icon">💰</span>
-            资金面
-          </div>
-          <div class="checkbox-group">
-            <label class="checkbox-item" data-filter="north_inflow">
-              <input type="checkbox">
-              北向资金净流入
-            </label>
-            <label class="checkbox-item" data-filter="main_inflow">
-              <input type="checkbox">
-              主力资金净流入
-            </label>
-            <label class="checkbox-item" data-filter="super_large_in">
-              <input type="checkbox">
-              超大单净流入
-            </label>
-            <label class="checkbox-item" data-filter="large_in">
-              <input type="checkbox">
-              大单净流入
-            </label>
-          </div>
-        </div>
-
-        <!-- Growth -->
-        <div class="filter-card">
-          <div class="filter-title">
-            <span class="icon">🌱</span>
-            成长性
-          </div>
-          <div class="range-inputs" style="margin-bottom: 0.75rem;">
-            <input type="number" class="input" id="revenueGrowthMin" placeholder="营收增长 %" step="0.1">
-            <span class="separator">至</span>
-            <input type="number" class="input" id="revenueGrowthMax" placeholder="营收增长 %" step="0.1">
-          </div>
-          <div class="range-inputs">
-            <input type="number" class="input" id="profitGrowthMin" placeholder="净利润增长 %" step="0.1">
-            <span class="separator">至</span>
-            <input type="number" class="input" id="profitGrowthMax" placeholder="净利润增长 %" step="0.1">
-          </div>
-        </div>
-      </div>
-
-      <div class="filter-actions">
-        <button id="filterBtn" class="button button-large" type="button">开始筛选</button>
-        <button id="resetBtn" class="button button-secondary" type="button">重置条件</button>
-      </div>
-    </section>
-
-    <!-- Results Section -->
-    <section class="panel">
-      <div class="panel-inner">
-        <h2 class="section-title">筛选结果</h2>
-        <p class="result-count">共找到 <strong id="resultCount">0</strong> 只符合条件的股票</p>
-      </div>
-
-      <div id="resultsContainer">
-        <div class="empty-state" id="emptyState">
-          <div class="empty-title">暂无筛选结果</div>
-          <p class="empty-copy">设置筛选条件后点击"开始筛选"</p>
-        </div>
-
-        <div class="table-wrap" id="tableWrap" style="display: none;">
-          <table class="stock-table">
-            <thead>
-              <tr>
-                <th>股票名称</th>
-                <th>股票代码</th>
-                <th>PE</th>
-                <th>PB</th>
-                <th>ROE</th>
-                <th>营收增长</th>
-                <th>净利润增长</th>
-                <th>北向资金</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody id="resultsBody">
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
+    <!-- 生成信息 -->
+    <div class="generated-info" id="generatedInfo" style="display: none;"></div>
   </main>
 
-  <!-- Loading Overlay -->
-  <div class="loading-overlay" id="loadingOverlay">
-    <div class="loading-spinner"></div>
-  </div>
-
   <script>
-    // DOM Elements
-    const filterBtn = document.getElementById('filterBtn');
-    const resetBtn = document.getElementById('resetBtn');
-    const resultCount = document.getElementById('resultCount');
-    const emptyState = document.getElementById('emptyState');
-    const tableWrap = document.getElementById('tableWrap');
-    const resultsBody = document.getElementById('resultsBody');
-    const loadingOverlay = document.getElementById('loadingOverlay');
+    // 加载行业选股数据
+    async function loadSelectionData() {
+      const loadingState = document.getElementById('loadingState');
+      const errorState = document.getElementById('errorState');
+      const directionsGrid = document.getElementById('directionsGrid');
+      const generatedInfo = document.getElementById('generatedInfo');
+      const errorMessage = document.getElementById('errorMessage');
 
-    // Checkbox toggle
-    document.querySelectorAll('.checkbox-item').forEach(item => {
-      item.addEventListener('click', () => {
-        const checkbox = item.querySelector('input');
-        checkbox.checked = !checkbox.checked;
-        item.classList.toggle('active', checkbox.checked);
-      });
-    });
-
-    // Get filter values
-    function getFilterValues() {
-      const filters = {
-        pe: { min: parseFloat(document.getElementById('peMin').value) || null, max: parseFloat(document.getElementById('peMax').value) || null },
-        pb: { min: parseFloat(document.getElementById('pbMin').value) || null, max: parseFloat(document.getElementById('pbMax').value) || null },
-        roe: { min: parseFloat(document.getElementById('roeMin').value) || null, max: parseFloat(document.getElementById('roeMax').value) || null },
-        revenueGrowth: { min: parseFloat(document.getElementById('revenueGrowthMin').value) || null, max: parseFloat(document.getElementById('revenueGrowthMax').value) || null },
-        profitGrowth: { min: parseFloat(document.getElementById('profitGrowthMin').value) || null, max: parseFloat(document.getElementById('profitGrowthMax').value) || null },
-        technical: [],
-        capital: []
-      };
-
-      // Get technical filters
-      document.querySelectorAll('.checkbox-item[data-filter]').forEach(item => {
-        const filter = item.dataset.filter;
-        const checkbox = item.querySelector('input');
-        if (checkbox.checked) {
-          if (['north_inflow', 'main_inflow', 'super_large_in', 'large_in'].includes(filter)) {
-            filters.capital.push(filter);
-          } else {
-            filters.technical.push(filter);
-          }
-        }
-      });
-
-      return filters;
-    }
-
-    // Reset filters
-    function resetFilters() {
-      document.querySelectorAll('.filter-grid input').forEach(input => {
-        input.value = '';
-      });
-      document.querySelectorAll('.checkbox-item').forEach(item => {
-        item.classList.remove('active');
-        item.querySelector('input').checked = false;
-      });
-    }
-
-    // Format number
-    function formatNumber(value, decimals = 2) {
-      if (value === null || value === undefined) return '-';
-      return Number(value).toFixed(decimals);
-    }
-
-    // Format percentage
-    function formatPercent(value) {
-      if (value === null || value === undefined) return '-';
-      const num = Number(value);
-      const cls = num > 0 ? 'positive' : num < 0 ? 'negative' : 'neutral';
-      return `<span class="${cls}">${num > 0 ? '+' : ''}${num.toFixed(2)}%</span>`;
-    }
-
-    // Render results
-    function renderResults(stocks) {
-      resultsBody.innerHTML = '';
-
-      if (stocks.length === 0) {
-        emptyState.style.display = 'block';
-        tableWrap.style.display = 'none';
-        resultCount.textContent = '0';
-        return;
-      }
-
-      emptyState.style.display = 'none';
-      tableWrap.style.display = 'block';
-      resultCount.textContent = stocks.length;
-
-      stocks.forEach(stock => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>
-            <div class="stock-name">${stock.name || '-'}</div>
-          </td>
-          <td>
-            <div class="stock-code">${stock.code || '-'}</div>
-          </td>
-          <td>${formatNumber(stock.pe)}</td>
-          <td>${formatNumber(stock.pb)}</td>
-          <td>${formatNumber(stock.roe)}%</td>
-          <td>${formatPercent(stock.revenue_growth)}</td>
-          <td>${formatPercent(stock.profit_growth)}</td>
-          <td>${formatPercent(stock.north_fund)}</td>
-          <td>
-            <button class="button-secondary view-analysis-btn" data-name="${stock.name}" data-code="${stock.code}">分析</button>
-          </td>
-        `;
-        resultsBody.appendChild(tr);
-      });
-
-      // Add click handlers for analysis buttons
-      document.querySelectorAll('.view-analysis-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const name = btn.dataset.name;
-          const code = btn.dataset.code;
-          window.location.href = `./analysis.html?stock=${encodeURIComponent(name)}&code=${encodeURIComponent(code)}`;
-        });
-      });
-
-      // Add click handlers for rows
-      document.querySelectorAll('#resultsBody tr').forEach(tr => {
-        tr.addEventListener('click', () => {
-          const name = tr.querySelector('.stock-name').textContent;
-          const code = tr.querySelector('.stock-code').textContent;
-          window.location.href = `./analysis.html?stock=${encodeURIComponent(name)}&code=${encodeURIComponent(code)}`;
-        });
-      });
-    }
-
-    // Show/hide loading
-    function setLoading(loading) {
-      loadingOverlay.classList.toggle('active', loading);
-      filterBtn.disabled = loading;
-    }
-
-    // Perform filter
-    async function performFilter() {
-      const filters = getFilterValues();
-
-      setLoading(true);
+      loadingState.style.display = 'block';
+      errorState.style.display = 'none';
+      directionsGrid.style.display = 'none';
+      generatedInfo.style.display = 'none';
 
       try {
-        // Try to call the API
-        const response = await fetch('/api/stock/screen', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(filters)
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          renderResults(data.stocks || []);
-        } else {
-          // If API fails, show sample data
-          const sampleData = generateSampleData();
-          renderResults(sampleData);
+        const response = await fetch('/api/select');
+        
+        if (!response.ok) {
+          throw new Error(`API 响应失败：${response.status}`);
         }
+
+        const data = await response.json();
+
+        if (!data.success && data.directions && data.directions.length === 0) {
+          throw new Error(data.message || '暂无行业推荐数据');
+        }
+
+        // 渲染行业方向
+        renderDirections(data.directions || data);
+        
+        // 显示生成信息
+        const generatedAt = new Date(data.generatedAt);
+        generatedInfo.innerHTML = `
+          报告生成时间：${generatedAt.toLocaleString('zh-CN', { hour12: false })} 
+          ${data.tradeDate ? `| 交易日：${data.tradeDate}` : ''}
+          ${data.risks ? `<br><span style="color: var(--bad)">⚠️ 风险提示：${data.risks[0]}</span>` : ''}
+        `;
+        generatedInfo.style.display = 'block';
+
       } catch (error) {
-        // If no API, show sample data for demo
-        const sampleData = generateSampleData();
-        renderResults(sampleData);
-      } finally {
-        setLoading(false);
+        console.error('加载失败:', error);
+        loadingState.style.display = 'none';
+        errorState.style.display = 'block';
+        errorMessage.textContent = error.message;
       }
     }
 
-    // Generate sample data for demo
-    function generateSampleData() {
-      const stocks = [
-        { name: '贵州茅台', code: '600519.SH', pe: 28.5, pb: 8.2, roe: 31.2, revenue_growth: 15.8, profit_growth: 18.3, north_fund: 2.5 },
-        { name: '宁德时代', code: '300750.SZ', pe: 22.3, pb: 5.1, roe: 18.5, revenue_growth: 45.2, profit_growth: 52.1, north_fund: 3.8 },
-        { name: '比亚迪', code: '002594.SZ', pe: 35.2, pb: 6.8, roe: 16.8, revenue_growth: 62.5, profit_growth: 78.9, north_fund: 5.2 },
-        { name: '招商银行', code: '600036.SH', pe: 5.8, pb: 0.85, roe: 15.2, revenue_growth: 8.5, profit_growth: 12.3, north_fund: 1.2 },
-        { name: '中国平安', code: '601318.SH', pe: 8.2, pb: 0.92, roe: 12.5, revenue_growth: -3.2, profit_growth: -5.8, north_fund: -1.5 },
-        { name: '隆基绿能', code: '601012.SH', pe: 15.8, pb: 3.2, roe: 22.5, revenue_growth: 35.2, profit_growth: 42.8, north_fund: 2.1 },
-        { name: '恒瑞医药', code: '600276.SH', pe: 42.5, pb: 6.5, roe: 14.8, revenue_growth: 8.2, profit_growth: 12.5, north_fund: 0.8 },
-        { name: '中际旭创', code: '300308.SZ', pe: 28.5, pb: 7.2, roe: 25.6, revenue_growth: 85.2, profit_growth: 92.5, north_fund: 6.8 }
-      ];
-      return stocks;
+    // 渲染行业方向卡片
+    function renderDirections(directions) {
+      const grid = document.getElementById('directionsGrid');
+      grid.innerHTML = '';
+
+      directions.forEach((direction, index) => {
+        const card = document.createElement('div');
+        card.className = 'direction-card';
+        
+        const isTop3 = index < 3;
+        const scoreColor = direction.score >= 80 ? 'var(--good)' : direction.score >= 60 ? 'var(--accent)' : 'var(--warning)';
+        
+        card.innerHTML = `
+          <div class="direction-header">
+            <div>
+              <div class="direction-name">${isTop3 ? '🏆 ' : ''}${direction.name}</div>
+              <div class="score-label">综合推荐</div>
+            </div>
+            <div class="direction-score">
+              <div class="score-badge" style="background: ${scoreColor}22; color: ${scoreColor}">
+                ${direction.score}
+              </div>
+            </div>
+          </div>
+
+          <div class="dimensions-bar">
+            <div class="dimension-item">
+              <div class="dimension-value">${direction.dimensions.social}</div>
+              <div class="dimension-label">社会</div>
+            </div>
+            <div class="dimension-item">
+              <div class="dimension-value">${direction.dimensions.policy}</div>
+              <div class="dimension-label">政策</div>
+            </div>
+            <div class="dimension-item">
+              <div class="dimension-value">${direction.dimensions.public}</div>
+              <div class="dimension-label">舆论</div>
+            </div>
+            <div class="dimension-item">
+              <div class="dimension-value">${direction.dimensions.business}</div>
+              <div class="dimension-label">商业</div>
+            </div>
+          </div>
+
+          <div class="metrics-list">
+            <div class="metric-row">
+              <span>板块资金</span>
+              <span class="${direction.metrics.netAmount >= 0 ? 'positive' : 'negative'}">
+                ${direction.metrics.netAmount >= 0 ? '+' : ''}${direction.metrics.netAmount.toFixed(2)} 亿元
+              </span>
+            </div>
+            <div class="metric-row">
+              <span>热度排名</span>
+              <span>${direction.metrics.hotRank ? `第 ${direction.metrics.hotRank} 名` : '暂无'}</span>
+            </div>
+            <div class="metric-row">
+              <span>板块成分</span>
+              <strong>${direction.metrics.companyCount} 家</strong>
+            </div>
+            <div class="metric-row">
+              <span>近一年 IPO</span>
+              <strong>${direction.metrics.ipoMatches} 家</strong>
+            </div>
+          </div>
+
+          <div class="picks-section">
+            <div class="picks-title">核心标的</div>
+            <div class="picks-list">
+              ${direction.picks.map(pick => `
+                <div class="pick-item" onclick="goToAnalysis('${pick.code}', '${pick.name}')">
+                  <div class="pick-left">
+                    <div class="pick-name">${pick.name}</div>
+                    <div class="pick-code">${pick.code}</div>
+                  </div>
+                  <div class="pick-metrics">
+                    <div class="mv">${pick.total_mv.toFixed(1)}亿</div>
+                    <div>PE ${pick.pe_ttm.toFixed(1)}</div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+
+          <div class="reason-box">
+            ${direction.reason}
+          </div>
+        `;
+
+        grid.appendChild(card);
+      });
+
+      grid.style.display = 'grid';
+      document.getElementById('loadingState').style.display = 'none';
     }
 
-    // Event listeners
-    filterBtn.addEventListener('click', performFilter);
-    resetBtn.addEventListener('click', resetFilters);
+    // 跳转到个股分析
+    function goToAnalysis(code, name) {
+      window.location.href = `./analysis.html?stock=${encodeURIComponent(name)}&code=${encodeURIComponent(code)}`;
+    }
 
-    // Initial demo data
-    renderResults(generateSampleData());
+    // 页面加载时获取数据
+    loadSelectionData();
   </script>
 </body>
 </html>
