@@ -242,5 +242,9 @@ curl http://127.0.0.1:3000/api/industry/储能/stocks
 ### Git 提交记录
 
 ```
+62681a1 docs: 修正 TASK_SELECT_FIX.md 文档不一致问题
+4089f0b fix: 修复 analysis.html 脚本语法错误（验收发现）
+0281f13 docs: 补充 TASK_SELECT_FIX 规范文档
 c9e8bda fix: 完成选股页面跳转问题修复 (TASK_SELECT_FIX)
+cc018a5 fix: 并行修复选股页面跳转问题 (TASK_SELECT_FIX)
 ```
