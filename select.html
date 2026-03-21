@@ -110,11 +110,37 @@
       cursor: not-allowed;
       transform: none;
     }
+    .confirm-btn {
+      padding: 1rem 3rem;
+      background: linear-gradient(135deg, var(--good), rgba(34, 197, 94, 0.8));
+      color: white;
+      border: none;
+      border-radius: 16px;
+      font-size: 1.125rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 20px rgba(34, 197, 94, 0.3);
+    }
+    .confirm-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 30px rgba(34, 197, 94, 0.4);
+    }
+    .confirm-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .selection-hint {
+      text-align: center;
+      color: var(--text-soft);
+      font-size: 0.875rem;
+      margin-bottom: 1rem;
+    }
     .direction-card {
       background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
       border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: 20px;
-      padding: 1.5rem;
+      padding: 1.25rem;
       transition: all 0.2s ease;
       cursor: pointer;
       min-width: 0;
@@ -123,27 +149,51 @@
     }
     .direction-card:hover {
       border-color: rgba(56, 189, 248, 0.5);
-      transform: translateY(-4px);
-      box-shadow: 0 8px 30px rgba(56, 189, 248, 0.15);
     }
-    .direction-header {
+    .direction-card.selected {
+      border-color: var(--good);
+      background: rgba(34, 197, 94, 0.08);
+    }
+    .direction-card.expanded {
+      border-color: rgba(56, 189, 248, 0.5);
+    }
+    .card-header {
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 1rem;
+      align-items: center;
       gap: 1rem;
+    }
+    .card-left {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .checkbox-custom {
+      width: 22px;
+      height: 22px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.2s ease;
+    }
+    .checkbox-custom.checked {
+      background: var(--good);
+      border-color: var(--good);
+    }
+    .checkbox-custom.checked::after {
+      content: '✓';
+      color: white;
+      font-size: 14px;
+      font-weight: 700;
     }
     .direction-name {
       font-size: 1.125rem;
       font-weight: 700;
       color: var(--text);
       line-height: 1.3;
-    }
-    .direction-score {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      flex-shrink: 0;
     }
     .score-badge {
       padding: 0.25rem 0.75rem;
@@ -153,11 +203,14 @@
       background: rgba(34, 197, 94, 0.15);
       color: var(--good);
     }
-    .score-label {
-      font-size: 0.75rem;
-      color: var(--text-faint);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
+    .card-details {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+    .direction-card.expanded .card-details {
+      max-height: 500px;
+      margin-top: 1rem;
     }
     .dimensions-bar {
       display: flex;
@@ -367,6 +420,18 @@
       </button>
     </div>
 
+    <!-- 选择提示和确定按钮 -->
+    <div style="display: none;" id="selectionControls">
+      <div class="selection-hint">
+        💡 点击卡片左侧复选框选择方向（可多选），点击卡片右侧展开详情
+      </div>
+      <div class="action-bar">
+        <button class="confirm-btn" id="confirmBtn" onclick="confirmSelection()" disabled>
+          ✅ 确定所选方向 (<span id="selectedCount">0</span>)
+        </button>
+      </div>
+    </div>
+
     <!-- 加载状态 -->
     <div class="loading-state" id="loadingState" style="display: none;">
       <div class="loading-spinner"></div>
@@ -388,9 +453,54 @@
   </main>
 
   <script>
+    // 选中的方向
+    let selectedDirections = new Set();
+
     // 开始选股
     function startSelection() {
       loadSelectionData();
+    }
+
+    // 切换选择状态
+    function toggleSelection(tsCode, name) {
+      if (selectedDirections.has(tsCode)) {
+        selectedDirections.delete(tsCode);
+      } else {
+        selectedDirections.add(tsCode);
+      }
+      updateSelectedCount();
+      
+      // 更新卡片样式
+      const card = document.querySelector(`[data-ts-code="${tsCode}"]`);
+      if (card) {
+        card.classList.toggle('selected', selectedDirections.has(tsCode));
+      }
+    }
+
+    // 切换展开状态
+    function toggleExpand(card) {
+      card.classList.toggle('expanded');
+    }
+
+    // 更新选中计数
+    function updateSelectedCount() {
+      document.getElementById('selectedCount').textContent = selectedDirections.size;
+      document.getElementById('confirmBtn').disabled = selectedDirections.size === 0;
+    }
+
+    // 确认选择
+    function confirmSelection() {
+      if (selectedDirections.size === 0) return;
+      
+      // 将选中的方向信息存储到 sessionStorage
+      const selectedData = Array.from(selectedDirections).map(code => {
+        return window.directionData.find(d => d.ts_code === code);
+      });
+      sessionStorage.setItem('selectedDirections', JSON.stringify(selectedData));
+      
+      // 跳转到选股分析页面
+      const codes = Array.from(selectedDirections).join(',');
+      window.location.href = './analysis.html?directions=' + encodeURIComponent(codes);
     }
 
     // 加载行业选股数据
@@ -444,86 +554,84 @@
     // 渲染行业方向卡片
     function renderDirections(directions) {
       const grid = document.getElementById('directionsGrid');
+      const selectionControls = document.getElementById('selectionControls');
       grid.innerHTML = '';
+
+      // 保存数据供 confirmSelection 使用
+      window.directionData = directions;
 
       directions.forEach((direction, index) => {
         const card = document.createElement('div');
         card.className = 'direction-card';
+        card.setAttribute('data-ts-code', direction.ts_code);
         
         const isTop3 = index < 3;
         const scoreColor = direction.score >= 80 ? 'var(--good)' : direction.score >= 60 ? 'var(--accent)' : 'var(--warning)';
         
         card.innerHTML = `
-          <div class="direction-header">
-            <div style="flex: 1;">
+          <div class="card-header" onclick="event.stopPropagation()">
+            <div class="card-left" onclick="toggleSelection('${direction.ts_code}', '${direction.name.replace(/'/g, "\\'")}')">
+              <div class="checkbox-custom" id="checkbox-${direction.ts_code}"></div>
               <div class="direction-name">${isTop3 ? '🏆 ' : ''}${direction.name}</div>
-              <div class="score-label">综合推荐</div>
             </div>
-            <div class="direction-score">
-              <div class="score-badge" style="background: ${scoreColor}22; color: ${scoreColor}">
-                ${direction.score}
+            <div class="score-badge" style="background: ${scoreColor}22; color: ${scoreColor}" onclick="toggleExpand(this.closest('.direction-card'))">
+              ${direction.score}
+              <span style="margin-left: 4px; opacity: 0.6;">▼</span>
+            </div>
+          </div>
+
+          <div class="card-details">
+            <div class="dimensions-bar">
+              <div class="dimension-item">
+                <div class="dimension-value">${direction.dimensions.social}</div>
+                <div class="dimension-label">社会</div>
+              </div>
+              <div class="dimension-item">
+                <div class="dimension-value">${direction.dimensions.policy}</div>
+                <div class="dimension-label">政策</div>
+              </div>
+              <div class="dimension-item">
+                <div class="dimension-value">${direction.dimensions.public}</div>
+                <div class="dimension-label">舆论</div>
+              </div>
+              <div class="dimension-item">
+                <div class="dimension-value">${direction.dimensions.business}</div>
+                <div class="dimension-label">商业</div>
               </div>
             </div>
-          </div>
 
-          <div class="dimensions-bar">
-            <div class="dimension-item">
-              <div class="dimension-value">${direction.dimensions.social}</div>
-              <div class="dimension-label">社会</div>
+            <div class="metrics-list">
+              <div class="metric-row">
+                <span>板块资金</span>
+                <span class="${direction.metrics.netAmount >= 0 ? 'positive' : 'negative'}">
+                  ${direction.metrics.netAmount >= 0 ? '+' : ''}${direction.metrics.netAmount.toFixed(2)} 亿元
+                </span>
+              </div>
+              <div class="metric-row">
+                <span>热度排名</span>
+                <span>${direction.metrics.hotRank ? `第 ${direction.metrics.hotRank} 名` : '暂无'}</span>
+              </div>
+              <div class="metric-row">
+                <span>板块成分</span>
+                <strong>${direction.metrics.companyCount} 家</strong>
+              </div>
+              <div class="metric-row">
+                <span>近一年 IPO</span>
+                <strong>${direction.metrics.ipoMatches} 家</strong>
+              </div>
             </div>
-            <div class="dimension-item">
-              <div class="dimension-value">${direction.dimensions.policy}</div>
-              <div class="dimension-label">政策</div>
-            </div>
-            <div class="dimension-item">
-              <div class="dimension-value">${direction.dimensions.public}</div>
-              <div class="dimension-label">舆论</div>
-            </div>
-            <div class="dimension-item">
-              <div class="dimension-value">${direction.dimensions.business}</div>
-              <div class="dimension-label">商业</div>
-            </div>
-          </div>
 
-          <div class="metrics-list">
-            <div class="metric-row">
-              <span>板块资金</span>
-              <span class="${direction.metrics.netAmount >= 0 ? 'positive' : 'negative'}">
-                ${direction.metrics.netAmount >= 0 ? '+' : ''}${direction.metrics.netAmount.toFixed(2)} 亿元
-              </span>
+            <div class="reason-box">
+              ${direction.reason}
             </div>
-            <div class="metric-row">
-              <span>热度排名</span>
-              <span>${direction.metrics.hotRank ? `第 ${direction.metrics.hotRank} 名` : '暂无'}</span>
-            </div>
-            <div class="metric-row">
-              <span>板块成分</span>
-              <strong>${direction.metrics.companyCount} 家</strong>
-            </div>
-            <div class="metric-row">
-              <span>近一年 IPO</span>
-              <strong>${direction.metrics.ipoMatches} 家</strong>
-            </div>
-          </div>
-
-          <div class="reason-box">
-            ${direction.reason}
           </div>
         `;
 
-        // 点击卡片跳转到个股分析页面，传递方向信息
-        card.addEventListener('click', () => {
-          // 将方向信息存储到 sessionStorage
-          sessionStorage.setItem('selectedDirection', JSON.stringify({
-            ts_code: direction.ts_code,
-            name: direction.name,
-            score: direction.score,
-            dimensions: direction.dimensions,
-            metrics: direction.metrics,
-            reason: direction.reason
-          }));
-          // 跳转到选股分析页面
-          window.location.href = './analysis.html?direction=' + encodeURIComponent(direction.ts_code);
+        // 点击卡片背景展开/折叠
+        card.addEventListener('click', (e) => {
+          if (!e.target.closest('.checkbox-custom') && !e.target.closest('.card-left')) {
+            toggleExpand(card);
+          }
         });
 
         grid.appendChild(card);
@@ -531,6 +639,7 @@
 
       grid.style.display = 'grid';
       document.getElementById('loadingState').style.display = 'none';
+      selectionControls.style.display = 'block';
     }
 
     // 页面加载时不自动获取数据，等待用户点击按钮
