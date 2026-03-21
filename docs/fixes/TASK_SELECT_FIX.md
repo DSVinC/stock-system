@@ -4,7 +4,7 @@
 
 | 字段 | 内容 |
 |------|------|
-| 任务 ID | TASK_SELECT_UI |
+| 任务 ID | TASK_SELECT_FIX |
 | 任务名称 | 选股页面跳转功能修复 |
 | 修复次数 | 第 1 次 |
 | 程序员 | 灵爪 (Claude Code) |
@@ -103,9 +103,11 @@
 localStorage.setItem('selectedDirections', JSON.stringify(directions));
 window.location.href = `analysis.html?directions=${JSON.stringify(directions)}`;
 
-// 修复后：统一使用 localStorage + 简单 URL 参数
+// 修复后：统一使用 localStorage + 重复 direction 参数
 localStorage.setItem('selectedDirections', JSON.stringify(directions));
-window.location.href = `analysis.html?directionCount=${directions.length}`;
+const params = new URLSearchParams();
+directions.forEach(d => params.append('direction', d.name));
+window.location.href = `analysis.html?${params}`;
 ```
 
 **验证**: 手动测试跳转正常
@@ -222,7 +224,7 @@ curl http://127.0.0.1:3000/api/industry/储能/stocks
 
 - 验收报告：`docs/acceptance/TASK_SELECT_UI_CODEX_ACCEPTANCE.md`
 - 修复计划：`docs/fixes/TASK_SELECT_FIX_PLAN.md`（已废弃）
-- 工作日志：`memory/project/stock_system/2026-03-21T23-00-00.json`
+- 工作日志：`memory/project/stock_system/2026-03-21T23-00-00.json`（项目内留痕）
 
 ---
 
