@@ -224,7 +224,7 @@ curl http://127.0.0.1:3000/api/industry/储能/stocks
 
 - 验收报告：`docs/acceptance/TASK_SELECT_UI_CODEX_ACCEPTANCE.md`
 - 修复计划：`docs/fixes/TASK_SELECT_FIX_PLAN.md`（已废弃）
-- 工作日志：`memory/project/stock_system/2026-03-21T23-00-00.json`（项目内留痕，相对路径）
+- 工作日志：`memory/project/stock_system/2026-03-21T23-00-00.json`（工作区审计日志，相对路径）
 
 ---
 
