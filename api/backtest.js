@@ -189,7 +189,7 @@ class BacktestEngine {
     // 从数据库获取历史行情数据
     for (const tsCode of this.config.stocks) {
       const rows = await db.allPromise(`
-        SELECT trade_date, ts_code, stock_name, close as price, pe, pb, market_cap, turnover
+        SELECT trade_date, ts_code, stock_name, close as price, pe, pb, market_cap, amount as turnover
         FROM stock_daily 
         WHERE ts_code = ? AND trade_date BETWEEN ? AND ?
         ORDER BY trade_date ASC

@@ -12,8 +12,11 @@ const router = express.Router();
 
 const PYTHON_SCRIPT = path.join(__dirname, '..', '..', 'skills', 'a股个股分析', 'scripts', 'stock_analyzer.py');
 const HTML_REPORT_DIR = path.join(__dirname, '..', '..', 'report', 'analysis');
-const analyzeRouter = require('./analyze');
 const { getMarginDetailRows, toNumber: marketToNumber } = require('./market-data');
+
+function getAnalyzeRouter() {
+  return require('./analyze');
+}
 
 function slugify(value) {
   return String(value || 'stock')
@@ -323,7 +326,7 @@ async function runAnalysis(query) {
 }
 
 async function buildFallbackPayload(query) {
-  const payload = await analyzeRouter.buildReportPayload(query);
+  const payload = await getAnalyzeRouter().buildReportPayload(query);
   const marginRows = await getMarginDetailRows(payload.stock.ts_code).catch(() => []);
   const latestMargin = Array.isArray(marginRows) && marginRows.length > 0 ? marginRows[0] : null;
   const peg = toNumber(payload.valuation.pe_ttm) > 0 && toNumber(payload.latestFina?.netprofit_yoy) > 0

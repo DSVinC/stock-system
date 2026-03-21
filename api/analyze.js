@@ -4,7 +4,6 @@ const { createRequire } = require('node:module');
 const workspaceRequire = createRequire('/Users/vvc/.openclaw/workspace/skills/sina-ashare-mcp/package.json');
 const express = workspaceRequire('express');
 const selectRouter = require('./select');
-const analysisRouter = require('./analysis');
 const {
   MarketDataError,
   analyzeTechnical,
@@ -32,6 +31,10 @@ const REPORT_DIR = path.join(__dirname, '..', '..', 'report', 'stockana');
 const reportCache = new Map();
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30分钟缓存
 
+function getAnalysisRouter() {
+  return require('./analysis');
+}
+
 function getCachedReport(stockCode) {
   const cached = reportCache.get(stockCode);
   if (!cached) return null;
@@ -55,7 +58,7 @@ async function analyzeStockWithCache(stockCode) {
 
   // 调用 analysis router 的 runAnalysis
   try {
-    const payload = await analysisRouter.runAnalysis(stockCode);
+    const payload = await getAnalysisRouter().runAnalysis(stockCode);
     setCachedReport(stockCode, payload);
     return payload;
   } catch (error) {

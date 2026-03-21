@@ -8,6 +8,38 @@ NC='\033[0m' # No Color
 
 passed=0
 failed=0
+SERVER_PID=""
+
+cleanup() {
+    if [ -n "$SERVER_PID" ] && kill -0 "$SERVER_PID" >/dev/null 2>&1; then
+        kill "$SERVER_PID" >/dev/null 2>&1 || true
+        wait "$SERVER_PID" 2>/dev/null || true
+    fi
+}
+
+ensure_server() {
+    if curl -s "$BASE_URL/api/" >/dev/null 2>&1; then
+        return 0
+    fi
+
+    node api/server.js >/tmp/stock-system-integration-server.log 2>&1 &
+    SERVER_PID=$!
+
+    for _ in $(seq 1 30); do
+        if curl -s "$BASE_URL/api/" >/dev/null 2>&1; then
+            return 0
+        fi
+        sleep 1
+    done
+
+    echo -e "${RED}无法启动测试服务${NC}"
+    echo "日志: /tmp/stock-system-integration-server.log"
+    exit 1
+}
+
+trap cleanup EXIT
+
+ensure_server
 
 echo "================================"
 echo "  股票投资系统 - 整体联调测试"

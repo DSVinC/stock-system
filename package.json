@@ -5,6 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node api/server.js",
+    "test": "bash test/acceptance-test.sh",
+    "test:integration": "bash test/integration-test.sh",
     "update:industry": "node scripts/update_valuation_data.mjs --type=industry",
     "update:pe": "node scripts/update_valuation_data.mjs --type=pe",
     "update:atr": "node scripts/update_valuation_data.mjs --type=atr"

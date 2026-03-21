@@ -5,6 +5,7 @@
 
 const express = require('express');
 const { tushareRequest, toNumber } = require('./market-data');
+const selectApi = require('./select');
 
 const router = express.Router();
 
@@ -18,27 +19,14 @@ const router = express.Router();
  * 返回:
  * {
  *   success: true,
- *   industry: {
- *     name: "储能",
- *     ts_code: "BK0001",
- *     companyCount: 150
- *   },
- *   stocks: [
- *     {
- *       code: "300750.SZ",
- *       name: "宁德时代",
- *       industry: "电池",
- *       total_mv: 1234567.89,
- *       turnover_rate: 2.5,
- *       volume_ratio: 1.2,
- *       pe_ttm: 25.3
- *     }
- *   ]
+ *   industry: {...},
+ *   stocks: [...]
  * }
  */
 router.get('/:name/stocks', async (req, res) => {
   try {
     const { name } = req.params;
+    console.log('[行业成分股 API] 请求行业:', name);
     
     if (!name) {
       return res.status(400).json({
@@ -48,10 +36,11 @@ router.get('/:name/stocks', async (req, res) => {
       });
     }
     
-    // 首先需要获取行业的 ts_code
-    // 通过 select API 获取所有行业方向，然后匹配名称
-    const directions = await getDirections();
-    const direction = directions.find(d => d.name === name);
+    // 直接从 select API 获取完整的行业数据（包含 picks）
+    console.log('[行业成分股 API] 调用 selectApi.buildSelectionPayload()...');
+    const selectData = await selectApi.buildSelectionPayload();
+    const direction = selectData.directions.find(d => d.name === name);
+    console.log('[行业成分股 API] direction:', direction ? direction.name : '未找到');
     
     if (!direction) {
       return res.status(404).json({
@@ -61,36 +50,9 @@ router.get('/:name/stocks', async (req, res) => {
       });
     }
     
-    // 获取成分股列表
-    const members = await tushareRequest('ths_member', {
-      ts_code: direction.ts_code,
-    }, ['ts_code', 'con_code', 'con_name']);
-    
-    // 获取实时行情数据
-    const dailyBasicMap = await getDailyBasicMap(members.map(m => m.con_code));
-    const stockBasicMap = await getStockBasicMap(members.map(m => m.con_code));
-    
-    // 构建成分股列表
-    const stocks = members
-      .map((member) => {
-        const quote = dailyBasicMap.get(member.con_code) || {};
-        const basic = stockBasicMap.get(member.con_code) || {};
-        return {
-          code: member.con_code,
-          name: member.con_name,
-          industry: basic.industry || '',
-          total_mv: toNumber(quote.total_mv) / 10000,
-          turnover_rate: toNumber(quote.turnover_rate),
-          volume_ratio: toNumber(quote.volume_ratio),
-          pe_ttm: toNumber(quote.pe_ttm),
-        };
-      })
-      .filter((item) => item.total_mv > 0)
-      .sort((left, right) => {
-        if (right.total_mv !== left.total_mv) return right.total_mv - left.total_mv;
-        if (right.volume_ratio !== left.volume_ratio) return right.volume_ratio - left.volume_ratio;
-        return left.code.localeCompare(right.code, 'zh-CN');
-      });
+    // 直接使用 select API 已经获取的 picks 数据
+    const stocks = direction.picks || [];
+    console.log('[行业成分股 API] stocks 数量:', stocks.length);
     
     res.json({
       success: true,
@@ -153,12 +115,11 @@ async function getStockBasicMap(codes) {
 }
 
 /**
- * 获取行业方向列表（通过 HTTP 调用 select API，避免循环依赖）
+ * 获取行业方向列表（直接调用 select.js）
  */
 async function getDirections() {
   try {
-    const response = await fetch('http://127.0.0.1:3000/api/select');
-    const data = await response.json();
+    const data = await selectApi.buildSelectionPayload();
     return data.directions || [];
   } catch (error) {
     console.warn('[获取行业方向列表] 失败:', error.message);
