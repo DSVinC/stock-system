@@ -7,16 +7,17 @@
 
 ---
 
-## 📊 任务状态总览（11:40 更新）
+## 📊 任务状态总览（12:35 更新）
 
 | 任务 ID | 任务名称 | 负责人 | 状态 | 进度 | 预计完成 |
 |---------|----------|--------|------|------|----------|
-| `TASK_ANALYZE_STRUCT_002` | stock_analyzer.py 改造 | Claude Code | 🟡 重新验收中 | 90% | 11:45 |
-| `TASK_ANALYZE_STRUCT_003` | analysis.js API 适配 | Claude Code | ✅ 完成 | 100% | - |
-| `TASK_ANALYZE_STRUCT_004` | 方向股列表界面适配 | Claude Code | ✅ 完成 | 100% | - |
-| `Codex 验收 002` | TASK_002 验收 | Codex | 🟢 重新验收中 | - | 11:45 |
-| `Codex 验收 003` | TASK_003 验收 | Codex | 🟢 执行中 | - | 11:45 |
-| `Codex 验收 004` | TASK_004 验收 | Codex | 🟢 执行中 | - | 11:45 |
+| `TASK_ANALYZE_STRUCT_002` | stock_analyzer.py 改造 | Claude Code | ✅ **通过** | 100% | - |
+| `TASK_ANALYZE_STRUCT_003` | analysis.js API 适配 | Claude Code | 🔴 修复中 | 90% | 13:00 |
+| `TASK_ANALYZE_STRUCT_004` | 方向股列表界面适配 | Claude Code | ✅ **通过** | 100% | - |
+| `TASK_CONDITIONAL_IMPORT_001` | 条件单导入界面 | Claude Code | ⚪ 待开始 | 0% | 18:00 |
+| `Codex 验收 002` | TASK_002 验收 | Codex | ✅ **通过** | - | - |
+| `Codex 验收 003` | TASK_003 验收 | Codex | 🔴 不通过 | - | - |
+| `Codex 验收 004` | TASK_004 验收 | Codex | ✅ **通过** (4/5) | - | - |
 
 **图例**: 🟢 执行中 | 🟡 准备/等待 | 🔴 阻塞 | ⚪ 待开始 | ✅ 完成
 
@@ -47,6 +48,36 @@ TASK_004 (select.html) ✅ 完成，🟢 验收中
 ---
 
 ## 📝 进度日志（每 5 分钟更新）
+
+### 2026-03-22 12:35 - 进度更新
+- [x] TASK_002: ✅ 通过
+- [x] TASK_004: ✅ 通过（4/5，导入功能属于后续任务）
+- [x] 创建新任务 `TASK_CONDITIONAL_IMPORT_001`（条件单导入界面）
+- [ ] TASK_003: 🔴 修复中（路由路径/缓存问题）
+- [ ] 下次检查：12:40
+
+### 2026-03-22 11:53 - 自动检查
+- [ ] TASK_ANALYZE_STRUCT_002: 🟡 进行中
+- [ ] TASK_ANALYZE_STRUCT_003: 🟡 进行中
+- [ ] TASK_ANALYZE_STRUCT_004: 🟡 进行中
+- [ ] 下次检查：11:58
+
+### 2026-03-22 11:51 - 第四次检查（验收结果出炉）
+- [x] TASK_002: ✅ **验收通过！**
+  - ✅ 脚本执行成功（find 执行绕过路径问题）
+  - ✅ JSON 输出有效（7852 字节）
+  - ✅ Schema 校验通过
+  - ✅ strategies 是对象结构，actions 是数组
+- [x] TASK_003: ❌ 验收不通过
+  - ❌ 路由路径不一致（`/api/analysis/v2/report` vs `/api/v2/report`）
+  - ❌ v1 接口返回 503（不可用）
+  - ❌ 缓存无 v1/v2 版本隔离
+  - 🟡 待修复
+- [x] TASK_004: ❌ 验收不通过
+  - ❌ 目标页面错位（实现在 analysis.html 而非 select.html）
+  - ❌ select.html 未接入 v2 API
+  - 🟡 待修复
+- [x] 下一步：修复 TASK_003/004，12:00 前完成
 
 ### 2026-03-22 11:40 - 第三次检查
 - [x] TASK_002: 问题修复完成

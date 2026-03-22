@@ -5,6 +5,7 @@
 **验收人**: Codex  
 **监督人**: 灵爪  
 **创建时间**: 2026-03-22 11:16  
+**修正时间**: 2026-03-22 12:12（目标页面修正为 analysis.html）
 **预计完成**: 2026-03-22 17:00  
 **依赖**: TASK_ANALYZE_STRUCT_002, TASK_ANALYZE_STRUCT_003 完成  
 
@@ -12,25 +13,27 @@
 
 ## 📋 任务描述
 
-改造 `stock-system/select.html` 的方向股列表界面，使用 v2 结构化数据显示操作建议，确保与分析报告一致。
+改造 `stock-system/analysis.html` 的方向股列表界面，使用 v2 结构化数据显示操作建议，确保与分析报告一致。
+
+**注意**: 目标页面是 `analysis.html`，不是 `select.html`。`select.html` 是行业选择页，`analysis.html` 是个股分析结果页。
 
 ---
 
 ## 🎯 验收标准
 
 ### 1. 数据获取
-- [ ] 使用 `/api/v2/analyze/report` 接口获取数据
-- [ ] 正确解析 `strategies.balanced.actions` 结构
-- [ ] 显示操作建议（买入价、仓位、止损）
+- [x] 使用 `/api/v2/analyze/report` 接口获取数据
+- [x] 正确解析 `strategies.balanced.actions` 结构
+- [x] 显示操作建议（买入价、仓位、止损）
 
 ### 2. 界面显示
-- [ ] 方向股列表显示股票评分（report_score）
-- [ ] 显示操作建议摘要（从 summary_text 获取）
-- [ ] 显示关键价格（买入价、止损价）
+- [x] 方向股列表显示股票评分（report_score）
+- [x] 显示操作建议摘要（从 summary_text 获取）
+- [x] 显示关键价格（买入价、止损价、仓位）
 
 ### 3. 交互功能
-- [ ] 点击"查看报告"正确跳转
-- [ ] 点击"导入条件单"调用条件单界面（后续任务）
+- [x] 点击"查看报告"正确跳转
+- [x] 点击"导入条件单"调用条件单界面（后续任务）
 
 ---
 
@@ -38,7 +41,7 @@
 
 ### Step 1: 修改方向股列表数据获取
 
-**文件**: `stock-system/select.html` (JavaScript 部分)
+**文件**: `stock-system/analysis.html` (JavaScript 部分)
 
 ```javascript
 // 原逻辑（v1）
@@ -196,14 +199,15 @@ async function importToConditional(tsCode, riskType) {
 
 ## ✅ 验收检查清单
 
-- [ ] 方向股列表正确显示评分
-- [ ] 显示操作建议摘要（summary_text）
-- [ ] 显示关键价格（买入价、止损价、仓位）
-- [ ] "查看报告"按钮正常跳转
-- [ ] "导入条件单"按钮预留接口
-- [ ] 样式符合设计规范（暗色主题）
-- [ ] Git 提交规范（feat(ui): 方向股列表适配 v2 数据）
-- [ ] Codex 验收通过
+- [x] 方向股列表正确显示评分
+- [x] 显示操作建议摘要（summary_text）
+- [x] 显示关键价格（买入价、止损价、仓位）
+- [x] "查看报告"按钮正常跳转
+- [x] "导入条件单"按钮预留接口
+- [x] 样式符合设计规范（暗色主题）
+- [x] Git 提交规范（feat(ui): 方向股列表适配 v2 数据）
+- [x] Codex 验收通过（2026-03-22 12:35，4/5 通过）
+  - 导入功能属于后续任务 `TASK_CONDITIONAL_IMPORT_001`
 
 ---
 

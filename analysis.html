@@ -547,7 +547,10 @@
         importBtn.className = 'button-secondary btn-import';
         importBtn.type = 'button';
         importBtn.textContent = '导入条件单';
-        importBtn.addEventListener('click', () => importToConditional(stockCode, stockName, 'balanced'));
+        // 从 card 中获取股票名称
+        const nameEl = card.querySelector('.stock-name');
+        const name = nameEl ? nameEl.textContent : stockCode;
+        importBtn.addEventListener('click', () => importToConditional(stockCode, name, 'balanced'));
         actionsEl.appendChild(importBtn);
       }
     }

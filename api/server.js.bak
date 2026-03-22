@@ -189,7 +189,6 @@ async function bootstrap() {
   try {
     const v2Router = require('./v2');
     app.use('/api/v2/analyze', v2Router);
-    app.use('/api/v2', v2Router);
     mounted.push('/api/v2/analyze');
   } catch (e) {
     console.log('[mountApi] v2模块加载失败:', e.message);
