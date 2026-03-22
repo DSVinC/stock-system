@@ -12,8 +12,9 @@
       gap: 1rem;
       margin: 1.5rem 0;
       padding: 1rem;
-      background: #f9fafb;
-      border-radius: 8px;
+      background: var(--panel);
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
     }
     .meta-item {
       display: flex;
@@ -21,26 +22,26 @@
     }
     .meta-label {
       font-size: 0.75rem;
-      color: #6b7280;
+      color: var(--text-faint);
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
     .meta-value {
       font-size: 1rem;
       font-weight: 600;
-      color: #111827;
+      color: var(--text);
       margin-top: 0.25rem;
     }
     
     /* 已监控股票样式 - TASK_OPT_003 */
     .stock-item.monitored {
-      border-left: 3px solid #22c55e;
-      background: #f0fdf4;
+      border-left: 3px solid var(--good);
+      background: rgba(74, 222, 128, 0.08);
     }
     .monitor-badge {
       font-size: 0.75rem;
-      color: #15803d;
-      background: #dcfce7;
+      color: var(--good);
+      background: rgba(74, 222, 128, 0.15);
       padding: 2px 8px;
       border-radius: 12px;
       margin-left: 8px;
@@ -52,9 +53,9 @@
       margin-top: 1rem;
     }
     .direction-card {
-      background: #fff;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
       padding: 1rem;
     }
     .direction-header {
@@ -65,7 +66,7 @@
     }
     .direction-name {
       font-weight: 600;
-      color: #111827;
+      color: var(--text);
     }
     .score-badge {
       padding: 0.25rem 0.75rem;
@@ -74,16 +75,16 @@
       font-weight: 600;
     }
     .score-high {
-      background: #dcfce7;
-      color: #166534;
+      background: rgba(74, 222, 128, 0.15);
+      color: var(--good);
     }
     .score-medium {
-      background: #fef3c7;
-      color: #92400e;
+      background: rgba(251, 191, 36, 0.15);
+      color: var(--warn);
     }
     .score-low {
-      background: #fee2e2;
-      color: #991b1b;
+      background: rgba(251, 113, 133, 0.15);
+      color: var(--bad);
     }
     .stocks-section {
       margin-top: 2rem;
@@ -98,6 +99,51 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      padding: 1rem;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+    }
+    .stock-info {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .stock-name {
+      font-weight: 600;
+      color: var(--text);
+    }
+    .stock-code {
+      font-size: 0.875rem;
+      color: var(--text-faint);
+    }
+    .report-content {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      margin-top: 1rem;
+      color: var(--text-soft);
+      line-height: 1.6;
+    }
+    .action-buttons {
+      display: flex;
+      gap: 1rem;
+      margin-top: 2rem;
+      justify-content: center;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--text-soft);
+    }
+    .section-title {
+      color: var(--text);
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+    }
+  </style>
       padding: 0.75rem 1rem;
       background: #f9fafb;
       border-radius: 6px;
@@ -181,8 +227,9 @@
 
     async function renderReport() {
       const container = document.getElementById('reportContainer');
-      const directions = safeJsonParse(localStorage.getItem(DIRECTIONS_STORAGE_KEY)) || [];
+      // 优先从 selectionReport 读取方向数据，回退到 selectedDirections
       const report = safeJsonParse(localStorage.getItem(SELECTION_REPORT_KEY));
+      const directions = report?.directions?.length ? report.directions : (safeJsonParse(localStorage.getItem(DIRECTIONS_STORAGE_KEY)) || []);
 
       if (!directions.length && !report) {
         container.innerHTML = `
@@ -230,13 +277,25 @@
         html += '<h3 style="margin-top: 1.5rem; color: #111827;">已选方向</h3>';
         html += '<div class="directions-grid">';
         directions.forEach(dir => {
-          const score = dir.score || 0;
-          const scoreClass = score >= 4 ? 'score-high' : score >= 3 ? 'score-medium' : 'score-low';
+          // 支持两种分数格式：0-100 或 1-5
+          let score = dir.score || 0;
+          let displayScore, scoreClass;
+          
+          if (score > 5) {
+            // 0-100 格式，转换为 1-5 显示
+            displayScore = (score / 20).toFixed(1);
+            scoreClass = score >= 80 ? 'score-high' : score >= 60 ? 'score-medium' : 'score-low';
+          } else {
+            // 1-5 格式
+            displayScore = score.toFixed(1);
+            scoreClass = score >= 4 ? 'score-high' : score >= 3 ? 'score-medium' : 'score-low';
+          }
+          
           html += `
             <div class="direction-card">
               <div class="direction-header">
                 <span class="direction-name">${dir.name}</span>
-                <span class="score-badge ${scoreClass}">${score.toFixed(1)}分</span>
+                <span class="score-badge ${scoreClass}">${displayScore}分</span>
               </div>
               <p style="font-size: 0.875rem; color: #4b5563; line-height: 1.5;">${dir.reason || '暂无说明'}</p>
             </div>

@@ -536,6 +536,15 @@
       });
       localStorage.setItem('selectedDirections', JSON.stringify(selectedData));
       
+      // 保存选股报告到 localStorage（与 report.html 统一）
+      const selectionReport = {
+        generatedAt: new Date().toLocaleString('zh-CN'),
+        directions: selectedData,
+        stocks: [],  // 选股阶段只选方向，股票在 analysis.html 生成
+        reportText: null
+      };
+      localStorage.setItem('selectionReport', JSON.stringify(selectionReport));
+      
       // 跳转到选股分析页面 - 传递行业名称（与 analysis.html 统一）
       const names = Array.from(selectedDirections).map(code => {
         const d = window.directionData.find(x => x.ts_code === code);
