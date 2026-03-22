@@ -1,23 +1,32 @@
-# 并行开发进度监督板 - v2 结构化改造
+# 并行开发进度监督板 - 条件单核心流程优化
 
-**创建时间**: 2026-03-22 11:20  
+**创建时间**: 2026-03-22 15:58  
 **监督人**: 灵爪  
-**更新频率**: 每 5 分钟（主人要求）
-**定时提醒**: ✅ 已设置 cron（每 5 分钟）
+**更新频率**: 按需更新
+**当前阶段**: 条件单核心流程优化（选股→分析→监控→条件单）
 
 ---
 
-## 📊 任务状态总览（12:35 更新）
+## 📊 任务状态总览（15:58 更新）
 
 | 任务 ID | 任务名称 | 负责人 | 状态 | 进度 | 预计完成 |
 |---------|----------|--------|------|------|----------|
-| `TASK_ANALYZE_STRUCT_002` | stock_analyzer.py 改造 | Claude Code | ✅ **通过** | 100% | - |
-| `TASK_ANALYZE_STRUCT_003` | analysis.js API 适配 | Claude Code | 🔴 修复中 | 90% | 13:00 |
-| `TASK_ANALYZE_STRUCT_004` | 方向股列表界面适配 | Claude Code | ✅ **通过** | 100% | - |
-| `TASK_CONDITIONAL_IMPORT_001` | 条件单导入界面 | Claude Code | ⚪ 待开始 | 0% | 18:00 |
-| `Codex 验收 002` | TASK_002 验收 | Codex | ✅ **通过** | - | - |
-| `Codex 验收 003` | TASK_003 验收 | Codex | 🔴 不通过 | - | - |
-| `Codex 验收 004` | TASK_004 验收 | Codex | ✅ **通过** (4/5) | - | - |
+| `TASK_CONDITIONAL_FLOW_001` | 条件单股票选择器支持监控池 | Claude Code | ✅ 完成 | 100% | 16:30 |
+| `TASK_CONDITIONAL_FLOW_002` | 分析报告→条件单映射增强 | Claude Code | ✅ 完成 | 100% | 16:30 |
+| `TASK_CONDITIONAL_FLOW_003` | 监控池批量创建条件单 | Claude Code | ✅ 完成 | 100% | 16:30 |
+
+**前置任务（已完成）**:
+| 任务 ID | 任务名称 | 状态 | 完成时间 |
+|---------|----------|------|----------|
+| `TASK_ANALYZE_STRUCT_002` | stock_analyzer.py 结构化改造 | ✅ 完成 | 2026-03-22 |
+| `TASK_ANALYZE_STRUCT_003` | analysis.js API 适配 | ✅ 完成 | 2026-03-22 |
+| `TASK_ANALYZE_STRUCT_004` | 方向股列表界面适配 | ✅ 完成 | 2026-03-22 |
+| `TASK_CONDITIONAL_UI_001` | 条件单管理界面 | ✅ 完成 | 2026-03-22 |
+| `TASK_CONDITIONAL_IMPORT_001` | 条件单导入功能 | ✅ 完成 | 2026-03-22 |
+| `TASK_CONDITIONAL_TRIGGER_001` | 触发条件配置器 | ✅ 完成 | 2026-03-22 |
+| `TASK_CONDITIONAL_EXECUTOR_001` | 条件单执行器 | ✅ 完成 | 2026-03-22 |
+| `TASK_CONDITIONAL_MONITOR_001` | 条件单监控脚本 | ✅ 完成 | 2026-03-22 |
+| `TASK_CONDITIONAL_PORTFOLIO_INTEGRATION_001` | 账户集成 | ✅ 完成 | 2026-03-22 |
 
 **图例**: 🟢 执行中 | 🟡 准备/等待 | 🔴 阻塞 | ⚪ 待开始 | ✅ 完成
 
