@@ -363,7 +363,7 @@ POST /api/analyze
 POST /api/analyze/report
 ```
 
-**职责**：Node.js 原生分析，返回摘要信息，用于前端实时渲染
+**职责**：Node.js 原生分析，生成 Markdown 报告，返回报告 URL 和股票摘要
 
 **请求参数：**
 ```json
@@ -377,16 +377,17 @@ POST /api/analyze/report
 ```json
 {
   "success": true,
-  "report_path": "report/analysis/300750.SZ_2026-03-22.json",
+  "report_path": "http://127.0.0.1:3000/report/analysis/stock_report_宁德时代_20260322.md",
   "stock": {
-    "code": "300750.SZ",
     "name": "宁德时代",
-    "score": 75
+    "code": "300750.SZ",
+    "decision": "增持",
+    "current_price": 188.50
   }
 }
 ```
 
-**说明**：此接口返回报告路径和股票摘要，前端通过报告路径加载完整 JSON 报告
+**说明**：返回 Markdown 报告 URL，前端可通过该 URL 下载报告或解析内容
 
 ### 生成个股分析报告 (Python 版)
 
@@ -394,7 +395,7 @@ POST /api/analyze/report
 POST /api/analysis/report
 ```
 
-**职责**：调用 Python 脚本生成深度 HTML 分析报告
+**职责**：调用 Python 脚本生成深度 HTML 分析报告，返回完整报告数据
 
 **请求参数：**
 ```json
@@ -408,9 +409,18 @@ POST /api/analysis/report
 ```json
 {
   "success": true,
-  "html": "<html>...</html>",
-  "report_path": "report/analysis/300750.SZ_2026-03-22.html"
+  "report_path": "http://127.0.0.1:3000/report/analysis/stock_report_宁德时代_20260322.html",
+  "markdown_report_path": "report/analysis/stock_report_宁德时代_20260322.md",
+  "data": {
+    "stock": { "name": "宁德时代", "ts_code": "300750.SZ" },
+    "technical": { ... },
+    "fundamental": { ... },
+    "capital": { ... },
+    "valuation": { ... },
+    "decision": "增持",
+    "target_prices": [ ... ]
+  }
 }
 ```
 
-**说明**：此接口返回 HTML 报告内容，用于下载或查看深度分析报告
+**说明**：返回 HTML 报告 URL 和完整报告数据，用于下载或查看深度分析报告

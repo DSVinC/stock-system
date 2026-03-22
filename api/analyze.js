@@ -15,9 +15,9 @@
  * 
  * 2. POST /api/analyze/report - 生成单只股票分析报告 (Node.js 版)
  *    - 输入：stock_code, stock_name
- *    - 输出：分析报告 JSON（技术面、基本面、资金面、估值、策略建议）
+ *    - 输出：success + report_path (Markdown 报告 URL) + stock (摘要：name/code/decision/current_price)
  *    - 用途：前端实时渲染个股分析页面
- *    - 返回：success + report_path + stock (摘要信息，非完整报告)
+ *    - 返回示例：{ success: true, report_path: "http://.../xxx.md", stock: {...} }
  * 
  * 依赖：market-data.js (技术分析、财务数据、资金流)
  *      score-factors.js (综合评分计算)
