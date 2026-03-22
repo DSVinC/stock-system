@@ -8,8 +8,8 @@
  * - analysis.js: 调用 Python 脚本 → 生成 HTML 报告 → 深度分析报告下载
  * 
  * 主要接口：
- * - POST /api/analysis - 生成 Python 分析报告（同 analyze.js 的/report）
- * - POST /api/analysis/report - 生成 HTML 报告并返回
+ * - POST /api/analysis - 返回 Python 分析的完整报告数据（JSON）
+ * - POST /api/analysis/report - 生成 HTML 报告并返回（含 report_path 和 markdown_report_path）
  * 
  * 依赖：stock_analyzer.py (Python 分析脚本，位于 skills/a 股个股分析/scripts/)
  */
