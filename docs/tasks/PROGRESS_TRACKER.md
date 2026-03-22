@@ -172,3 +172,32 @@ TASK_004 (select.html) ✅ 完成，🟢 验收中
 ---
 
 _🐾 灵爪监督于 2026-03-22 11:40_
+
+---
+
+### 2026-03-22 15:30 - 条件单系列任务完成
+- [x] TASK_CONDITIONAL_MONITOR_001: ✅ **通过**（Gemini 验收）
+- [x] TASK_BACKTEST_CONDITIONAL_001: ✅ **通过**（测试脚本验证）
+- [x] 数据库迁移：✅ 创建缺失表（portfolio_account, conditional_order, portfolio_trade）
+- [x] Git 提交：`17bbb49` test(backtest): 条件单回测联调测试通过
+
+---
+
+## 🎯 条件单功能系列总结
+
+| 任务 | 状态 | 验收人 | 完成时间 |
+|------|------|--------|----------|
+| TASK_CONDITIONAL_IMPORT_001 | ✅ 通过 | Codex | 15:00 |
+| TASK_CONDITIONAL_TRIGGER_001 | ✅ 通过 | Codex | 15:00 |
+| TASK_CONDITIONAL_UI_001 | ✅ 通过 | Codex | 15:10 |
+| TASK_CONDITIONAL_FIX_001 | ✅ 通过 | Codex | 15:10 |
+| TASK_UI_FIX_008 | ✅ 通过 | Codex | 15:15 |
+| TASK_CONDITIONAL_EXECUTOR_001 | ✅ 通过 | Codex | 15:20 |
+| TASK_CONDITIONAL_MONITOR_001 | ✅ 通过 | Gemini | 15:25 |
+| TASK_BACKTEST_CONDITIONAL_001 | ✅ 通过 | 灵爪 | 15:30 |
+
+**条件单功能完整度**: ✅ 100% 完成
+
+---
+
+_🐾 灵爪监督于 2026-03-22 15:30_
