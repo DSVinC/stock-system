@@ -160,6 +160,18 @@
       transition: opacity 0.3s;
     }
 
+    .export-toast.toast-success {
+      background: rgba(34, 197, 94, 0.9);
+    }
+
+    .export-toast.toast-error {
+      background: rgba(239, 68, 68, 0.92);
+    }
+
+    .export-toast.toast-info {
+      background: rgba(56, 189, 248, 0.92);
+    }
+
     .export-toast.show {
       opacity: 1;
     }
@@ -401,26 +413,20 @@
           </div>
         </div>
 
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-label">仓位占比 (%)</label>
+            <input type="number" class="form-input" name="position_pct" placeholder="建议仓位，如 8" min="0" max="100" step="0.1">
+          </div>
+          <div class="form-field">
+            <label class="form-label">止损参考价</label>
+            <input type="number" class="form-input" name="stop_loss_price" placeholder="导入策略止损价，可修改" min="0" step="0.01">
+          </div>
+        </div>
+
         <div class="form-field">
           <label class="form-label">触发条件</label>
           <div id="conditions-list">
-            <div class="condition-item">
-              <select class="cond-type">
-                <option value="price">股价</option>
-                <option value="pct_change">涨跌幅(%)</option>
-                <option value="volume_ratio">量比</option>
-                <option value="rsi">RSI</option>
-                <option value="macd_cross">MACD信号</option>
-              </select>
-              <select class="cond-op">
-                <option value=">=">>=</option>
-                <option value="<="><=</option>
-                <option value=">">></option>
-                <option value="<"><</option>
-              </select>
-              <input type="text" class="cond-value" placeholder="数值">
-              <button type="button" class="button button-danger" style="min-height:42px;padding:0 12px;font-size:12px;" onclick="removeCondition(this)">删除</button>
-            </div>
           </div>
           <button type="button" class="button button-secondary" style="margin-top:10px;" onclick="addCondition()">+ 添加条件</button>
         </div>
@@ -450,9 +456,22 @@
   </div>
 
   <script>
+    const SUPPORTED_CONDITION_TYPES = ['price', 'pct_change', 'volume_ratio', 'rsi', 'macd_cross'];
+    const SUPPORTED_OPERATORS = ['>=', '<=', '>', '<', '==', '!='];
+    const IMPORT_PARAM_KEY = 'import';
+
     let currentFilter = 'all';
     let currentAccountId = null;
     let ordersData = []; // 存储当前加载的条件单数据
+    let toastTimer = null;
+
+    function getCreateForm() {
+      return document.getElementById('create-form');
+    }
+
+    function getConditionsList() {
+      return document.getElementById('conditions-list');
+    }
 
     async function api(url, options = {}) {
       const response = await fetch(url, {
@@ -548,25 +567,7 @@
       loadOrders();
     }
 
-    function showCreateModal() {
-      if (!getAccountId()) {
-        alert('请先创建并选择账户');
-        return;
-      }
-      const today = new Date().toISOString().split('T')[0];
-      const threeMonthsLater = new Date();
-      threeMonthsLater.setMonth(threeMonthsLater.getMonth() + 3);
-      document.querySelector('[name="start_date"]').value = today;
-      document.querySelector('[name="end_date"]').value = threeMonthsLater.toISOString().split('T')[0];
-      document.getElementById('create-modal').classList.add('show');
-    }
-
-    function closeCreateModal() {
-      document.getElementById('create-modal').classList.remove('show');
-    }
-
-    function addCondition() {
-      const list = document.getElementById('conditions-list');
+    function createConditionRow(condition = {}) {
       const row = document.createElement('div');
       row.className = 'condition-item';
       row.innerHTML = `
@@ -582,39 +583,346 @@
           <option value="<="><=</option>
           <option value=">">></option>
           <option value="<"><</option>
+          <option value="==">==</option>
+          <option value="!=">!=</option>
         </select>
         <input type="text" class="cond-value" placeholder="数值">
         <button type="button" class="button button-danger" style="min-height:42px;padding:0 12px;font-size:12px;" onclick="removeCondition(this)">删除</button>
       `;
-      list.appendChild(row);
+
+      row.querySelector('.cond-type').value = SUPPORTED_CONDITION_TYPES.includes(condition.type) ? condition.type : 'price';
+      row.querySelector('.cond-op').value = SUPPORTED_OPERATORS.includes(condition.operator) ? condition.operator : '<=';
+      row.querySelector('.cond-value').value = condition.value ?? '';
+      return row;
+    }
+
+    function setDefaultDates(form = getCreateForm()) {
+      const today = new Date().toISOString().split('T')[0];
+      const threeMonthsLater = new Date();
+      threeMonthsLater.setMonth(threeMonthsLater.getMonth() + 3);
+      form.start_date.value = today;
+      form.end_date.value = threeMonthsLater.toISOString().split('T')[0];
+    }
+
+    function resetConditions(conditions = [{}]) {
+      const list = getConditionsList();
+      list.replaceChildren();
+      conditions.forEach(condition => {
+        list.appendChild(createConditionRow(condition));
+      });
+    }
+
+    function resetCreateForm() {
+      const form = getCreateForm();
+      form.reset();
+      form.action.value = 'buy';
+      form.order_type.value = 'price';
+      form.max_trigger_count.value = '1';
+      form.position_pct.value = '';
+      form.stop_loss_price.value = '';
+      setDefaultDates(form);
+      resetConditions([{}]);
+    }
+
+    function showCreateModal(options = {}) {
+      const { allowWithoutAccount = false, preserveValues = false } = options;
+      const accountId = getAccountId();
+
+      if (!accountId && !allowWithoutAccount) {
+        showToast('请先创建并选择账户', 'error');
+        return false;
+      }
+
+      if (!preserveValues) {
+        resetCreateForm();
+      } else {
+        const form = getCreateForm();
+        if (!form.start_date.value || !form.end_date.value) {
+          setDefaultDates(form);
+        }
+      }
+
+      document.getElementById('create-modal').classList.add('show');
+      if (!accountId) {
+        showToast('已导入策略草稿，请先选择账户后再创建条件单', 'info');
+      }
+      return true;
+    }
+
+    function closeCreateModal() {
+      document.getElementById('create-modal').classList.remove('show');
+    }
+
+    function addCondition() {
+      getConditionsList().appendChild(createConditionRow());
     }
 
     function removeCondition(btn) {
+      const list = getConditionsList();
+      if (list.children.length <= 1) {
+        const row = btn.parentElement;
+        row.querySelector('.cond-type').value = 'price';
+        row.querySelector('.cond-op').value = '<=';
+        row.querySelector('.cond-value').value = '';
+        return;
+      }
       btn.parentElement.remove();
+    }
+
+    function normalizeTsCode(value) {
+      return String(value || '').trim().toUpperCase();
+    }
+
+    function normalizeConditionValue(value) {
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        return value;
+      }
+      const trimmed = String(value ?? '').trim();
+      if (!trimmed) {
+        return '';
+      }
+      const numeric = Number(trimmed);
+      return Number.isFinite(numeric) ? numeric : trimmed;
+    }
+
+    function normalizeConditionType(condition) {
+      const field = typeof condition?.field === 'string' ? condition.field.trim().toLowerCase() : '';
+      const type = typeof condition?.type === 'string' ? condition.type.trim().toLowerCase() : '';
+
+      if (SUPPORTED_CONDITION_TYPES.includes(field)) {
+        return field;
+      }
+      if (type === 'price') {
+        return 'price';
+      }
+      if (type === 'indicator' && SUPPORTED_CONDITION_TYPES.includes(field)) {
+        return field;
+      }
+      return '';
+    }
+
+    function validateEditableConditions(conditions) {
+      if (!Array.isArray(conditions) || conditions.length === 0) {
+        return { valid: false, error: '请至少填写一个触发条件' };
+      }
+
+      for (const condition of conditions) {
+        if (!SUPPORTED_CONDITION_TYPES.includes(condition.type)) {
+          return { valid: false, error: `不支持的触发条件类型: ${condition.type}` };
+        }
+        if (!SUPPORTED_OPERATORS.includes(condition.operator)) {
+          return { valid: false, error: `不支持的操作符: ${condition.operator}` };
+        }
+        if (condition.value === '' || condition.value === null || condition.value === undefined) {
+          return { valid: false, error: '触发条件数值不能为空' };
+        }
+      }
+
+      return { valid: true };
+    }
+
+    function collectFormConditions() {
+      const conditions = [];
+      document.querySelectorAll('.condition-item').forEach(row => {
+        const type = row.querySelector('.cond-type').value;
+        const operator = row.querySelector('.cond-op').value;
+        const value = normalizeConditionValue(row.querySelector('.cond-value').value);
+        if (value !== '') {
+          conditions.push({ type, operator, value });
+        }
+      });
+      return conditions;
+    }
+
+    function inferOrderTypeFromConditions(conditions) {
+      if (!Array.isArray(conditions) || conditions.length === 0) {
+        return 'price';
+      }
+      if (conditions.length > 1) {
+        return 'composite';
+      }
+
+      const [condition] = conditions;
+      if (['price', 'pct_change'].includes(condition.type)) {
+        return 'price';
+      }
+      if (['volume_ratio', 'rsi', 'macd_cross'].includes(condition.type)) {
+        return 'indicator';
+      }
+      return 'composite';
+    }
+
+    async function fetchStockInfo(query) {
+      const response = await fetch(`/api/stock/search?q=${encodeURIComponent(query)}`);
+      const result = await response.json();
+      return Array.isArray(result.data) ? result.data[0] || null : null;
+    }
+
+    function clearImportParam() {
+      const url = new URL(window.location.href);
+      if (!url.searchParams.has(IMPORT_PARAM_KEY)) {
+        return;
+      }
+      url.searchParams.delete(IMPORT_PARAM_KEY);
+      window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+    }
+
+    function parseImportPayload(rawImport) {
+      let decoded = rawImport;
+      try {
+        decoded = decodeURIComponent(rawImport);
+      } catch (error) {
+        decoded = rawImport;
+      }
+
+      let payload;
+      try {
+        payload = JSON.parse(decoded);
+      } catch (error) {
+        throw new Error('导入数据不是有效 JSON');
+      }
+
+      if (!payload || typeof payload !== 'object') {
+        throw new Error('导入数据格式无效');
+      }
+
+      const stockCode = normalizeTsCode(payload.stock_code || payload.ts_code);
+      const stockName = String(payload.stock_name || '').trim();
+      const strategy = payload.strategy;
+
+      if (!stockCode || !stockName || !strategy || typeof strategy !== 'object') {
+        throw new Error('导入数据缺少股票或策略信息');
+      }
+      if (!Array.isArray(strategy.actions) || strategy.actions.length === 0) {
+        throw new Error('导入策略缺少可用动作');
+      }
+
+      return {
+        stockCode,
+        stockName,
+        stopLoss: payload.stop_loss,
+        strategy
+      };
+    }
+
+    function normalizeImportedConditions(importedConditions) {
+      if (!Array.isArray(importedConditions) || importedConditions.length === 0) {
+        throw new Error('导入策略未包含触发条件');
+      }
+
+      return importedConditions.map((condition) => {
+        const type = normalizeConditionType(condition);
+        const operator = typeof condition?.operator === 'string' ? condition.operator.trim() : '';
+        const value = normalizeConditionValue(condition?.value);
+
+        if (!type) {
+          throw new Error(`存在不支持的触发字段: ${condition?.field || condition?.type || 'unknown'}`);
+        }
+        if (!SUPPORTED_OPERATORS.includes(operator)) {
+          throw new Error(`存在不支持的触发操作符: ${operator || 'unknown'}`);
+        }
+        if (value === '') {
+          throw new Error('导入策略存在空的触发值');
+        }
+
+        return { type, operator, value };
+      });
+    }
+
+    function pickImportAction(strategy) {
+      const action = strategy.actions.find(item =>
+        ['buy', 'sell'].includes(item?.action_type) &&
+        Array.isArray(item?.trigger_conditions) &&
+        item.trigger_conditions.length > 0
+      );
+
+      if (!action) {
+        throw new Error('导入策略中没有可创建条件单的买卖动作');
+      }
+
+      return action;
+    }
+
+    async function handleImportFromQuery() {
+      const params = new URLSearchParams(window.location.search);
+      const rawImport = params.get(IMPORT_PARAM_KEY);
+      if (!rawImport) {
+        return;
+      }
+
+      try {
+        const parsed = parseImportPayload(rawImport);
+        const stockInfo = await fetchStockInfo(parsed.stockCode);
+        if (!stockInfo || normalizeTsCode(stockInfo.ts_code) !== parsed.stockCode) {
+          throw new Error(`未找到股票 ${parsed.stockCode}`);
+        }
+
+        const action = pickImportAction(parsed.strategy);
+        const conditions = normalizeImportedConditions(action.trigger_conditions);
+        const validation = validateEditableConditions(conditions);
+        if (!validation.valid) {
+          throw new Error(validation.error);
+        }
+
+        showCreateModal({ allowWithoutAccount: true });
+
+        const form = getCreateForm();
+        form.ts_code.value = stockInfo.ts_code || parsed.stockCode;
+        form.stock_name.value = stockInfo.name || parsed.stockName;
+        form.action.value = action.action_type;
+        form.order_type.value = inferOrderTypeFromConditions(conditions);
+        form.position_pct.value = action.position_percent ?? '';
+        form.stop_loss_price.value = action.stop_loss ?? parsed.stopLoss ?? '';
+        resetConditions(conditions);
+
+        clearImportParam();
+        showToast(`已导入 ${form.stock_name.value} 策略，请确认后创建条件单`, 'success');
+      } catch (error) {
+        clearImportParam();
+        showToast(`导入失败：${error.message}`, 'error');
+      }
     }
 
     async function createOrder(e) {
       e.preventDefault();
       const form = e.target;
+      const accountId = getAccountId();
+      if (!accountId) {
+        showToast('请先创建并选择账户', 'error');
+        return;
+      }
 
-      const conditions = [];
-      document.querySelectorAll('.condition-item').forEach(row => {
-        const type = row.querySelector('.cond-type').value;
-        const operator = row.querySelector('.cond-op').value;
-        const value = row.querySelector('.cond-value').value;
-        if (value) {
-          conditions.push({ type, operator, value: parseFloat(value) || value });
-        }
-      });
+      const tsCode = normalizeTsCode(form.ts_code.value);
+      const stockName = form.stock_name.value.trim();
+      const conditions = collectFormConditions();
+      const condValidation = validateEditableConditions(conditions);
+      if (!condValidation.valid) {
+        showToast(condValidation.error, 'error');
+        return;
+      }
+
+      const positionPct = form.position_pct.value === ''
+        ? null
+        : Number(form.position_pct.value);
+      if (positionPct !== null && (!Number.isFinite(positionPct) || positionPct < 0 || positionPct > 100)) {
+        showToast('仓位占比需在 0-100 之间', 'error');
+        return;
+      }
+
+      if (!tsCode || !stockName) {
+        showToast('股票代码和名称不能为空', 'error');
+        return;
+      }
 
       const data = {
-        account_id: getAccountId(),
-        ts_code: form.ts_code.value,
-        stock_name: form.stock_name.value,
+        account_id: accountId,
+        ts_code: tsCode,
+        stock_name: stockName,
         action: form.action.value,
         order_type: form.order_type.value,
         quantity: form.quantity.value ? parseInt(form.quantity.value) : null,
         amount: form.amount.value ? parseFloat(form.amount.value) : null,
+        position_pct: positionPct,
         conditions: conditions,
         condition_logic: 'AND',
         start_date: form.start_date.value,
@@ -629,9 +937,11 @@
 
       if (result.success) {
         closeCreateModal();
+        resetCreateForm();
         loadOrders();
+        showToast('条件单创建成功', 'success');
       } else {
-        alert('创建失败: ' + result.error);
+        showToast('创建失败: ' + result.error, 'error');
       }
     }
 
@@ -644,8 +954,9 @@
 
       if (result.success) {
         loadOrders();
+        showToast('条件单已取消', 'success');
       } else {
-        alert('取消失败: ' + result.error);
+        showToast('取消失败: ' + result.error, 'error');
       }
     }
 
@@ -715,22 +1026,30 @@
     }
 
     // 显示提示
-    function showToast(message) {
+    function showToast(message, type = 'success') {
       let toast = document.querySelector('.export-toast');
       if (!toast) {
         toast = document.createElement('div');
         toast.className = 'export-toast';
         document.body.appendChild(toast);
       }
+      toast.classList.remove('toast-success', 'toast-error', 'toast-info');
+      toast.classList.add(`toast-${type}`);
       toast.textContent = message;
       toast.classList.add('show');
-      setTimeout(() => {
+      if (toastTimer) {
+        clearTimeout(toastTimer);
+      }
+      toastTimer = setTimeout(() => {
         toast.classList.remove('show');
+        toastTimer = null;
       }, 2000);
     }
 
     // 初始化
+    resetCreateForm();
     loadOrders();
+    handleImportFromQuery();
   </script>
 </body>
 </html>
