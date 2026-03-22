@@ -331,11 +331,88 @@ else:
 
 ---
 
+## 📰 十、行业新闻监控设计（2026-03-22 更新）
+
+### 10.1 实现状态
+
+| 模块 | 文件路径 | 状态 | 说明 |
+|------|----------|------|------|
+| **核心监控** | `api/industry-news-monitor.js` | ✅ 已完成 | 监控池行业关键词匹配、新闻抓取、情感分析 |
+| **命令行脚本** | `scripts/industry-news-monitor.mjs` | ✅ 已完成 | 定时任务入口脚本 |
+| **每日摘要** | `scripts/daily-industry-summary.mjs` | ✅ 已完成 | 生成行业监控日报 |
+| **定时任务** | `HEARTBEAT.md` | ⚠️ 待部署 | 未配置到 cron 任务清单 |
+
+### 10.2 核心功能
+
+**监控流程**：
+```
+读取监控池行业 → 提取行业关键词 → 查询新闻数据库 → 情感分析 → 飞书推送
+```
+
+**情感分析算法**：
+- **正面词**：利好、增长、盈利、突破、上涨、创新高、支持、订单、合作
+- **负面词**：利空、下跌、亏损、下滑、风险、警告、违规、调查、处罚
+- **评分范围**：-1 (极度负面) ~ 1 (极度正面)
+- **置信度**：基于匹配关键词数量计算
+
+**推送条件**：
+- 情感评分 > 0.6 或 < -0.4
+- 24 小时内不重复推送相同新闻
+- 飞书推送至主人 (ou_a21807011c59304bedfaf2f7440f5361)
+
+### 10.3 数据模型
+
+**新闻数据库**：
+- **路径**：`/Users/vvc/.openclaw/workspace/news_system/news.db`
+- **规模**：26,350+ 条新闻
+- **表结构**：
+  - `news_sources`: 新闻源配置
+  - `news_raw`: 原始新闻 (标题、内容、链接、发布时间)
+  - `news_analysis`: AI 分析结果 (情感评分、相关行业、相关股票)
+  - `daily_sector_summary`: 每日行业摘要
+
+**行业监控因子表** (stock_system.db)：
+```sql
+CREATE TABLE industry_news_factor (
+  news_id TEXT PRIMARY KEY,
+  industry_code TEXT,
+  industry_name TEXT,
+  news_title TEXT,
+  news_url TEXT,
+  publish_time DATETIME,
+  sentiment TEXT,  -- strong_positive/positive/neutral/negative/strong_negative
+  confidence REAL,
+  keywords_matched TEXT,  -- JSON 数组
+  is_notified BOOLEAN,
+  created_at DATETIME
+);
+```
+
+### 10.4 与基本面因子整合
+
+根据 DESIGN_CONSENSUS.md 第十节设计，行业新闻监控是基本面因子的重要组成部分：
+
+| 基本面因子 | 权重 | 数据来源 | 状态 |
+|------------|------|----------|------|
+| 估值变化 | 25% | Tushare daily_basic | ✅ 已实现 |
+| 财务指标 | 25% | Tushare fina_indicator | ✅ 已实现 |
+| **行业新闻** | **20%** | **本地新闻数据库** | ✅ **已实现** |
+| 公告事件 | 20% | 本地新闻数据库 + 新浪财经 | ✅ 已实现 |
+| 资金流向 | 10% | Tushare moneyflow | ✅ 已实现 |
+
+**待完成**：
+- [ ] 配置定时任务到 HEARTBEAT.md（建议每天 07:30 执行）
+- [ ] 将行业新闻评分整合到个股分析报告的综合评分中
+- [ ] 优化情感分析算法（引入 AI 模型提升准确率）
+
+---
+
 ## 📝 版本历史
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
 | v1.0 | 2026-03-22 | 初始版本，梳理 6 因子评分系统完整逻辑 |
+| v1.1 | 2026-03-22 | 新增第十节：行业新闻监控设计实现说明 |
 
 ---
 
