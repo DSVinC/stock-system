@@ -40,11 +40,12 @@ CREATE TABLE IF NOT EXISTS conditional_order (
     ts_code           VARCHAR(20) NOT NULL,
     stock_name        VARCHAR(100) NOT NULL,
     action            VARCHAR(10) NOT NULL,  -- 'buy' or 'sell'
-    order_type        VARCHAR(20) NOT NULL,  -- 'quantity', 'amount', 'position_percent'
+    order_type        VARCHAR(20) NOT NULL,  -- 'quantity', 'amount', 'position_pct'
     quantity          INTEGER,
     amount            DECIMAL(15, 4),
-    position_percent  DECIMAL(5, 2),
+    position_pct      DECIMAL(5, 2),
     conditions        TEXT NOT NULL,  -- JSON array of conditions
+    condition_logic   VARCHAR(10) NOT NULL DEFAULT 'AND',  -- 'AND' or 'OR'
     status            VARCHAR(20) NOT NULL DEFAULT 'enabled',  -- 'enabled', 'disabled', 'expired', 'completed'
     trigger_count     INTEGER NOT NULL DEFAULT 0,
     max_trigger_count INTEGER DEFAULT 1,
@@ -57,7 +58,7 @@ CREATE TABLE IF NOT EXISTS conditional_order (
         FOREIGN KEY (account_id) REFERENCES portfolio_account(id)
         ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT chk_action CHECK (action IN ('buy', 'sell')),
-    CONSTRAINT chk_order_type CHECK (order_type IN ('quantity', 'amount', 'position_percent')),
+    CONSTRAINT chk_order_type CHECK (order_type IN ('quantity', 'amount', 'position_pct')),
     CONSTRAINT chk_status CHECK (status IN ('enabled', 'disabled', 'expired', 'completed')),
     CONSTRAINT chk_trigger_count CHECK (trigger_count >= 0)
 );
