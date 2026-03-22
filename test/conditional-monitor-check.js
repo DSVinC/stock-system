@@ -238,6 +238,15 @@ async function main() {
     conditions: JSON.stringify([{ type: 'price', operator: '>=', value: 500 }]),
   });
 
+  const peOrderId = await createOrder(db, {
+    account_id: accountId,
+    ts_code: '601318.SH',
+    stock_name: '中国平安',
+    action: 'buy',
+    quantity: 100,
+    conditions: JSON.stringify([{ type: 'pe_percentile', operator: '<=', value: 0.25 }]),
+  });
+
   await createOrder(db, {
     account_id: accountId,
     ts_code: '688981.SH',
@@ -253,6 +262,7 @@ async function main() {
     '000001.SZ': { price: 12.3, percent: 3.5, preClose: 11.88, volume: 500000, amount: 6150000 },
     '600000.SH': { price: 18.6, percent: 4.2, preClose: 17.85, volume: 420000, amount: 7812000 },
     '300750.SZ': { price: 260, percent: -1.2, preClose: 263.16, volume: 180000, amount: 46800000 },
+    '601318.SH': { price: 45.6, percent: 1.1, preClose: 45.1, volume: 260000, amount: 11856000 },
   };
 
   const result = await checkAllConditionalOrders({
@@ -266,6 +276,12 @@ async function main() {
     },
     dailyHistoryProvider: async (tsCode) => buildIncreasingHistory(tsCode),
     dailyBasicProvider: async () => ({ volume_ratio: 1.8, pe: 12.5, pe_ttm: 12.2 }),
+    pePercentileProvider: async (tsCode) => {
+      if (tsCode === '601318.SH') {
+        return { percentile5y: 0.18, percentile3y: 0.22, percentile1y: 0.35 };
+      }
+      return { percentile5y: 0.42, percentile3y: 0.5, percentile1y: 0.65 };
+    },
     tradeDateProvider: async () => '20260320',
     moneyflowProvider: async () => [{ net_mf_amount: 1234567 }],
     executor: (orderId, marketData, technicalData, options) =>
@@ -277,17 +293,18 @@ async function main() {
   });
 
   assert.equal(result.success, true);
-  assert.equal(result.total, 3);
-  assert.equal(result.triggered, 2);
+  assert.equal(result.total, 4);
+  assert.equal(result.triggered, 3);
   assert.equal(result.check_failed, 0);
   assert.equal(result.execution_failed, 0);
 
   const trades = await db.allPromise('SELECT conditional_order_id FROM portfolio_trade ORDER BY conditional_order_id ASC');
-  assert.deepEqual(trades.map((item) => item.conditional_order_id), [priceOrderId, rsiOrderId]);
+  assert.deepEqual(trades.map((item) => item.conditional_order_id), [priceOrderId, rsiOrderId, peOrderId]);
 
   const priceOrder = await db.getPromise('SELECT status, trigger_count FROM conditional_order WHERE id = ?', [priceOrderId]);
   const rsiOrder = await db.getPromise('SELECT status, trigger_count FROM conditional_order WHERE id = ?', [rsiOrderId]);
   const pendingOrder = await db.getPromise('SELECT status, trigger_count FROM conditional_order WHERE id = ?', [pendingOrderId]);
+  const peOrder = await db.getPromise('SELECT status, trigger_count FROM conditional_order WHERE id = ?', [peOrderId]);
 
   assert.equal(priceOrder.status, 'expired');
   assert.equal(priceOrder.trigger_count, 1);
@@ -295,11 +312,15 @@ async function main() {
   assert.equal(rsiOrder.trigger_count, 1);
   assert.equal(pendingOrder.status, 'enabled');
   assert.equal(pendingOrder.trigger_count, 0);
+  assert.equal(peOrder.status, 'expired');
+  assert.equal(peOrder.trigger_count, 1);
 
-  assert.equal(notifications.length, 2);
+  assert.equal(notifications.length, 3);
   assert(logs.some((line) => line.includes(`orderId=${priceOrderId}`) && line.includes('条件满足')));
   assert(logs.some((line) => line.includes(`orderId=${rsiOrderId}`) && line.includes('条件满足')));
   assert(logs.some((line) => line.includes(`orderId=${pendingOrderId}`) && line.includes('条件未满足')));
+  assert(logs.some((line) => line.includes(`orderId=${peOrderId}`) && line.includes('"pePercentile":0.18')));
+  assert(logs.some((line) => line.includes(`orderId=${peOrderId}`) && line.includes('条件满足')));
 
   console.log('PASS conditional monitor loop');
 }

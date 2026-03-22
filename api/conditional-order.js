@@ -6,6 +6,8 @@
 
 const { getDatabase } = require('./db');
 
+const BOARD_LOT_SIZE = 100;
+
 // 安全的JSON解析
 function safeJsonParse(str, defaultValue = []) {
   try {
@@ -122,6 +124,172 @@ function buildStatusClause(status) {
   }
 }
 
+function toNumber(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function normalizeTradeQuantity(rawQuantity, action, maxSellQuantity = null) {
+  const quantity = Math.floor(Number(rawQuantity) || 0);
+  if (quantity <= 0) {
+    return 0;
+  }
+
+  if (action === 'sell' && Number.isFinite(maxSellQuantity) && quantity >= maxSellQuantity) {
+    return Math.floor(maxSellQuantity);
+  }
+
+  return Math.floor(quantity / BOARD_LOT_SIZE) * BOARD_LOT_SIZE;
+}
+
+function extractPriceFromConditions(conditions) {
+  if (!Array.isArray(conditions)) {
+    return null;
+  }
+
+  for (const condition of conditions) {
+    if (condition?.trigger_type === 'price_above' || condition?.trigger_type === 'price_below') {
+      const price = toNumber(condition?.params?.price);
+      if (price && price > 0) {
+        return price;
+      }
+    }
+
+    if (condition?.type === 'price') {
+      const price = toNumber(condition?.value);
+      if (price && price > 0) {
+        return price;
+      }
+    }
+  }
+
+  return null;
+}
+
+async function resolveReferencePrice(db, tsCode, conditions) {
+  const conditionPrice = extractPriceFromConditions(conditions);
+  if (conditionPrice) {
+    return conditionPrice;
+  }
+
+  try {
+    const latestRow = await db.getPromise(`
+      SELECT close
+      FROM stock_daily
+      WHERE ts_code = ?
+      ORDER BY trade_date DESC
+      LIMIT 1
+    `, [tsCode]);
+    const latestPrice = toNumber(latestRow?.close);
+    return latestPrice && latestPrice > 0 ? latestPrice : null;
+  } catch (_error) {
+    return null;
+  }
+}
+
+async function validateAccountForOrder(db, payload) {
+  const account = await db.getPromise(
+    'SELECT id, account_name, current_cash, initial_cash FROM portfolio_account WHERE id = ?',
+    [payload.account_id]
+  );
+  if (!account) {
+    return { valid: false, status: 404, code: 'ACCOUNT_NOT_FOUND', error: '投资组合账户不存在' };
+  }
+
+  const action = String(payload.action || '').toLowerCase();
+  if (!['buy', 'sell'].includes(action)) {
+    return { valid: false, status: 400, code: 'INVALID_ACTION', error: '交易动作必须是 buy 或 sell' };
+  }
+
+  const referencePrice = await resolveReferencePrice(db, payload.ts_code, payload.conditions);
+  const quantityValue = toNumber(payload.quantity);
+  const amountValue = toNumber(payload.amount);
+  const positionPctValue = toNumber(payload.position_pct);
+
+  const position = await db.getPromise(
+    'SELECT * FROM portfolio_position WHERE account_id = ? AND ts_code = ?',
+    [payload.account_id, payload.ts_code]
+  );
+
+  if (action === 'buy') {
+    let estimatedCost = null;
+
+    if (quantityValue && quantityValue > 0) {
+      if (!referencePrice) {
+        return {
+          valid: false,
+          status: 400,
+          code: 'PRICE_REFERENCE_REQUIRED',
+          error: '当前条件单缺少可用于估算成本的价格，请配置价格条件或补充金额参数'
+        };
+      }
+
+      const normalizedQuantity = normalizeTradeQuantity(quantityValue, 'buy');
+      if (normalizedQuantity < BOARD_LOT_SIZE) {
+        return { valid: false, status: 400, code: 'INVALID_QUANTITY', error: '买入数量不足100股' };
+      }
+      estimatedCost = normalizedQuantity * referencePrice;
+    } else if (amountValue && amountValue > 0) {
+      estimatedCost = amountValue;
+    } else if (positionPctValue && positionPctValue > 0) {
+      if (positionPctValue > 100) {
+        return { valid: false, status: 400, code: 'INVALID_POSITION_PCT', error: '买入仓位比例不能超过100%' };
+      }
+      estimatedCost = Number(account.current_cash) * (positionPctValue / 100);
+    }
+
+    if (!estimatedCost || estimatedCost <= 0) {
+      return { valid: false, status: 400, code: 'INVALID_ORDER', error: '条件单缺少有效的买入参数' };
+    }
+
+    if (estimatedCost > Number(account.current_cash)) {
+      return { valid: false, status: 400, code: 'INSUFFICIENT_FUNDS', error: '账户资金不足，无法创建该条件单' };
+    }
+  }
+
+  if (action === 'sell') {
+    if (!position || Number(position.quantity) <= 0) {
+      return { valid: false, status: 400, code: 'INSUFFICIENT_POSITION', error: '账户当前无对应持仓，无法创建卖出条件单' };
+    }
+
+    if (quantityValue && quantityValue > 0) {
+      if (quantityValue > Number(position.quantity)) {
+        return { valid: false, status: 400, code: 'INSUFFICIENT_POSITION', error: '卖出数量超过当前持仓' };
+      }
+    } else if (amountValue && amountValue > 0) {
+      if (!referencePrice) {
+        return {
+          valid: false,
+          status: 400,
+          code: 'PRICE_REFERENCE_REQUIRED',
+          error: '当前条件单缺少可用于估算卖出数量的价格，请配置价格条件或改用数量/仓位比例'
+        };
+      }
+
+      const estimatedQuantity = normalizeTradeQuantity(Math.floor(amountValue / referencePrice), 'sell', Number(position.quantity));
+      if (estimatedQuantity <= 0) {
+        return { valid: false, status: 400, code: 'INVALID_QUANTITY', error: '卖出金额不足以形成有效委托' };
+      }
+      if (estimatedQuantity > Number(position.quantity)) {
+        return { valid: false, status: 400, code: 'INSUFFICIENT_POSITION', error: '卖出金额对应数量超过当前持仓' };
+      }
+    } else if (positionPctValue && positionPctValue > 0) {
+      if (positionPctValue > 100) {
+        return { valid: false, status: 400, code: 'INVALID_POSITION_PCT', error: '卖出仓位比例不能超过100%' };
+      }
+    } else {
+      return { valid: false, status: 400, code: 'INVALID_ORDER', error: '条件单缺少有效的卖出参数' };
+    }
+  }
+
+  return {
+    valid: true,
+    account,
+    position,
+    referencePrice
+  };
+}
+
 // ========== 条件单管理 API ==========
 
 /**
@@ -133,21 +301,27 @@ async function getConditionalOrders(req, res) {
     const { account_id, status } = req.query;
     const db = await getDatabase();
     
-    let query = 'SELECT * FROM conditional_order';
+    let query = `
+      SELECT
+        co.*,
+        pa.account_name
+      FROM conditional_order co
+      LEFT JOIN portfolio_account pa ON pa.id = co.account_id
+    `;
     let params = [];
     let conditions = [];
     
     if (account_id) {
-      conditions.push('account_id = ?');
+      conditions.push('co.account_id = ?');
       params.push(account_id);
     }
     if (status) {
       const statusClause = buildStatusClause(status);
       if (statusClause) {
-        conditions.push(statusClause.clause);
+        conditions.push(statusClause.clause.replace(/status/g, 'co.status'));
         params.push(...statusClause.params);
       } else {
-        conditions.push('status = ?');
+        conditions.push('co.status = ?');
         params.push(status);
       }
     }
@@ -155,7 +329,7 @@ async function getConditionalOrders(req, res) {
     if (conditions.length > 0) {
       query += ' WHERE ' + conditions.join(' AND ');
     }
-    query += ' ORDER BY created_at DESC';
+    query += ' ORDER BY co.created_at DESC';
     
     const orders = await db.allPromise(query, params);
     
@@ -166,7 +340,7 @@ async function getConditionalOrders(req, res) {
       conditions: safeJsonParse(order.conditions, [])
     }));
     
-    res.json({ success: true, data: parsedOrders });
+    res.json({ success: true, data: parsedOrders, orders: parsedOrders });
   } catch (error) {
     console.error('获取条件单列表失败:', error);
     res.status(500).json({ success: false, error: error.message });
@@ -182,7 +356,14 @@ async function getConditionalOrder(req, res) {
     const { id } = req.params;
     const db = await getDatabase();
     
-    const order = await db.getPromise('SELECT * FROM conditional_order WHERE id = ?', [id]);
+    const order = await db.getPromise(`
+      SELECT
+        co.*,
+        pa.account_name
+      FROM conditional_order co
+      LEFT JOIN portfolio_account pa ON pa.id = co.account_id
+      WHERE co.id = ?
+    `, [id]);
     
     if (!order) {
       return res.status(404).json({ success: false, error: '条件单不存在' });
@@ -195,7 +376,7 @@ async function getConditionalOrder(req, res) {
       conditions: safeJsonParse(order.conditions, [])
     };
     
-    res.json({ success: true, data: parsedOrder });
+    res.json({ success: true, data: parsedOrder, order: parsedOrder });
   } catch (error) {
     console.error('获取条件单详情失败:', error);
     res.status(500).json({ success: false, error: error.message });
@@ -233,10 +414,21 @@ async function createConditionalOrder(req, res) {
     
     const db = await getDatabase();
     
-    // 验证账户存在
-    const account = await db.getPromise('SELECT id FROM portfolio_account WHERE id = ?', [account_id]);
-    if (!account) {
-      return res.status(404).json({ success: false, error: '账户不存在' });
+    const validation = await validateAccountForOrder(db, {
+      account_id,
+      ts_code,
+      action,
+      quantity,
+      amount,
+      position_pct,
+      conditions
+    });
+    if (!validation.valid) {
+      return res.status(validation.status).json({
+        success: false,
+        code: validation.code,
+        error: validation.error
+      });
     }
     
     const result = await db.runPromise(`
@@ -259,7 +451,15 @@ async function createConditionalOrder(req, res) {
     
     res.json({ 
       success: true, 
-      data: { id: result.lastID, ts_code, stock_name, action, status: 'enabled' }
+      data: {
+        id: result.lastID,
+        account_id,
+        account_name: validation.account.account_name,
+        ts_code,
+        stock_name,
+        action,
+        status: 'enabled'
+      }
     });
   } catch (error) {
     console.error('创建条件单失败:', error);

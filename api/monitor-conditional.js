@@ -15,6 +15,7 @@ const {
   getLatestDailyBasic,
   getMoneyflowRows,
   getRealtimeQuote: fetchRealtimeQuoteFromMarketData,
+  getStockPePercentile,
 } = require('./market-data');
 
 const FEISHU_OPEN_ID = process.env.FEISHU_OPEN_ID || 'ou_a21807011c59304bedfaf2f7440f5361';
@@ -218,6 +219,14 @@ async function getCachedDailyBasic(tsCode, dependencies, cache) {
   return entry.dailyBasicPromise;
 }
 
+async function getCachedPePercentile(tsCode, dependencies, cache) {
+  const entry = getSymbolCacheEntry(cache, tsCode);
+  if (!entry.pePercentilePromise) {
+    entry.pePercentilePromise = dependencies.pePercentileProvider(tsCode);
+  }
+  return entry.pePercentilePromise;
+}
+
 async function getCachedTradeDate(dependencies, cache) {
   if (!cache.tradeDatePromise) {
     cache.tradeDatePromise = dependencies.tradeDateProvider();
@@ -270,6 +279,7 @@ function summarizeContext(marketData, technicalData) {
     prevClose: marketData.prevClose,
     volumeRatio: marketData.volumeRatio ?? null,
     pe: marketData.pe ?? marketData.pe_ttm ?? null,
+    pePercentile: marketData.pePercentile ?? null,
     mainForceNet: marketData.mainForceNet ?? null,
     rsi: technicalData?.rsi ?? null,
     macdSignalValue: technicalData?.macdSignalValue ?? null,
@@ -294,6 +304,18 @@ async function buildOrderContext(order, dependencies, cache) {
     marketData.volumeRatio = toNumber(dailyBasic.volume_ratio);
     marketData.pe = toNumber(dailyBasic.pe);
     marketData.pe_ttm = toNumber(dailyBasic.pe_ttm);
+
+    const pePercentileData = await getCachedPePercentile(order.ts_code, dependencies, cache);
+    const pePercentile = toNumber(
+      pePercentileData?.percentile5y
+      ?? pePercentileData?.percentile3y
+      ?? pePercentileData?.percentile1y,
+      null
+    );
+
+    if (pePercentile !== null) {
+      marketData.pePercentile = pePercentile;
+    }
   }
 
   if (requirements.needsMoneyflow) {
@@ -379,6 +401,7 @@ async function checkAllConditionalOrders(options = {}) {
     quoteProvider: options.quoteProvider || fetchRealtimeQuoteFromMarketData,
     dailyHistoryProvider: options.dailyHistoryProvider || getDailyHistory,
     dailyBasicProvider: options.dailyBasicProvider || getLatestDailyBasic,
+    pePercentileProvider: options.pePercentileProvider || getStockPePercentile,
     tradeDateProvider: options.tradeDateProvider || findLatestTradeDate,
     moneyflowProvider: options.moneyflowProvider || getMoneyflowRows,
     executor: options.executor || executeConditionalOrder,

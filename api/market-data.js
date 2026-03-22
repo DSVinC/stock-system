@@ -7,7 +7,7 @@ const { promisify } = require('node:util');
 const execFileAsync = promisify(execFile);
 const SINA_SCRIPT_DIR = '/Users/vvc/.openclaw/workspace/skills/sina-ashare-mcp/scripts';
 const TUSHARE_URL = 'https://api.tushare.pro';
-const WORKSPACE_ENV_PATH = path.join(__dirname, '..', '..', '.env');
+const WORKSPACE_ENV_PATH = path.join(__dirname, '..', '.env');
 
 loadWorkspaceEnv();
 

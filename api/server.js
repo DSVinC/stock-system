@@ -138,6 +138,7 @@ async function bootstrap() {
     router.get('/account/:id', portfolio.getAccount);
     router.put('/account/:id', portfolio.updateAccount);
     router.get('/account/:id/summary', portfolio.getAccountSummary);
+    router.get('/account/:id/conditional-orders', portfolio.getAccountConditionalOrders);
     router.get('/position', portfolio.getPositions);
     router.get('/position/:id', portfolio.getPosition);
     router.get('/trade', portfolio.getTrades);

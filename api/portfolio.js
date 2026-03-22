@@ -162,6 +162,84 @@ async function getAccountSummary(req, res) {
   }
 }
 
+async function ensureConditionalExecutionView(db) {
+  await db.runPromise(`
+    CREATE VIEW IF NOT EXISTS view_conditional_executions AS
+    SELECT
+      co.id AS order_id,
+      co.account_id,
+      pa.account_name,
+      co.ts_code,
+      co.stock_name,
+      co.action,
+      co.order_type,
+      co.status,
+      co.trigger_count,
+      co.max_trigger_count,
+      co.created_at AS order_created_at,
+      co.updated_at AS order_updated_at,
+      pt.id AS trade_id,
+      pt.trade_date,
+      pt.quantity,
+      pt.price,
+      pt.amount,
+      pt.remark
+    FROM conditional_order co
+    LEFT JOIN portfolio_trade pt ON pt.conditional_order_id = co.id
+    LEFT JOIN portfolio_account pa ON pa.id = co.account_id
+  `);
+}
+
+/**
+ * 获取账户相关条件单及执行历史
+ * GET /api/portfolio/account/:id/conditional-orders
+ */
+async function getAccountConditionalOrders(req, res) {
+  try {
+    const { id } = req.params;
+    const db = await getDatabase();
+
+    const account = await db.getPromise('SELECT * FROM portfolio_account WHERE id = ?', [id]);
+    if (!account) {
+      return res.status(404).json({ success: false, error: '账户不存在' });
+    }
+
+    await ensureConditionalExecutionView(db);
+
+    const orders = await db.allPromise(`
+      SELECT
+        co.*,
+        pa.account_name
+      FROM conditional_order co
+      LEFT JOIN portfolio_account pa ON pa.id = co.account_id
+      WHERE co.account_id = ?
+      ORDER BY co.created_at DESC
+    `, [id]);
+
+    const executions = await db.allPromise(`
+      SELECT *
+      FROM view_conditional_executions
+      WHERE account_id = ? AND trade_id IS NOT NULL
+      ORDER BY trade_date DESC, trade_id DESC
+    `, [id]);
+
+    res.json({
+      success: true,
+      data: {
+        account,
+        orders: orders.map((order) => ({
+          ...order,
+          conditions: typeof order.conditions === 'string' ? JSON.parse(order.conditions) : order.conditions
+        })),
+        executions
+      }
+    });
+  } catch (error) {
+    console.error('获取账户条件单失败:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
 // ========== 持仓管理 API ==========
 
 /**
@@ -324,6 +402,7 @@ module.exports = {
   getAccount,
   updateAccount,
   getAccountSummary,
+  getAccountConditionalOrders,
   getPositions,
   getPosition,
   getTrades
