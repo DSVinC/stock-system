@@ -185,6 +185,15 @@ async function bootstrap() {
     mounted.push('/api/analysis');
   }
 
+  // v2 API 路由（结构化数据接口）
+  try {
+    const v2Router = require('./v2');
+    app.use('/api/v2/analyze', v2Router);
+    mounted.push('/api/v2/analyze');
+  } catch (e) {
+    console.log('[mountApi] v2模块加载失败:', e.message);
+  }
+
   // 回测API
   try {
     const backtest = require('./backtest');
