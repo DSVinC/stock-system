@@ -316,16 +316,18 @@ POST /api/select
 }
 ```
 
-### 分析个股
+### 按行业方向筛选股票
 
 ```http
 POST /api/analyze
 ```
 
+**职责**：根据选中的行业方向，筛选出待分析的股票列表
+
 **请求参数：**
 ```json
 {
-  "ts_code": "300308.SZ"
+  "directions": ["储能", "人工智能"]
 }
 ```
 
@@ -334,8 +336,47 @@ POST /api/analyze
 {
   "success": true,
   "data": {
-    "ts_code": "300308.SZ",
-    "stock_name": "中际旭创",
+    "directions": [
+      { "name": "储能", "ts_code": "885921.TI" }
+    ],
+    "stocks": [
+      {
+        "code": "300750.SZ",
+        "name": "宁德时代",
+        "industry": "电气设备",
+        "total_mv": 18848.78,
+        "turnover_rate": 1.26,
+        "volume_ratio": 1.63,
+        "pe_ttm": 26.11
+      }
+    ]
+  }
+}
+```
+
+### 生成个股深度分析报告
+
+```http
+POST /api/analyze/report
+```
+
+**职责**：生成单只股票的深度分析报告并落盘
+
+**请求参数：**
+```json
+{
+  "stock_code": "300750.SZ",
+  "stock_name": "宁德时代"
+}
+```
+
+**响应：**
+```json
+{
+  "success": true,
+  "data": {
+    "ts_code": "300750.SZ",
+    "stock_name": "宁德时代",
     "score": 75,
     "factors": {
       "technical": { "score": 80, "rsi": 65, "macd": "golden_cross" },
@@ -344,7 +385,8 @@ POST /api/analyze
       "valuation": { "score": 80, "pe": 25, "pe_percentile": 30 },
       "sentiment": { "score": 70 },
       "risk": { "score": 75, "volatility": 0.25 }
-    }
+    },
+    "report_path": "report/analysis/300750.SZ_2026-03-22.json"
   }
 }
 ```
