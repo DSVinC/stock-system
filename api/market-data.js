@@ -419,7 +419,7 @@ async function runSinaScript(scriptName, args = []) {
 }
 
 async function searchStock(query) {
-  const normalizedQuery = String(query || '').trim();
+  let normalizedQuery = String(query || '').trim();
   if (!normalizedQuery) {
     throw new MarketDataError('缺少股票代码或名称。', {
       code: 'MISSING_STOCK_QUERY',
@@ -427,7 +427,19 @@ async function searchStock(query) {
     });
   }
 
-  const maybeCode = normalizeTsCode(normalizedQuery);
+  // 自动补充后缀（问题#2 修复）
+  let maybeCode = normalizedQuery;
+  if (!/^\d{6}\.(SH|SZ|BJ)$/.test(normalizedQuery) && /^\d{6}$/.test(normalizedQuery)) {
+    if (normalizedQuery.startsWith('6') || normalizedQuery.startsWith('9')) {
+      maybeCode = normalizedQuery + '.SH';
+    } else if (normalizedQuery.startsWith('3') || normalizedQuery.startsWith('0')) {
+      maybeCode = normalizedQuery + '.SZ';
+    } else if (normalizedQuery.startsWith('4') || normalizedQuery.startsWith('8')) {
+      maybeCode = normalizedQuery + '.BJ';
+    }
+  }
+  maybeCode = normalizeTsCode(maybeCode);
+  
   if (/^\d{6}\.(SH|SZ|BJ)$/.test(maybeCode)) {
     const rows = await tushareRequest('stock_basic', {
       ts_code: maybeCode,
