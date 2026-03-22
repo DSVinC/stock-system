@@ -15,6 +15,9 @@ const {
 // 加载舆情因子模块
 const { calculateSentimentFactor } = require('./sentiment-factor');
 
+// 加载黑天鹅检测模块
+const { checkBlackSwan } = require('./black-swan-check');
+
 // 从配置文件加载权重
 const CONFIG_DIR = path.join(__dirname, '..', 'config');
 const WEIGHTS_FILE = path.join(CONFIG_DIR, 'factor-weights.json');
@@ -511,15 +514,34 @@ async function calculateCompositeScore(params, stockCode = null) {
   // 映射到 1-5 分
   const reportScore = Math.min(5, Math.max(1, weightedScore));
 
-  // 决策建议
+  // 【黑天鹅一票否决】检查黑天鹅事件
+  let blackSwanEvent = null;
+  if (stockCode) {
+    try {
+      const blackSwanResult = await checkBlackSwan(stockCode, 30);
+      if (blackSwanResult.hasBlackSwan) {
+        blackSwanEvent = blackSwanResult.events[0];
+      }
+    } catch (error) {
+      console.warn(`黑天鹅检查失败 (${stockCode}):`, error.message);
+    }
+  }
+
+  // 决策建议：黑天鹅事件一票否决
   let decision = '回避';
-  if (reportScore >= 4.2) decision = '买入';
-  else if (reportScore >= 3.2) decision = '观望';
+  if (blackSwanEvent) {
+    decision = '回避'; // 黑天鹅直接否决
+  } else if (reportScore >= 4.2) {
+    decision = '买入';
+  } else if (reportScore >= 3.2) {
+    decision = '观望';
+  }
 
   return {
     reportScore,
     decision,
     weightedScore,
+    blackSwanEvent,
     factors: {
       trend: { ...trend, weight: FACTOR_WEIGHTS.trend },
       momentum: { ...momentum, weight: FACTOR_WEIGHTS.momentum },

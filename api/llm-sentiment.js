@@ -157,6 +157,7 @@ async function analyzeWithLLMBatch(items) {
   const concurrency = 5;
   const semaphore = new Semaphore(concurrency);
   
+  // 启动所有任务（注意：wrap 返回的是函数，需要立即调用）
   const tasks = items.map((item, index) => 
     semaphore.wrap(async () => {
       try {
@@ -169,7 +170,7 @@ async function analyzeWithLLMBatch(items) {
           data: analyzeWithKeywords(item.text, item.sourceType)
         };
       }
-    })
+    })() // 立即调用 wrap 返回的函数
   );
   
   await Promise.all(tasks);
