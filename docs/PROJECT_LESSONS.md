@@ -4,6 +4,62 @@
 
 ---
 
+## 2026-03-22 | TASK_ANALYSIS_FIX_001 | Python 脚本变量作用域错误修复
+
+### 问题类型
+**代码质量** - 变量未定义 + 逻辑错误
+
+### 背景
+个股分析脚本 `stock_analyzer.py` 在生成报告时报 `NameError: vol_ratio not defined`，导致无法查看分析报告。
+
+### 根因分析
+
+#### 直接原因
+第 711 行代码使用了未定义的变量 `vol_ratio`，应该从 `capital` 参数中获取：
+```python
+# 错误代码
+elif vol_ratio < 0.8:
+
+# 正确代码
+elif to_float(capital.get('vol_ratio')) < 0.8:
+```
+
+#### 深层原因
+1. **变量作用域意识不足**: 函数参数中的 `capital` 字典需要通过 `.get()` 方法访问
+2. **代码复制粘贴错误**: 第 709-710 行 PE 估值偏高逻辑存在两个错误：
+   - PE 偏高应该**扣分**，但代码写了加分（`report_score += 0.3`）
+   - 错误地添加了"成交量活跃"因素（应该在 vol_ratio >= 1 时添加）
+
+### 解决方案
+
+#### 修改文件
+- `skills/a 股个股分析/scripts/stock_analyzer.py` (第 707-713 行)
+
+#### 关键代码变更
+```python
+# 修复 1: vol_ratio 引用
+- elif vol_ratio < 0.8:
++ elif to_float(capital.get('vol_ratio')) < 0.8:
+
+# 修复 2: PE 估值逻辑
+if pe_val > 50:
+    score_factors.append('PE 估值偏高')
+-   report_score += 0.3
++   report_score -= 0.3
+-   score_factors.append('成交量活跃')
+```
+
+### 预防措施
+1. **代码审查重点**: 检查所有变量是否在使用前已定义
+2. **评分逻辑测试**: 对评分增减逻辑编写单元测试
+3. **复制粘贴检查**: 复制代码块后必须检查所有变量引用和逻辑
+4. **静态分析工具**: 在 CI 流程中添加 Python 静态分析（pylint/flake8）
+
+### 验证结果
+✅ 脚本恢复正常，成功生成宁德时代分析报告（评分 5.0/5）
+
+---
+
 ## 2026-03-22 | TASK_UI_FIX_005 | API 职责边界清晰化（7 次验收通过）
 
 ### 问题类型
