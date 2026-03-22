@@ -364,7 +364,7 @@
       color: var(--text-soft);
       line-height: 1.6;
     }
-    .loading-state, .error-state {
+    .loading-state, .error-state, .empty-state {
       text-align: center;
       padding: 4rem 2rem;
       color: var(--text-soft);
@@ -383,6 +383,26 @@
     }
     .error-state {
       color: var(--bad);
+    }
+    .empty-state {
+      color: var(--text-soft);
+    }
+    .empty-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      opacity: 0.5;
+    }
+    .empty-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+    }
+    .empty-copy {
+      font-size: 0.875rem;
+      color: var(--text-soft);
+      max-width: 400px;
+      margin: 0 auto;
     }
     .refresh-btn {
       margin-top: 1rem;
@@ -473,6 +493,14 @@
       <p>⚠️ 数据加载失败</p>
       <p id="errorMessage" style="margin-top: 0.5rem; font-size: 0.875rem;"></p>
       <button class="refresh-btn" onclick="startSelection()">重新选股</button>
+    </div>
+
+    <!-- 空状态 -->
+    <div class="empty-state" id="emptyState" style="display: none;">
+      <div class="empty-icon">📭</div>
+      <h3 class="empty-title">暂无行业推荐数据</h3>
+      <p class="empty-copy">当前没有可用的行业选股建议。可能是数据源暂未更新，请稍后重试。</p>
+      <button class="refresh-btn" onclick="startSelection()" style="margin-top: 1rem;">重新选股</button>
     </div>
 
     <!-- 行业方向列表 -->
@@ -578,12 +606,15 @@
 
         const data = await response.json();
 
-        if (!data.success && data.directions && data.directions.length === 0) {
+        const directions = data.directions || data;
+        
+        // 检查空数据
+        if (!directions || !Array.isArray(directions) || directions.length === 0) {
           throw new Error(data.message || '暂无行业推荐数据');
         }
 
         // 渲染行业方向
-        renderDirections(data.directions || data);
+        renderDirections(directions);
         
         // 显示生成信息
         const generatedAt = new Date(data.generatedAt);
@@ -597,8 +628,19 @@
       } catch (error) {
         console.error('加载失败:', error);
         loadingState.style.display = 'none';
-        errorState.style.display = 'block';
-        errorMessage.textContent = error.message;
+        
+        // 判断是空数据还是真正的错误
+        if (error.message && error.message.includes('暂无行业推荐数据')) {
+          emptyState.style.display = 'block';
+          errorState.style.display = 'none';
+        } else {
+          errorState.style.display = 'block';
+          emptyState.style.display = 'none';
+          errorMessage.textContent = error.message;
+        }
+        
+        directionsGrid.style.display = 'none';
+        generatedInfo.style.display = 'none';
       }
     }
 

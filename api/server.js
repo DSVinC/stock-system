@@ -138,6 +138,7 @@ async function bootstrap() {
     router.get('/account/:id', portfolio.getAccount);
     router.put('/account/:id', portfolio.updateAccount);
     router.get('/account/:id/summary', portfolio.getAccountSummary);
+    router.get('/account/:id/conditional-orders', portfolio.getAccountConditionalOrders);
     router.get('/position', portfolio.getPositions);
     router.get('/position/:id', portfolio.getPosition);
     router.get('/trade', portfolio.getTrades);
@@ -153,8 +154,10 @@ async function bootstrap() {
     const router = require('express').Router();
     router.get('/', conditionalOrder.getConditionalOrders);
     router.get('/list', conditionalOrder.getConditionalOrders);
+    router.get('/:id/history', conditionalOrder.getConditionalOrderHistory);
     router.get('/:id', conditionalOrder.getConditionalOrder);
     router.post('/', conditionalOrder.createConditionalOrder);
+    router.put('/:id/toggle', conditionalOrder.toggleConditionalOrder);
     router.put('/:id', conditionalOrder.updateConditionalOrder);
     router.delete('/:id', conditionalOrder.deleteConditionalOrder);
     router.post('/:id/cancel', conditionalOrder.cancelConditionalOrder);
@@ -183,6 +186,16 @@ async function bootstrap() {
 
   if (await mountApi('analysis.js', '/api/analysis').catch(() => false)) {
     mounted.push('/api/analysis');
+  }
+
+  // v2 API 路由（结构化数据接口）
+  try {
+    const v2Router = require('./v2');
+    app.use('/api/v2/analyze', v2Router);
+    app.use('/api/v2', v2Router);
+    mounted.push('/api/v2/analyze');
+  } catch (e) {
+    console.log('[mountApi] v2模块加载失败:', e.message);
   }
 
   // 回测API

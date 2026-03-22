@@ -36,10 +36,39 @@
       color: var(--accent);
     }
 
+    .toolbar-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+    }
+
+    .toolbar-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .batch-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .batch-summary {
+      color: var(--text-soft);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
     .tabs-bar {
       display: flex;
+      flex-wrap: wrap;
       gap: 10px;
-      margin-bottom: 18px;
     }
 
     .tab-btn {
@@ -64,6 +93,22 @@
       color: white;
     }
 
+    .search-box {
+      min-width: min(100%, 280px);
+      flex: 1 1 280px;
+      max-width: 340px;
+      min-height: 44px;
+      padding: 0 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(154, 178, 214, 0.18);
+      background: rgba(4, 8, 17, 0.46);
+      color: var(--text);
+    }
+
+    .search-box::placeholder {
+      color: var(--text-faint);
+    }
+
     .status-badge {
       display: inline-flex;
       align-items: center;
@@ -73,21 +118,17 @@
       font-weight: 500;
     }
 
-    .status-pending {
-      background: rgba(96, 165, 250, 0.15);
-      color: var(--info);
-    }
-
-    .status-triggered {
+    .status-enabled {
       background: rgba(74, 222, 128, 0.15);
       color: var(--good);
     }
 
-    .status-cancelled {
-      background: rgba(251, 113, 133, 0.15);
-      color: var(--bad);
+    .status-triggered {
+      background: rgba(96, 165, 250, 0.15);
+      color: var(--info);
     }
 
+    .status-disabled,
     .status-expired {
       background: rgba(255, 255, 255, 0.08);
       color: var(--text-faint);
@@ -143,6 +184,128 @@
       background: rgba(251, 113, 133, 0.25);
     }
 
+    .switch {
+      position: relative;
+      width: 46px;
+      height: 26px;
+      flex: 0 0 auto;
+    }
+
+    .switch input {
+      position: absolute;
+      opacity: 0;
+      inset: 0;
+      cursor: pointer;
+    }
+
+    .switch-slider {
+      position: absolute;
+      inset: 0;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      transition: background 0.2s ease;
+    }
+
+    .switch-slider::after {
+      content: "";
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: white;
+      transition: transform 0.2s ease;
+    }
+
+    .switch input:checked + .switch-slider {
+      background: rgba(74, 222, 128, 0.8);
+    }
+
+    .switch input:checked + .switch-slider::after {
+      transform: translateX(20px);
+    }
+
+    .stock-cell {
+      display: grid;
+      gap: 4px;
+    }
+
+    .stock-name {
+      font-weight: 600;
+    }
+
+    .stock-code {
+      color: var(--text-soft);
+      font-size: 12px;
+      letter-spacing: 0.04em;
+    }
+
+    .condition-copy {
+      color: var(--text-soft);
+      line-height: 1.5;
+    }
+
+    .table-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .checkbox-cell {
+      width: 44px;
+      text-align: center;
+    }
+
+    .table-checkbox,
+    .select-all-checkbox {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .history-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .history-card {
+      padding: 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(154, 178, 214, 0.14);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .history-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 8px;
+      color: var(--text-soft);
+      font-size: 13px;
+    }
+
+    .history-detail {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    .history-empty {
+      padding: 24px 0;
+      color: var(--text-soft);
+      text-align: center;
+    }
+
+    .empty-copy strong {
+      color: var(--text);
+    }
+
     /* 导出提示 */
     .export-toast {
       position: fixed;
@@ -158,6 +321,18 @@
       z-index: 2000;
       opacity: 0;
       transition: opacity 0.3s;
+    }
+
+    .export-toast.toast-success {
+      background: rgba(34, 197, 94, 0.9);
+    }
+
+    .export-toast.toast-error {
+      background: rgba(239, 68, 68, 0.92);
+    }
+
+    .export-toast.toast-info {
+      background: rgba(56, 189, 248, 0.92);
     }
 
     .export-toast.show {
@@ -271,18 +446,20 @@
     }
 
     .condition-item {
-      display: flex;
-      gap: 10px;
-      align-items: center;
+      display: grid;
+      grid-template-columns: 1.1fr 1fr auto;
+      gap: 12px;
+      align-items: start;
       margin-bottom: 10px;
-      padding: 12px;
+      padding: 14px;
       border-radius: 12px;
       background: rgba(255, 255, 255, 0.03);
     }
 
     .condition-item select,
-    .condition-item input {
-      flex: 1;
+    .condition-item input,
+    .condition-item textarea {
+      width: 100%;
       min-height: 42px;
       padding: 0 12px;
       border-radius: 10px;
@@ -292,8 +469,131 @@
       font-size: 13px;
     }
 
+    .condition-item textarea {
+      min-height: 96px;
+      padding: 12px;
+      resize: vertical;
+      line-height: 1.5;
+    }
+
+    .condition-main {
+      display: grid;
+      gap: 10px;
+    }
+
+    .condition-params {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .condition-preview {
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: rgba(56, 189, 248, 0.08);
+      color: var(--text-soft);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .condition-preview strong {
+      color: var(--text);
+    }
+
+    .condition-side {
+      display: grid;
+      gap: 10px;
+    }
+
+    .condition-error {
+      min-height: 18px;
+      color: var(--bad);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .condition-remove {
+      min-height: 42px;
+      padding: 0 12px;
+      font-size: 12px;
+    }
+
+    .logic-row,
+    .preview-panel,
+    .import-panel {
+      margin-top: 12px;
+      padding: 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(154, 178, 214, 0.14);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .logic-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .logic-row .form-select {
+      max-width: 160px;
+    }
+
+    .preview-panel {
+      color: var(--text-soft);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .preview-panel strong {
+      color: var(--text);
+    }
+
+    .import-panel {
+      margin-bottom: 14px;
+    }
+
+    .import-panel h4 {
+      margin: 0 0 8px;
+      font-size: 15px;
+    }
+
+    .import-panel p {
+      margin: 0 0 10px;
+      color: var(--text-soft);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .import-panel textarea {
+      width: 100%;
+      min-height: 120px;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(154, 178, 214, 0.18);
+      background: rgba(4, 8, 17, 0.46);
+      color: var(--text);
+      font-size: 13px;
+      resize: vertical;
+    }
+
+    .import-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+
     @media (max-width: 860px) {
       .form-row {
+        grid-template-columns: 1fr;
+      }
+
+      .condition-item {
+        grid-template-columns: 1fr;
+      }
+
+      .condition-params {
         grid-template-columns: 1fr;
       }
     }
@@ -338,11 +638,28 @@
           <button class="button" onclick="showCreateModal()">+ 新建条件单</button>
         </div>
 
-        <div class="tabs-bar">
-          <button class="tab-btn active" onclick="filterOrders('all')">全部</button>
-          <button class="tab-btn" onclick="filterOrders('pending')">待触发</button>
-          <button class="tab-btn" onclick="filterOrders('triggered')">已触发</button>
-          <button class="tab-btn" onclick="filterOrders('cancelled')">已取消</button>
+        <div class="toolbar-row">
+          <div class="toolbar-group">
+            <div class="tabs-bar">
+              <button class="tab-btn active" data-status="all" type="button">全部</button>
+              <button class="tab-btn" data-status="enabled" type="button">启用</button>
+              <button class="tab-btn" data-status="disabled" type="button">禁用</button>
+              <button class="tab-btn" data-status="triggered" type="button">已触发</button>
+            </div>
+            <div class="batch-actions">
+              <button class="action-btn" type="button" onclick="runBatchAction('enable')">批量启用</button>
+              <button class="action-btn" type="button" onclick="runBatchAction('disable')">批量禁用</button>
+              <button class="action-btn danger" type="button" onclick="runBatchAction('delete')">批量删除</button>
+              <span class="batch-summary" id="batch-summary">未选择条件单</span>
+            </div>
+          </div>
+          <input
+            id="stock-search"
+            class="search-box"
+            type="search"
+            placeholder="搜索股票名称或代码"
+            aria-label="搜索股票名称或代码"
+          >
         </div>
 
         <div id="order-list">
@@ -359,18 +676,24 @@
   <div class="modal-overlay" id="create-modal">
     <div class="modal-box">
       <div class="modal-header">
-        <h3 class="modal-title">新建条件单</h3>
+        <h3 class="modal-title" id="create-modal-title">新建条件单</h3>
         <button class="modal-close" onclick="closeCreateModal()">&times;</button>
       </div>
       <form id="create-form" onsubmit="createOrder(event)">
         <div class="form-row">
           <div class="form-field">
             <label class="form-label">股票代码</label>
-            <input type="text" class="form-input" name="ts_code" placeholder="300308.SZ" required>
+            <div class="stock-selector">
+              <select id="stock-selector" class="form-select" onchange="onStockSelected()">
+                <option value="">从监控池选择...</option>
+              </select>
+              <input type="text" id="stock-code-manual" class="form-input" name="ts_code" placeholder="或手动输入代码 300308.SZ" style="display:none;">
+              <button type="button" class="button button-secondary" id="toggle-stock-btn" onclick="toggleStockInput()" style="margin-top:8px;">手动输入</button>
+            </div>
           </div>
           <div class="form-field">
             <label class="form-label">股票名称</label>
-            <input type="text" class="form-input" name="stock_name" placeholder="中际旭创" required>
+            <input type="text" class="form-input" name="stock_name" id="stock-name-input" placeholder="中际旭创" required>
           </div>
         </div>
 
@@ -401,28 +724,39 @@
           </div>
         </div>
 
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-label">仓位占比 (%)</label>
+            <input type="number" class="form-input" name="position_pct" placeholder="建议仓位，如 8" min="0" max="100" step="0.1">
+          </div>
+          <div class="form-field">
+            <label class="form-label">止损参考价</label>
+            <input type="number" class="form-input" name="stop_loss_price" placeholder="导入策略止损价，可修改" min="0" step="0.01">
+          </div>
+        </div>
+
         <div class="form-field">
           <label class="form-label">触发条件</label>
-          <div id="conditions-list">
-            <div class="condition-item">
-              <select class="cond-type">
-                <option value="price">股价</option>
-                <option value="pct_change">涨跌幅(%)</option>
-                <option value="volume_ratio">量比</option>
-                <option value="rsi">RSI</option>
-                <option value="macd_cross">MACD信号</option>
-              </select>
-              <select class="cond-op">
-                <option value=">=">>=</option>
-                <option value="<="><=</option>
-                <option value=">">></option>
-                <option value="<"><</option>
-              </select>
-              <input type="text" class="cond-value" placeholder="数值">
-              <button type="button" class="button button-danger" style="min-height:42px;padding:0 12px;font-size:12px;" onclick="removeCondition(this)">删除</button>
+          <div class="import-panel">
+            <h4>导入分析报告映射</h4>
+            <p>粘贴 analysis report / strategy JSON，可自动映射为触发条件，导入后仍可继续修改。</p>
+            <textarea id="import-report-input" placeholder='{"stock_code":"300750.SZ","stock_name":"宁德时代","strategies":{"balanced":{"actions":[...]}}}'></textarea>
+            <div class="import-actions">
+              <button type="button" class="button button-secondary" onclick="importTriggersFromTextarea()">导入触发建议</button>
+              <button type="button" class="button button-secondary" onclick="clearImportTextarea()">清空</button>
             </div>
           </div>
+          <div class="logic-row">
+            <label class="form-label" style="margin-bottom:0;">条件关系</label>
+            <select class="form-select" name="condition_logic" onchange="updateConditionsPreview()">
+              <option value="AND">全部满足 (AND)</option>
+              <option value="OR">任一满足 (OR)</option>
+            </select>
+          </div>
+          <div id="conditions-list">
+          </div>
           <button type="button" class="button button-secondary" style="margin-top:10px;" onclick="addCondition()">+ 添加条件</button>
+          <div class="preview-panel" id="conditions-preview">条件预览：请先配置触发条件</div>
         </div>
 
         <div class="form-row">
@@ -442,196 +776,1441 @@
         </div>
 
         <div class="form-actions">
-          <button type="submit" class="button">创建</button>
+          <button type="submit" class="button" id="create-submit-btn">创建</button>
           <button type="button" class="button button-secondary" onclick="closeCreateModal()">取消</button>
         </div>
       </form>
     </div>
   </div>
 
+  <div class="modal-overlay" id="history-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title" id="history-modal-title">执行历史</h3>
+        <button class="modal-close" onclick="closeHistoryModal()">&times;</button>
+      </div>
+      <div id="history-content" class="history-list"></div>
+    </div>
+  </div>
+
   <script>
+    const TRIGGER_TYPE_DEFS = {
+      price_above: {
+        label: '股价上穿',
+        category: 'price',
+        orderType: 'price',
+        params: [
+          { key: 'price', label: '目标价格', type: 'number', min: '0.01', step: '0.01', placeholder: '如 200' }
+        ],
+        preview: (params) => `股价上穿 ${formatNumber(params.price)} 元`
+      },
+      price_below: {
+        label: '股价下穿',
+        category: 'price',
+        orderType: 'price',
+        params: [
+          { key: 'price', label: '目标价格', type: 'number', min: '0.01', step: '0.01', placeholder: '如 180' }
+        ],
+        preview: (params) => `股价下穿 ${formatNumber(params.price)} 元`
+      },
+      ma_golden_cross: {
+        label: 'MA 金叉',
+        category: 'indicator',
+        orderType: 'indicator',
+        params: [
+          { key: 'ma_short', label: '短期均线', type: 'number', min: '1', step: '1', placeholder: '如 5' },
+          { key: 'ma_long', label: '长期均线', type: 'number', min: '2', step: '1', placeholder: '如 20' }
+        ],
+        preview: (params) => `MA${formatNumber(params.ma_short)} 上穿 MA${formatNumber(params.ma_long)}（金叉）`
+      },
+      ma_death_cross: {
+        label: 'MA 死叉',
+        category: 'indicator',
+        orderType: 'indicator',
+        params: [
+          { key: 'ma_short', label: '短期均线', type: 'number', min: '1', step: '1', placeholder: '如 5' },
+          { key: 'ma_long', label: '长期均线', type: 'number', min: '2', step: '1', placeholder: '如 20' }
+        ],
+        preview: (params) => `MA${formatNumber(params.ma_short)} 下穿 MA${formatNumber(params.ma_long)}（死叉）`
+      },
+      rsi_overbought: {
+        label: 'RSI 超买',
+        category: 'indicator',
+        orderType: 'indicator',
+        params: [
+          { key: 'threshold', label: 'RSI 阈值', type: 'number', min: '0', max: '100', step: '0.1', placeholder: '如 70' }
+        ],
+        preview: (params) => `RSI 高于 ${formatNumber(params.threshold)}（超买）`
+      },
+      rsi_oversold: {
+        label: 'RSI 超卖',
+        category: 'indicator',
+        orderType: 'indicator',
+        params: [
+          { key: 'threshold', label: 'RSI 阈值', type: 'number', min: '0', max: '100', step: '0.1', placeholder: '如 30' }
+        ],
+        preview: (params) => `RSI 低于 ${formatNumber(params.threshold)}（超卖）`
+      },
+      volume_ratio_above: {
+        label: '量比高于',
+        category: 'indicator',
+        orderType: 'indicator',
+        params: [
+          { key: 'ratio', label: '量比阈值', type: 'number', min: '0', step: '0.1', placeholder: '如 2' }
+        ],
+        preview: (params) => `量比高于 ${formatNumber(params.ratio)}`
+      },
+      macd_bullish: {
+        label: 'MACD 金叉',
+        category: 'indicator',
+        orderType: 'indicator',
+        params: [
+          { key: 'signal', label: '信号值', type: 'number', step: '0.1', placeholder: '如 0' }
+        ],
+        preview: (params) => `MACD 金叉，信号值高于 ${formatNumber(params.signal)}`
+      },
+      macd_bearish: {
+        label: 'MACD 死叉',
+        category: 'indicator',
+        orderType: 'indicator',
+        params: [
+          { key: 'signal', label: '信号值', type: 'number', step: '0.1', placeholder: '如 0' }
+        ],
+        preview: (params) => `MACD 死叉，信号值低于 ${formatNumber(params.signal)}`
+      },
+      pe_low: {
+        label: 'PE 低于',
+        category: 'fundamental',
+        orderType: 'capital',
+        params: [
+          { key: 'pe', label: 'PE 阈值', type: 'number', min: '0', step: '0.1', placeholder: '如 15' }
+        ],
+        preview: (params) => `PE 低于 ${formatNumber(params.pe)} 倍`
+      },
+      pe_high: {
+        label: 'PE 高于',
+        category: 'fundamental',
+        orderType: 'capital',
+        params: [
+          { key: 'pe', label: 'PE 阈值', type: 'number', min: '0', step: '0.1', placeholder: '如 35' }
+        ],
+        preview: (params) => `PE 高于 ${formatNumber(params.pe)} 倍`
+      },
+      daily_gain: {
+        label: '日涨幅超过',
+        category: 'price',
+        orderType: 'price',
+        params: [
+          { key: 'percent', label: '涨幅阈值', type: 'number', min: '0', max: '100', step: '0.1', placeholder: '如 5' }
+        ],
+        preview: (params) => `日涨幅超过 ${formatNumber(params.percent)}%`
+      },
+      daily_loss: {
+        label: '日跌幅超过',
+        category: 'price',
+        orderType: 'price',
+        params: [
+          { key: 'percent', label: '跌幅阈值', type: 'number', min: '0', max: '100', step: '0.1', placeholder: '如 3' }
+        ],
+        preview: (params) => `日跌幅超过 ${formatNumber(params.percent)}%`
+      },
+      main_force_net_inflow: {
+        label: '主力净流入高于',
+        category: 'capital',
+        orderType: 'capital',
+        params: [
+          { key: 'amount', label: '净流入阈值', type: 'number', step: '0.01', placeholder: '如 5000000' }
+        ],
+        preview: (params) => `主力净流入高于 ${formatNumber(params.amount)}`
+      },
+      main_force_net_outflow: {
+        label: '主力净流出高于',
+        category: 'capital',
+        orderType: 'capital',
+        params: [
+          { key: 'amount', label: '净流出阈值', type: 'number', step: '0.01', placeholder: '如 5000000' }
+        ],
+        preview: (params) => `主力净流出高于 ${formatNumber(params.amount)}`
+      }
+    };
+    const IMPORT_PARAM_KEY = 'import';
+
     let currentFilter = 'all';
     let currentAccountId = null;
-    let ordersData = []; // 存储当前加载的条件单数据
+    let currentSearch = '';
+    let ordersData = [];
+    let selectedOrderIds = [];
+    let toastTimer = null;
+    let editingOrderId = null;
+
+    function getCreateForm() {
+      return document.getElementById('create-form');
+    }
+
+    function getConditionsList() {
+      return document.getElementById('conditions-list');
+    }
+
+    function getConditionLogicValue() {
+      const form = getCreateForm();
+      return form?.condition_logic?.value || 'AND';
+    }
+
+    function getSelectedOrderIds() {
+      return selectedOrderIds.slice();
+    }
+
+    function setEditingMode(order = null) {
+      const titleEl = document.getElementById('create-modal-title');
+      const submitEl = document.getElementById('create-submit-btn');
+      const isEditing = Boolean(order);
+      editingOrderId = order?.id ?? null;
+      titleEl.textContent = isEditing ? '编辑条件单' : '新建条件单';
+      submitEl.textContent = isEditing ? '保存修改' : '创建';
+    }
+
+    function formatNumber(value) {
+      if (value === '' || value === null || value === undefined) {
+        return '--';
+      }
+      const num = Number(value);
+      if (!Number.isFinite(num)) {
+        return String(value);
+      }
+      return num % 1 === 0 ? String(num) : num.toFixed(2).replace(/\.?0+$/, '');
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
 
     async function api(url, options = {}) {
       const response = await fetch(url, {
         headers: { 'Content-Type': 'application/json' },
         ...options
       });
-      return response.json();
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || result.message || '请求失败');
+      }
+      return result;
+    }
+
+    function normalizeOrderStatus(status) {
+      if (status === 'pending' || status === 'enabled') return 'enabled';
+      if (status === 'cancelled' || status === 'disabled') return 'disabled';
+      if (status === 'expired') return 'expired';
+      return status || 'disabled';
     }
 
     function getAccountId() {
-      currentAccountId = parseInt(localStorage.getItem('current_account_id'));
-      return currentAccountId;
+      currentAccountId = parseInt(localStorage.getItem('current_account_id'), 10);
+      return Number.isFinite(currentAccountId) ? currentAccountId : null;
+    }
+
+    function getVisibleOrders() {
+      return ordersData.filter((order) => {
+        const status = normalizeOrderStatus(order.status);
+        const matchesStatus = currentFilter === 'all' || status === currentFilter;
+        const keyword = currentSearch.trim().toLowerCase();
+        const matchesSearch = !keyword
+          || String(order.ts_code || '').toLowerCase().includes(keyword)
+          || String(order.stock_name || '').toLowerCase().includes(keyword);
+        return matchesStatus && matchesSearch;
+      });
     }
 
     async function loadOrders() {
       const accountId = getAccountId();
-      if (!accountId) {
-        ordersData = [];
-        document.getElementById('order-list').innerHTML = '<div class="empty-state"><p class="empty-copy">请先选择账户</p></div>';
-        return;
-      }
-
-      const url = currentFilter === 'all'
-        ? `/api/conditional-order?account_id=${accountId}`
-        : `/api/conditional-order?account_id=${accountId}&status=${currentFilter}`;
-
-      const result = await api(url);
       const listEl = document.getElementById('order-list');
 
-      if (!result.success || result.data.length === 0) {
+      if (!accountId) {
         ordersData = [];
-        listEl.innerHTML = '<div class="empty-state"><p class="empty-title">暂无条件单</p><p class="empty-copy">点击上方按钮创建</p></div>';
+        listEl.innerHTML = '<div class="empty-state"><p class="empty-title">未选择账户</p><p class="empty-copy">请先前往账户管理选择账户，再查看条件单列表。</p></div>';
         return;
       }
 
-      // 保存数据供导出使用
-      ordersData = result.data;
+      try {
+        const result = await api(`/api/conditional-order?account_id=${accountId}`);
+        ordersData = Array.isArray(result.data)
+          ? result.data.map((order) => ({ ...order, status: normalizeOrderStatus(order.status) }))
+          : [];
+        const validOrderIds = new Set(ordersData.map((order) => String(order.id)));
+        selectedOrderIds = selectedOrderIds.filter((id) => validOrderIds.has(String(id)));
+        renderOrders();
+      } catch (error) {
+        ordersData = [];
+        selectedOrderIds = [];
+        listEl.innerHTML = `<div class="empty-state"><p class="empty-title">加载失败</p><p class="empty-copy">${escapeHtml(error.message)}</p></div>`;
+        updateBatchSummary();
+      }
+    }
+
+    function renderOrders() {
+      const listEl = document.getElementById('order-list');
+      const visibleOrders = getVisibleOrders();
+
+      if (ordersData.length === 0) {
+        listEl.innerHTML = '<div class="empty-state"><p class="empty-title">暂无条件单</p><p class="empty-copy"><strong>点击“新建条件单”</strong>，开始为股票设置自动触发规则。</p></div>';
+        updateBatchSummary();
+        return;
+      }
+
+      if (visibleOrders.length === 0) {
+        listEl.innerHTML = '<div class="empty-state"><p class="empty-title">没有匹配的条件单</p><p class="empty-copy">请调整状态筛选或搜索关键词。</p></div>';
+        updateBatchSummary();
+        return;
+      }
+
+      const visibleOrderIds = visibleOrders.map((order) => String(order.id));
+      const selectedVisibleCount = visibleOrderIds.filter((id) => selectedOrderIds.includes(id)).length;
+      const allVisibleSelected = visibleOrderIds.length > 0 && selectedVisibleCount === visibleOrderIds.length;
 
       listEl.innerHTML = `
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>状态</th>
-                <th>股票</th>
+                <th class="checkbox-cell">
+                  <input
+                    type="checkbox"
+                    class="select-all-checkbox"
+                    ${allVisibleSelected ? 'checked' : ''}
+                    onchange="toggleSelectAllVisible(this.checked)"
+                  >
+                </th>
+                <th>股票名</th>
+                <th>代码</th>
+                <th>触发条件</th>
                 <th>动作</th>
-                <th>条件</th>
-                <th>有效期</th>
-                <th>触发</th>
+                <th>状态</th>
                 <th>操作</th>
               </tr>
             </thead>
             <tbody>
-              ${result.data.map(order => `
-                <tr>
-                  <td><span class="status-badge status-${order.status}">${getStatusText(order.status)}</span></td>
-                  <td>${order.ts_code}<br><small style="color:var(--text-soft)">${order.stock_name}</small></td>
-                  <td><span class="action-tag ${order.action === 'buy' ? 'buy' : 'sell'}">${order.action === 'buy' ? '买入' : '卖出'}</span></td>
-                  <td>${formatConditions(order.conditions)}</td>
-                  <td>${order.start_date} 至 ${order.end_date}</td>
-                  <td>${order.trigger_count}/${order.max_trigger_count}</td>
-                  <td>
-                    <div class="action-buttons">
-                      <button class="action-btn primary" onclick="exportToBacktest(${order.id})">导入回测</button>
-                      <button class="action-btn" onclick="copyOrderData(${order.id})">复制</button>
-                      ${order.status === 'pending' ? `
-                        <button class="action-btn danger" onclick="cancelOrder(${order.id})">取消</button>
-                      ` : ''}
-                    </div>
-                  </td>
-                </tr>
-              `).join('')}
+              ${visibleOrders.map((order) => {
+                const normalizedStatus = normalizeOrderStatus(order.status);
+                return `
+                  <tr>
+                    <td class="checkbox-cell">
+                      <input
+                        type="checkbox"
+                        class="table-checkbox"
+                        ${selectedOrderIds.includes(String(order.id)) ? 'checked' : ''}
+                        onchange="toggleOrderSelection(${order.id}, this.checked)"
+                      >
+                    </td>
+                    <td><span class="stock-name">${escapeHtml(order.stock_name || '-')}</span></td>
+                    <td><span class="stock-code">${escapeHtml(order.ts_code || '-')}</span></td>
+                    <td><span class="condition-copy">${escapeHtml(formatConditions(order.conditions))}</span></td>
+                    <td><span class="action-tag ${order.action === 'buy' ? 'buy' : 'sell'}">${order.action === 'buy' ? '买入' : '卖出'}</span></td>
+                    <td><span class="status-badge status-${normalizedStatus}">${getStatusText(normalizedStatus)}</span></td>
+                    <td>
+                      <div class="table-actions">
+                        ${normalizedStatus === 'triggered' ? '<span class="action-btn">已完成</span>' : `
+                          <label class="switch" title="${normalizedStatus === 'enabled' ? '禁用条件单' : '启用条件单'}">
+                            <input type="checkbox" ${normalizedStatus === 'enabled' ? 'checked' : ''} onchange="toggleOrder(${order.id})">
+                            <span class="switch-slider"></span>
+                          </label>
+                        `}
+                        <button class="action-btn" type="button" onclick="editOrder(${order.id})">编辑</button>
+                        <button class="action-btn primary" type="button" onclick="showHistory(${order.id})">查看历史</button>
+                        <button class="action-btn danger" type="button" onclick="deleteOrder(${order.id})">删除</button>
+                      </div>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
             </tbody>
           </table>
         </div>
       `;
+      updateBatchSummary(visibleOrders.length);
     }
 
     function getStatusText(status) {
-      const map = { pending: '待触发', triggered: '已触发', cancelled: '已取消', expired: '已过期' };
+      const map = {
+        enabled: '启用',
+        pending: '启用',
+        disabled: '禁用',
+        cancelled: '禁用',
+        triggered: '已触发',
+        expired: '已结束'
+      };
       return map[status] || status;
     }
 
     function formatConditions(conditions) {
       if (!conditions || conditions.length === 0) return '-';
-      return conditions.map(c => `${c.type}${c.operator}${c.value}`).join('、');
+      return conditions.map(formatConditionText).join('、');
     }
 
-    function filterOrders(status) {
+    function formatConditionText(condition) {
+      if (condition?.preview) {
+        return condition.preview;
+      }
+      if (condition?.trigger_type && TRIGGER_TYPE_DEFS[condition.trigger_type]) {
+        const preview = buildConditionPreview(condition.trigger_type, condition.params || {});
+        if (preview) {
+          return preview;
+        }
+      }
+      if (condition?.type && condition?.operator && condition?.value !== undefined) {
+        const fieldMap = {
+          price: '股价',
+          pct_change: '涨跌幅',
+          volume_ratio: '量比',
+          rsi: 'RSI',
+          macd_cross: 'MACD',
+          main_force_net: '主力净额',
+          pe: 'PE'
+        };
+        return `${fieldMap[condition.type] || condition.type}${condition.operator}${condition.value}`;
+      }
+      return '未识别条件';
+    }
+
+    function filterOrders(status, buttonEl) {
       currentFilter = status;
       document.querySelectorAll('.tab-btn').forEach(tab => tab.classList.remove('active'));
-      event.target.classList.add('active');
+      if (buttonEl) {
+        buttonEl.classList.add('active');
+      }
       loadOrders();
     }
 
-    function showCreateModal() {
-      if (!getAccountId()) {
-        alert('请先创建并选择账户');
+    function getDefaultTriggerType() {
+      return 'price_above';
+    }
+
+    function normalizeNumericParam(value) {
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        return value;
+      }
+      const trimmed = String(value ?? '').trim();
+      if (!trimmed) {
+        return '';
+      }
+      const numeric = Number(trimmed);
+      return Number.isFinite(numeric) ? numeric : trimmed;
+    }
+
+    function buildConditionPreview(triggerType, params) {
+      const def = TRIGGER_TYPE_DEFS[triggerType];
+      if (!def) {
+        return '';
+      }
+      try {
+        return def.preview(params || {});
+      } catch (error) {
+        return '';
+      }
+    }
+
+    function hasConditionInput(config) {
+      const params = config?.params || {};
+      return Object.values(params).some((value) => String(value ?? '').trim() !== '');
+    }
+
+    function createLegacyCompatibleCondition(triggerType, params) {
+      const normalized = {};
+      Object.entries(params || {}).forEach(([key, value]) => {
+        normalized[key] = normalizeNumericParam(value);
+      });
+
+      const base = {
+        trigger_type: triggerType,
+        category: TRIGGER_TYPE_DEFS[triggerType]?.category || 'price',
+        params: normalized,
+        preview: buildConditionPreview(triggerType, normalized)
+      };
+
+      switch (triggerType) {
+        case 'price_above':
+          return { ...base, type: 'price', field: 'price', operator: '>=', value: normalized.price, unit: '元' };
+        case 'price_below':
+          return { ...base, type: 'price', field: 'price', operator: '<=', value: normalized.price, unit: '元' };
+        case 'ma_golden_cross':
+          return { ...base, type: 'indicator', field: 'ma_cross', operator: 'golden_cross', value: `${normalized.ma_short}/${normalized.ma_long}` };
+        case 'ma_death_cross':
+          return { ...base, type: 'indicator', field: 'ma_cross', operator: 'death_cross', value: `${normalized.ma_short}/${normalized.ma_long}` };
+        case 'rsi_overbought':
+          return { ...base, type: 'indicator', field: 'rsi', operator: '>=', value: normalized.threshold };
+        case 'rsi_oversold':
+          return { ...base, type: 'indicator', field: 'rsi', operator: '<=', value: normalized.threshold };
+        case 'volume_ratio_above':
+          return { ...base, type: 'indicator', field: 'volume_ratio', operator: '>=', value: normalized.ratio };
+        case 'macd_bullish':
+          return { ...base, type: 'indicator', field: 'macd_cross', operator: '>=', value: normalized.signal };
+        case 'macd_bearish':
+          return { ...base, type: 'indicator', field: 'macd_cross', operator: '<=', value: normalized.signal };
+        case 'pe_low':
+          return { ...base, type: 'fundamental', field: 'pe', operator: '<=', value: normalized.pe };
+        case 'pe_high':
+          return { ...base, type: 'fundamental', field: 'pe', operator: '>=', value: normalized.pe };
+        case 'daily_gain':
+          return { ...base, type: 'pct_change', field: 'pct_change', operator: '>=', value: normalized.percent, unit: '%' };
+        case 'daily_loss':
+          return { ...base, type: 'pct_change', field: 'pct_change', operator: '<=', value: normalized.percent ? -Math.abs(normalized.percent) : normalized.percent, unit: '%' };
+        case 'main_force_net_inflow':
+          return { ...base, type: 'fundamental', field: 'main_force_net', operator: '>=', value: normalized.amount };
+        case 'main_force_net_outflow':
+          return { ...base, type: 'fundamental', field: 'main_force_net', operator: '<=', value: normalized.amount ? -Math.abs(normalized.amount) : normalized.amount };
+        default:
+          return base;
+      }
+    }
+
+    function validateTriggerConfig(config) {
+      const def = TRIGGER_TYPE_DEFS[config?.trigger_type];
+      if (!def) {
+        return { valid: false, error: '存在不支持的触发类型' };
+      }
+
+      const params = config.params || {};
+      for (const paramDef of def.params) {
+        const rawValue = params[paramDef.key];
+        const value = normalizeNumericParam(rawValue);
+        if (value === '' || !Number.isFinite(Number(value))) {
+          return { valid: false, error: `${def.label} 的 ${paramDef.label} 不能为空` };
+        }
+
+        const num = Number(value);
+        if (paramDef.min !== undefined && num < Number(paramDef.min)) {
+          return { valid: false, error: `${def.label} 的 ${paramDef.label} 不能小于 ${paramDef.min}` };
+        }
+        if (paramDef.max !== undefined && num > Number(paramDef.max)) {
+          return { valid: false, error: `${def.label} 的 ${paramDef.label} 不能大于 ${paramDef.max}` };
+        }
+      }
+
+      if (['ma_golden_cross', 'ma_death_cross'].includes(config.trigger_type)) {
+        const shortMa = Number(params.ma_short);
+        const longMa = Number(params.ma_long);
+        if (shortMa >= longMa) {
+          return { valid: false, error: 'MA 条件要求短期均线必须小于长期均线' };
+        }
+      }
+
+      return { valid: true };
+    }
+
+    function normalizeTriggerConfig(condition = {}) {
+      if (!condition || Object.keys(condition).length === 0) {
+        return createLegacyCompatibleCondition(getDefaultTriggerType(), {});
+      }
+      if (condition.trigger_type && TRIGGER_TYPE_DEFS[condition.trigger_type]) {
+        return createLegacyCompatibleCondition(condition.trigger_type, condition.params || {});
+      }
+      return mapImportedCondition(condition);
+    }
+
+    function createConditionRow(condition = {}) {
+      const normalizedCondition = normalizeTriggerConfig(condition);
+      const triggerType = normalizedCondition.trigger_type || getDefaultTriggerType();
+      const def = TRIGGER_TYPE_DEFS[triggerType];
+      const row = document.createElement('div');
+      row.className = 'condition-item';
+      row.innerHTML = `
+        <div class="condition-main">
+          <select class="cond-trigger-type" onchange="handleConditionTypeChange(this)">
+            ${Object.entries(TRIGGER_TYPE_DEFS).map(([key, item]) => `
+              <option value="${key}">${item.label}</option>
+            `).join('')}
+          </select>
+          <div class="condition-params"></div>
+        </div>
+        <div class="condition-side">
+          <div class="condition-preview"><strong>条件预览：</strong><span class="condition-preview-text"></span></div>
+          <div class="condition-error"></div>
+        </div>
+        <button type="button" class="button button-danger condition-remove" onclick="removeCondition(this)">删除</button>
+      `;
+
+      row.querySelector('.cond-trigger-type').value = triggerType;
+      renderConditionParams(row, triggerType, normalizedCondition.params || {});
+      updateConditionPreview(row);
+      return row;
+    }
+
+    function renderConditionParams(row, triggerType, params = {}) {
+      const def = TRIGGER_TYPE_DEFS[triggerType] || TRIGGER_TYPE_DEFS[getDefaultTriggerType()];
+      const paramsEl = row.querySelector('.condition-params');
+      paramsEl.innerHTML = def.params.map((param) => `
+        <div>
+          <label class="form-label">${escapeHtml(param.label)}</label>
+          <input
+            type="${param.type}"
+            class="cond-param-input"
+            data-param-key="${escapeHtml(param.key)}"
+            placeholder="${escapeHtml(param.placeholder || '')}"
+            ${param.min !== undefined ? `min="${param.min}"` : ''}
+            ${param.max !== undefined ? `max="${param.max}"` : ''}
+            ${param.step !== undefined ? `step="${param.step}"` : ''}
+            value="${escapeHtml(params[param.key] ?? '')}"
+            oninput="updateConditionPreview(this.closest('.condition-item'))"
+          >
+        </div>
+      `).join('');
+    }
+
+    function handleConditionTypeChange(selectEl) {
+      const row = selectEl.closest('.condition-item');
+      renderConditionParams(row, selectEl.value, {});
+      updateConditionPreview(row);
+      updateConditionsPreview();
+    }
+
+    function readConditionRowConfig(row) {
+      const triggerType = row.querySelector('.cond-trigger-type').value;
+      const params = {};
+      row.querySelectorAll('.cond-param-input').forEach((input) => {
+        params[input.dataset.paramKey] = normalizeNumericParam(input.value);
+      });
+      return createLegacyCompatibleCondition(triggerType, params);
+    }
+
+    function updateConditionPreview(row) {
+      if (!row) {
         return;
       }
+      const config = readConditionRowConfig(row);
+      const hasInput = hasConditionInput(config);
+      const previewText = hasInput ? formatConditionText(config) : '';
+      row.querySelector('.condition-preview-text').textContent = previewText || '请填写参数';
+      const validation = hasInput ? validateTriggerConfig(config) : { valid: true };
+      row.querySelector('.condition-error').textContent = validation.valid ? '' : validation.error;
+      updateConditionsPreview();
+    }
+
+    function setDefaultDates(form = getCreateForm()) {
       const today = new Date().toISOString().split('T')[0];
       const threeMonthsLater = new Date();
       threeMonthsLater.setMonth(threeMonthsLater.getMonth() + 3);
-      document.querySelector('[name="start_date"]').value = today;
-      document.querySelector('[name="end_date"]').value = threeMonthsLater.toISOString().split('T')[0];
+      form.start_date.value = today;
+      form.end_date.value = threeMonthsLater.toISOString().split('T')[0];
+    }
+
+    function resetConditions(conditions = [{}]) {
+      const list = getConditionsList();
+      list.replaceChildren();
+      conditions.forEach(condition => {
+        list.appendChild(createConditionRow(condition));
+      });
+      updateConditionsPreview();
+    }
+
+    function resetCreateForm() {
+      const form = getCreateForm();
+      form.reset();
+      setEditingMode(null);
+      form.action.value = 'buy';
+      form.order_type.value = 'price';
+      form.condition_logic.value = 'AND';
+      form.max_trigger_count.value = '1';
+      form.position_pct.value = '';
+      form.stop_loss_price.value = '';
+      clearImportTextarea();
+      setDefaultDates(form);
+      resetConditions([{}]);
+      loadMonitorPoolStocks();
+    }
+
+    function showCreateModal(options = {}) {
+      const { allowWithoutAccount = false, preserveValues = false } = options;
+      const accountId = getAccountId();
+
+      if (!accountId && !allowWithoutAccount) {
+        showToast('请先创建并选择账户', 'error');
+        return false;
+      }
+
+      if (!preserveValues) {
+        resetCreateForm();
+      } else {
+        const form = getCreateForm();
+        if (!form.start_date.value || !form.end_date.value) {
+          setDefaultDates(form);
+        }
+      }
+
       document.getElementById('create-modal').classList.add('show');
+      if (!accountId) {
+        showToast('已导入策略草稿，请先选择账户后再创建条件单', 'info');
+      }
+      return true;
     }
 
     function closeCreateModal() {
       document.getElementById('create-modal').classList.remove('show');
+      setEditingMode(null);
+    }
+
+    function closeHistoryModal() {
+      document.getElementById('history-modal').classList.remove('show');
+    }
+
+    function updateBatchSummary(visibleCount = getVisibleOrders().length) {
+      const summaryEl = document.getElementById('batch-summary');
+      if (!summaryEl) {
+        return;
+      }
+      const selectedCount = selectedOrderIds.length;
+      if (selectedCount === 0) {
+        summaryEl.textContent = visibleCount > 0 ? `当前列表 ${visibleCount} 条，未选择条件单` : '未选择条件单';
+        return;
+      }
+      summaryEl.textContent = `已选择 ${selectedCount} 条条件单`;
+    }
+
+    function toggleOrderSelection(id, checked) {
+      const orderId = String(id);
+      if (checked) {
+        if (!selectedOrderIds.includes(orderId)) {
+          selectedOrderIds.push(orderId);
+        }
+      } else {
+        selectedOrderIds = selectedOrderIds.filter((item) => item !== orderId);
+      }
+      renderOrders();
+    }
+
+    function toggleSelectAllVisible(checked) {
+      const visibleIds = getVisibleOrders().map((order) => String(order.id));
+      if (checked) {
+        const merged = new Set([...selectedOrderIds, ...visibleIds]);
+        selectedOrderIds = Array.from(merged);
+      } else {
+        selectedOrderIds = selectedOrderIds.filter((id) => !visibleIds.includes(id));
+      }
+      renderOrders();
     }
 
     function addCondition() {
-      const list = document.getElementById('conditions-list');
-      const row = document.createElement('div');
-      row.className = 'condition-item';
-      row.innerHTML = `
-        <select class="cond-type">
-          <option value="price">股价</option>
-          <option value="pct_change">涨跌幅(%)</option>
-          <option value="volume_ratio">量比</option>
-          <option value="rsi">RSI</option>
-          <option value="macd_cross">MACD信号</option>
-        </select>
-        <select class="cond-op">
-          <option value=">=">>=</option>
-          <option value="<="><=</option>
-          <option value=">">></option>
-          <option value="<"><</option>
-        </select>
-        <input type="text" class="cond-value" placeholder="数值">
-        <button type="button" class="button button-danger" style="min-height:42px;padding:0 12px;font-size:12px;" onclick="removeCondition(this)">删除</button>
-      `;
-      list.appendChild(row);
+      getConditionsList().appendChild(createConditionRow());
+      updateConditionsPreview();
     }
 
     function removeCondition(btn) {
+      const list = getConditionsList();
+      if (list.children.length <= 1) {
+        const row = btn.parentElement;
+        row.querySelector('.cond-trigger-type').value = getDefaultTriggerType();
+        renderConditionParams(row, getDefaultTriggerType(), {});
+        updateConditionPreview(row);
+        return;
+      }
       btn.parentElement.remove();
+      updateConditionsPreview();
+    }
+
+    function normalizeTsCode(value) {
+      return String(value || '').trim().toUpperCase();
+    }
+
+    function validateEditableConditions(conditions) {
+      if (!Array.isArray(conditions) || conditions.length === 0) {
+        return { valid: false, error: '请至少填写一个触发条件' };
+      }
+
+      for (const condition of conditions) {
+        const validation = validateTriggerConfig(condition);
+        if (!validation.valid) {
+          return validation;
+        }
+      }
+
+      return { valid: true };
+    }
+
+    function collectFormConditions() {
+      const conditions = [];
+      document.querySelectorAll('.condition-item').forEach(row => {
+        const config = readConditionRowConfig(row);
+        if (hasConditionInput(config)) {
+          conditions.push(config);
+        }
+      });
+      return conditions;
+    }
+
+    function inferOrderTypeFromConditions(conditions) {
+      if (!Array.isArray(conditions) || conditions.length === 0) {
+        return 'price';
+      }
+      if (conditions.length > 1) {
+        return 'composite';
+      }
+
+      const [condition] = conditions;
+      return TRIGGER_TYPE_DEFS[condition.trigger_type]?.orderType || 'composite';
+    }
+
+    async function fetchStockInfo(query) {
+      const response = await fetch(`/api/stock/search?q=${encodeURIComponent(query)}`);
+      const result = await response.json();
+      return Array.isArray(result.data) ? result.data[0] || null : null;
+    }
+
+    function clearImportParam() {
+      const url = new URL(window.location.href);
+      if (!url.searchParams.has(IMPORT_PARAM_KEY)) {
+        return;
+      }
+      url.searchParams.delete(IMPORT_PARAM_KEY);
+      window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+    }
+
+    function parseImportPayload(rawImport) {
+      let decoded = rawImport;
+      try {
+        decoded = decodeURIComponent(rawImport);
+      } catch (error) {
+        decoded = rawImport;
+      }
+
+      let payload;
+      try {
+        payload = JSON.parse(decoded);
+      } catch (error) {
+        throw new Error('导入数据不是有效 JSON');
+      }
+
+      if (!payload || typeof payload !== 'object') {
+        throw new Error('导入数据格式无效');
+      }
+
+      const stockCode = normalizeTsCode(payload.stock_code || payload.ts_code);
+      const stockName = String(payload.stock_name || '').trim();
+      const strategy = payload.strategy || payload.strategies?.balanced || payload.strategies?.aggressive || payload.strategies?.conservative;
+
+      if (!stockCode || !stockName || !strategy || typeof strategy !== 'object') {
+        throw new Error('导入数据缺少股票或策略信息');
+      }
+      if (!Array.isArray(strategy.actions) || strategy.actions.length === 0) {
+        throw new Error('导入策略缺少可用动作');
+      }
+
+      return {
+        stockCode,
+        stockName,
+        stopLoss: payload.stop_loss,
+        strategy
+      };
+    }
+
+    function mapImportedCondition(condition) {
+      const field = typeof condition?.field === 'string' ? condition.field.trim().toLowerCase() : '';
+      const operator = typeof condition?.operator === 'string' ? condition.operator.trim().toLowerCase() : '';
+      const value = normalizeNumericParam(condition?.value);
+      const params = condition?.params && typeof condition.params === 'object' ? condition.params : {};
+
+      if (condition?.trigger_type && TRIGGER_TYPE_DEFS[condition.trigger_type]) {
+        return createLegacyCompatibleCondition(condition.trigger_type, condition.params || {});
+      }
+
+      if (field === 'price' || condition?.type === 'price') {
+        if (operator === '>=' || operator === '>') {
+          return createLegacyCompatibleCondition('price_above', { price: value });
+        }
+        return createLegacyCompatibleCondition('price_below', { price: value });
+      }
+
+      if (field === 'rsi') {
+        if (operator === '>=' || operator === '>') {
+          return createLegacyCompatibleCondition('rsi_overbought', { threshold: value });
+        }
+        return createLegacyCompatibleCondition('rsi_oversold', { threshold: value });
+      }
+
+      if (field === 'volume_ratio') {
+        return createLegacyCompatibleCondition('volume_ratio_above', { ratio: value });
+      }
+
+      if (field === 'macd' || field === 'macd_cross') {
+        if (operator === '<=' || operator === '<' || String(value).startsWith('-')) {
+          return createLegacyCompatibleCondition('macd_bearish', { signal: value });
+        }
+        return createLegacyCompatibleCondition('macd_bullish', { signal: value });
+      }
+
+      if (field === 'main_force_net') {
+        if (operator === '<=' || operator === '<' || Number(value) < 0) {
+          return createLegacyCompatibleCondition('main_force_net_outflow', { amount: Math.abs(Number(value)) || value });
+        }
+        return createLegacyCompatibleCondition('main_force_net_inflow', { amount: value });
+      }
+
+      if (field === 'pe' || field === 'pe_percentile' || condition?.type === 'fundamental') {
+        if (operator === '>=' || operator === '>') {
+          return createLegacyCompatibleCondition('pe_high', { pe: value });
+        }
+        return createLegacyCompatibleCondition('pe_low', { pe: value });
+      }
+
+      if (field === 'pct_change' || condition?.type === 'pct_change') {
+        const percent = Math.abs(Number(value));
+        if (Number(value) < 0 || operator === '<=' || operator === '<') {
+          return createLegacyCompatibleCondition('daily_loss', { percent });
+        }
+        return createLegacyCompatibleCondition('daily_gain', { percent });
+      }
+
+      if (field === 'ma_cross') {
+        const [shortValue, longValue] = String(value || '').split('/').map(Number);
+        if (operator === 'death_cross') {
+          return createLegacyCompatibleCondition('ma_death_cross', {
+            ma_short: params.ma_short ?? shortValue,
+            ma_long: params.ma_long ?? longValue
+          });
+        }
+        return createLegacyCompatibleCondition('ma_golden_cross', {
+          ma_short: params.ma_short ?? shortValue,
+          ma_long: params.ma_long ?? longValue
+        });
+      }
+
+      throw new Error(`存在不支持的触发字段: ${condition?.field || condition?.type || 'unknown'}`);
+    }
+
+    function normalizeImportedConditions(importedConditions) {
+      if (!Array.isArray(importedConditions) || importedConditions.length === 0) {
+        throw new Error('导入策略未包含触发条件');
+      }
+
+      return importedConditions.map((condition) => {
+        return mapImportedCondition(condition);
+      });
+    }
+
+    function pickImportAction(strategy) {
+      const action = strategy.actions.find(item =>
+        ['buy', 'sell'].includes(item?.action_type) &&
+        Array.isArray(item?.trigger_conditions) &&
+        item.trigger_conditions.length > 0
+      );
+
+      if (!action) {
+        throw new Error('导入策略中没有可创建条件单的买卖动作');
+      }
+
+      return action;
+    }
+
+    async function handleImportFromQuery() {
+      const params = new URLSearchParams(window.location.search);
+      const rawImport = params.get(IMPORT_PARAM_KEY);
+      const rawBatch = params.get('batch');
+      
+      // 处理批量创建模式
+      if (rawBatch) {
+        try {
+          const batchData = JSON.parse(decodeURIComponent(rawBatch));
+          if (batchData.mode === 'batch' && batchData.stocks) {
+            showBatchCreateModal(batchData);
+            clearBatchParam();
+            return;
+          }
+        } catch (error) {
+          console.error('解析批量创建参数失败:', error);
+          showToast('批量创建参数解析失败', 'error');
+        }
+      }
+      
+      if (!rawImport) {
+        return;
+      }
+
+      try {
+        const parsed = parseImportPayload(rawImport);
+        const stockInfo = await fetchStockInfo(parsed.stockCode);
+        if (!stockInfo || normalizeTsCode(stockInfo.ts_code) !== parsed.stockCode) {
+          throw new Error(`未找到股票 ${parsed.stockCode}`);
+        }
+
+        const action = pickImportAction(parsed.strategy);
+        const conditions = normalizeImportedConditions(action.trigger_conditions);
+        const validation = validateEditableConditions(conditions);
+        if (!validation.valid) {
+          throw new Error(validation.error);
+        }
+
+        showCreateModal({ allowWithoutAccount: true });
+
+        const form = getCreateForm();
+        form.ts_code.value = stockInfo.ts_code || parsed.stockCode;
+        form.stock_name.value = stockInfo.name || parsed.stockName;
+        form.action.value = action.action_type;
+        form.order_type.value = inferOrderTypeFromConditions(conditions);
+        form.condition_logic.value = action.trigger_logic || 'AND';
+        form.position_pct.value = action.position_percent ?? '';
+        form.stop_loss_price.value = action.stop_loss ?? parsed.stopLoss ?? '';
+        resetConditions(conditions);
+
+        clearImportParam();
+        showToast(`已导入 ${form.stock_name.value} 策略，请确认后创建条件单`, 'success');
+      } catch (error) {
+        clearImportParam();
+        showToast(`导入失败：${error.message}`, 'error');
+      }
+    }
+
+    function clearBatchParam() {
+      const url = new URL(window.location);
+      url.searchParams.delete('batch');
+      window.history.replaceState({}, '', url);
+    }
+
+    // 批量创建模态框
+    async function showBatchCreateModal(batchData) {
+      const { stocks, account_id } = batchData;
+      
+      // 设置账户
+      if (account_id) {
+        localStorage.setItem('portfolioAccountId', account_id);
+      }
+      
+      // 显示批量创建模态框
+      const modal = document.getElementById('batch-create-modal');
+      if (!modal) {
+        // 创建批量创建模态框
+        createBatchCreateModal();
+      }
+      
+      // 填充股票列表
+      const stockListEl = document.getElementById('batch-stock-list');
+      if (stockListEl) {
+        stockListEl.innerHTML = stocks.map(s => 
+          `<div class="batch-stock-item">✓ ${s.stock_name} (${s.ts_code})</div>`
+        ).join('');
+      }
+      
+      // 存储股票数据
+      window.batchCreateStocks = stocks;
+      
+      document.getElementById('batch-create-modal').classList.add('show');
+    }
+
+    function createBatchCreateModal() {
+      const modalHtml = `
+        <div class="modal-overlay" id="batch-create-modal">
+          <div class="modal-dialog modal-lg">
+            <button class="modal-close" onclick="closeBatchCreateModal()">&times;</button>
+            <h3 class="modal-title">批量创建条件单</h3>
+            <div class="modal-body">
+              <div class="form-section">
+                <h4>已选股票</h4>
+                <div id="batch-stock-list" class="batch-stock-list"></div>
+              </div>
+              
+              <div class="form-section">
+                <h4>统一配置</h4>
+                <div class="form-row">
+                  <div class="form-field">
+                    <label class="form-label">交易动作</label>
+                    <select class="form-select" id="batch-action" required>
+                      <option value="buy">买入</option>
+                      <option value="sell">卖出</option>
+                    </select>
+                  </div>
+                  <div class="form-field">
+                    <label class="form-label">条件单类型</label>
+                    <select class="form-select" id="batch-order-type" required>
+                      <option value="price">价格条件</option>
+                      <option value="indicator">技术指标</option>
+                      <option value="capital">资金条件</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div class="form-field">
+                  <label class="form-label">触发条件</label>
+                  <div id="batch-conditions-list"></div>
+                  <button type="button" class="button button-secondary" onclick="addBatchCondition()">+ 添加条件</button>
+                </div>
+                
+                <div class="form-row">
+                  <div class="form-field">
+                    <label class="form-label">仓位占比 (%)</label>
+                    <input type="number" class="form-input" id="batch-position-pct" placeholder="建议仓位，如 10" min="0" max="100" step="0.1">
+                  </div>
+                  <div class="form-field">
+                    <label class="form-label">交易数量（股）</label>
+                    <input type="number" class="form-input" id="batch-quantity" placeholder="100 的倍数" min="100" step="100">
+                  </div>
+                </div>
+                
+                <div class="form-row">
+                  <div class="form-field">
+                    <label class="form-label">有效期开始</label>
+                    <input type="date" class="form-input" id="batch-start-date">
+                  </div>
+                  <div class="form-field">
+                    <label class="form-label">有效期结束</label>
+                    <input type="date" class="form-input" id="batch-end-date">
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="button button-secondary" onclick="closeBatchCreateModal()">取消</button>
+              <button class="button button-primary" onclick="executeBatchCreate()">批量创建</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+      
+      // 设置默认日期
+      const today = new Date().toISOString().split('T')[0];
+      const threeMonthsLater = new Date();
+      threeMonthsLater.setMonth(threeMonthsLater.getMonth() + 3);
+      document.getElementById('batch-start-date').value = today;
+      document.getElementById('batch-end-date').value = threeMonthsLater.toISOString().split('T')[0];
+      
+      // 初始化条件列表
+      addBatchCondition();
+    }
+
+    function addBatchCondition() {
+      const container = document.getElementById('batch-conditions-list');
+      const conditionIndex = container.children.length;
+      const conditionHtml = `
+        <div class="condition-row" data-index="${conditionIndex}">
+          <select class="form-select" name="batch-condition-type-${conditionIndex}">
+            <option value="price_cross_up">股价上穿</option>
+            <option value="price_cross_down">股价下穿</option>
+            <option value="price_above">股价高于</option>
+            <option value="price_below">股价低于</option>
+          </select>
+          <input type="number" class="form-input" name="batch-condition-value-${conditionIndex}" placeholder="价格" step="0.01" style="width:120px;">
+          <button type="button" class="button button-secondary" onclick="removeBatchCondition(this)">删除</button>
+        </div>
+      `;
+      container.insertAdjacentHTML('beforeend', conditionHtml);
+    }
+
+    function removeBatchCondition(btn) {
+      btn.parentElement.remove();
+    }
+
+    function closeBatchCreateModal() {
+      document.getElementById('batch-create-modal').classList.remove('show');
+    }
+
+    async function executeBatchCreate() {
+      const stocks = window.batchCreateStocks || [];
+      if (stocks.length === 0) {
+        showToast('没有股票数据', 'error');
+        return;
+      }
+
+      const accountId = getAccountId();
+      if (!accountId) {
+        showToast('请先选择账户', 'error');
+        return;
+      }
+
+      // 收集批量配置
+      const action = document.getElementById('batch-action').value;
+      const orderType = document.getElementById('batch-order-type').value;
+      const positionPct = document.getElementById('batch-position-pct').value;
+      const quantity = document.getElementById('batch-quantity').value;
+      const startDate = document.getElementById('batch-start-date').value;
+      const endDate = document.getElementById('batch-end-date').value;
+
+      // 收集条件
+      const conditions = [];
+      const conditionRows = document.querySelectorAll('#batch-conditions-list .condition-row');
+      conditionRows.forEach(row => {
+        const type = row.querySelector('select').value;
+        const value = row.querySelector('input').value;
+        if (value) {
+          conditions.push({ type, value });
+        }
+      });
+
+      if (conditions.length === 0) {
+        showToast('请至少添加一个触发条件', 'error');
+        return;
+      }
+
+      // 批量创建
+      const batchSize = stocks.length;
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const stock of stocks) {
+        const orderData = {
+          account_id: accountId,
+          ts_code: stock.ts_code,
+          stock_name: stock.stock_name,
+          action,
+          order_type: orderType,
+          conditions,
+          position_pct: positionPct ? parseFloat(positionPct) : null,
+          quantity: quantity ? parseInt(quantity) : null,
+          start_date: startDate,
+          end_date: endDate
+        };
+
+        try {
+          const response = await fetch('/api/conditional-order/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orderData)
+          });
+          const result = await response.json();
+          if (result.success) {
+            successCount++;
+          } else {
+            failCount++;
+            console.error(`创建失败 ${stock.ts_code}:`, result.error);
+          }
+        } catch (error) {
+          failCount++;
+          console.error(`创建异常 ${stock.ts_code}:`, error);
+        }
+      }
+
+      closeBatchCreateModal();
+      showToast(`批量创建完成：成功 ${successCount} 只，失败 ${failCount} 只`, successCount === batchSize ? 'success' : 'warning');
+      
+      // 刷新列表
+      loadOrders();
     }
 
     async function createOrder(e) {
       e.preventDefault();
       const form = e.target;
+      const accountId = getAccountId();
+      if (!accountId) {
+        showToast('请先创建并选择账户', 'error');
+        return;
+      }
 
-      const conditions = [];
-      document.querySelectorAll('.condition-item').forEach(row => {
-        const type = row.querySelector('.cond-type').value;
-        const operator = row.querySelector('.cond-op').value;
-        const value = row.querySelector('.cond-value').value;
-        if (value) {
-          conditions.push({ type, operator, value: parseFloat(value) || value });
-        }
-      });
+      const tsCode = normalizeTsCode(form.ts_code.value);
+      const stockName = form.stock_name.value.trim();
+      const conditions = collectFormConditions();
+      const condValidation = validateEditableConditions(conditions);
+      if (!condValidation.valid) {
+        showToast(condValidation.error, 'error');
+        return;
+      }
+
+      const positionPct = form.position_pct.value === ''
+        ? null
+        : Number(form.position_pct.value);
+      if (positionPct !== null && (!Number.isFinite(positionPct) || positionPct < 0 || positionPct > 100)) {
+        showToast('仓位占比需在 0-100 之间', 'error');
+        return;
+      }
+
+      if (!tsCode || !stockName) {
+        showToast('股票代码和名称不能为空', 'error');
+        return;
+      }
 
       const data = {
-        account_id: getAccountId(),
-        ts_code: form.ts_code.value,
-        stock_name: form.stock_name.value,
+        account_id: accountId,
+        ts_code: tsCode,
+        stock_name: stockName,
         action: form.action.value,
-        order_type: form.order_type.value,
+        order_type: inferOrderTypeFromConditions(conditions),
         quantity: form.quantity.value ? parseInt(form.quantity.value) : null,
         amount: form.amount.value ? parseFloat(form.amount.value) : null,
+        position_pct: positionPct,
         conditions: conditions,
-        condition_logic: 'AND',
+        condition_logic: form.condition_logic.value,
         start_date: form.start_date.value,
         end_date: form.end_date.value,
         max_trigger_count: parseInt(form.max_trigger_count.value)
       };
 
-      const result = await api('/api/conditional-order', {
-        method: 'POST',
+      const isEditing = Boolean(editingOrderId);
+      const requestUrl = isEditing ? `/api/conditional-order/${editingOrderId}` : '/api/conditional-order';
+      const requestMethod = isEditing ? 'PUT' : 'POST';
+
+      const result = await api(requestUrl, {
+        method: requestMethod,
         body: JSON.stringify(data)
       });
 
       if (result.success) {
         closeCreateModal();
+        resetCreateForm();
         loadOrders();
+        showToast(isEditing ? '条件单更新成功' : '条件单创建成功', 'success');
       } else {
-        alert('创建失败: ' + result.error);
+        showToast((isEditing ? '更新失败: ' : '创建失败: ') + result.error, 'error');
+      }
+    }
+
+    async function toggleOrder(id) {
+      try {
+        const result = await api(`/api/conditional-order/${id}/toggle`, {
+          method: 'PUT'
+        });
+
+        await loadOrders();
+        showToast(result.data?.status === 'enabled' ? '条件单已启用' : '条件单已禁用', 'success');
+      } catch (error) {
+        showToast('切换失败: ' + error.message, 'error');
+      }
+    }
+
+    async function deleteOrder(id) {
+      if (!confirm('确定要删除这个条件单吗？删除后无法恢复。')) {
+        return;
+      }
+
+      try {
+        await api(`/api/conditional-order/${id}`, {
+          method: 'DELETE'
+        });
+
+        selectedOrderIds = selectedOrderIds.filter((item) => item !== String(id));
+        await loadOrders();
+        showToast('条件单已删除', 'success');
+      } catch (error) {
+        showToast('删除失败: ' + error.message, 'error');
+      }
+    }
+
+    async function setOrderEnabledState(id, enable) {
+      const order = ordersData.find((item) => item.id === id);
+      if (!order) {
+        return false;
+      }
+      const normalizedStatus = normalizeOrderStatus(order.status);
+      const shouldEnable = Boolean(enable);
+      if (['triggered', 'expired'].includes(normalizedStatus)) {
+        return false;
+      }
+      if ((shouldEnable && normalizedStatus === 'enabled') || (!shouldEnable && normalizedStatus === 'disabled')) {
+        return false;
+      }
+      await api(`/api/conditional-order/${id}/toggle`, { method: 'PUT' });
+      return true;
+    }
+
+    async function runBatchAction(action) {
+      const selectedIds = getSelectedOrderIds();
+      if (!selectedIds.length) {
+        showToast('请先选择至少一个条件单', 'info');
+        return;
+      }
+
+      const actionTextMap = {
+        enable: '批量启用',
+        disable: '批量禁用',
+        delete: '批量删除'
+      };
+
+      if (!confirm(`确定要${actionTextMap[action]}这 ${selectedIds.length} 条条件单吗？`)) {
+        return;
+      }
+
+      try {
+        let affectedCount = 0;
+        for (const id of selectedIds) {
+          if (action === 'enable') {
+            if (await setOrderEnabledState(Number(id), true)) {
+              affectedCount += 1;
+            }
+          } else if (action === 'disable') {
+            if (await setOrderEnabledState(Number(id), false)) {
+              affectedCount += 1;
+            }
+          } else if (action === 'delete') {
+            await api(`/api/conditional-order/${id}`, { method: 'DELETE' });
+            affectedCount += 1;
+          }
+        }
+        selectedOrderIds = [];
+        await loadOrders();
+        showToast(`${actionTextMap[action]}完成，实际处理 ${affectedCount} 条`, 'success');
+      } catch (error) {
+        showToast(`${actionTextMap[action]}失败: ${error.message}`, 'error');
+      }
+    }
+
+    async function editOrder(id) {
+      const order = ordersData.find((item) => item.id === id);
+      if (!order) {
+        showToast('条件单数据未找到', 'error');
+        return;
+      }
+
+      showCreateModal({ preserveValues: true });
+      setEditingMode(order);
+
+      const form = getCreateForm();
+      form.ts_code.value = order.ts_code || '';
+      form.stock_name.value = order.stock_name || '';
+      form.action.value = order.action || 'buy';
+      form.order_type.value = order.order_type || inferOrderTypeFromConditions(order.conditions || []);
+      form.quantity.value = order.quantity ?? '';
+      form.amount.value = order.amount ?? '';
+      form.position_pct.value = order.position_pct ?? '';
+      form.condition_logic.value = order.condition_logic || 'AND';
+      form.start_date.value = order.start_date || '';
+      form.end_date.value = order.end_date || '';
+      form.max_trigger_count.value = order.max_trigger_count ?? '1';
+      resetConditions(order.conditions?.length ? order.conditions : [{}]);
+      clearImportTextarea();
+      updateConditionsPreview();
+    }
+
+    function formatTradeTime(value) {
+      if (!value) {
+        return '--';
+      }
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) {
+        return String(value);
+      }
+      return parsed.toLocaleString('zh-CN', { hour12: false });
+    }
+
+    async function showHistory(id) {
+      const order = ordersData.find((item) => item.id === id);
+      const contentEl = document.getElementById('history-content');
+      const titleEl = document.getElementById('history-modal-title');
+      titleEl.textContent = order ? `${order.stock_name} 执行历史` : '执行历史';
+      contentEl.innerHTML = '<div class="history-empty">正在加载执行历史...</div>';
+      document.getElementById('history-modal').classList.add('show');
+
+      try {
+        const result = await api(`/api/conditional-order/${id}/history`);
+        const history = Array.isArray(result.data) ? result.data : [];
+        if (!history.length) {
+          contentEl.innerHTML = '<div class="history-empty">暂无触发记录</div>';
+          return;
+        }
+
+        contentEl.innerHTML = history.map((item) => `
+          <div class="history-card">
+            <div class="history-meta">
+              <span>${escapeHtml(formatTradeTime(item.trade_date))}</span>
+              <span class="status-badge status-triggered">已执行</span>
+              <span>${item.action === 'buy' ? '买入' : '卖出'}</span>
+            </div>
+            <div class="history-detail">
+              <span>触发价格：${escapeHtml(formatNumber(item.price))} 元</span>
+              <span>数量：${escapeHtml(formatNumber(item.quantity))} 股</span>
+              <span>成交额：${escapeHtml(formatNumber(item.amount))} 元</span>
+              <span>备注：${escapeHtml(item.remark || '-')}</span>
+            </div>
+          </div>
+        `).join('');
+      } catch (error) {
+        contentEl.innerHTML = `<div class="history-empty">${escapeHtml(error.message)}</div>`;
       }
     }
 
@@ -644,8 +2223,9 @@
 
       if (result.success) {
         loadOrders();
+        showToast('条件单已取消', 'success');
       } else {
-        alert('取消失败: ' + result.error);
+        showToast('取消失败: ' + result.error, 'error');
       }
     }
 
@@ -715,22 +2295,200 @@
     }
 
     // 显示提示
-    function showToast(message) {
+    function showToast(message, type = 'success') {
       let toast = document.querySelector('.export-toast');
       if (!toast) {
         toast = document.createElement('div');
         toast.className = 'export-toast';
         document.body.appendChild(toast);
       }
+      toast.classList.remove('toast-success', 'toast-error', 'toast-info');
+      toast.classList.add(`toast-${type}`);
       toast.textContent = message;
       toast.classList.add('show');
-      setTimeout(() => {
+      if (toastTimer) {
+        clearTimeout(toastTimer);
+      }
+      toastTimer = setTimeout(() => {
         toast.classList.remove('show');
+        toastTimer = null;
       }, 2000);
     }
 
+    function updateConditionsPreview() {
+      const previewEl = document.getElementById('conditions-preview');
+      if (!previewEl) {
+        return;
+      }
+      const conditions = collectFormConditions();
+      if (!conditions.length) {
+        previewEl.innerHTML = '条件预览：请先配置触发条件';
+        return;
+      }
+      const logicText = getConditionLogicValue() === 'OR' ? ' 或 ' : ' 且 ';
+      const combined = conditions.map((condition) => formatConditionText(condition)).join(logicText);
+      previewEl.innerHTML = `<strong>条件预览：</strong>${escapeHtml(combined)}`;
+    }
+
+    function initListControls() {
+      document.querySelectorAll('.tab-btn[data-status]').forEach((button) => {
+        button.addEventListener('click', () => {
+          filterOrders(button.dataset.status, button);
+        });
+      });
+
+      const searchInput = document.getElementById('stock-search');
+      if (searchInput) {
+        searchInput.addEventListener('input', () => {
+          currentSearch = searchInput.value.trim();
+          loadOrders();
+        });
+      }
+    }
+
+    function extractImportSource(payload) {
+      if (!payload || typeof payload !== 'object') {
+        throw new Error('导入内容必须是 JSON 对象');
+      }
+
+      const strategy = payload.strategy
+        || payload.strategies?.balanced
+        || payload.strategies?.aggressive
+        || payload.strategies?.conservative
+        || payload.report?.strategies?.balanced
+        || payload.report?.strategy;
+
+      if (!strategy || typeof strategy !== 'object') {
+        throw new Error('未找到可导入的策略建议');
+      }
+
+      const action = pickImportAction(strategy);
+      const conditions = normalizeImportedConditions(action.trigger_conditions);
+      return { action, conditions };
+    }
+
+    function importTriggersFromTextarea() {
+      const textarea = document.getElementById('import-report-input');
+      const raw = textarea.value.trim();
+      if (!raw) {
+        showToast('请先粘贴 analysis report JSON', 'error');
+        return;
+      }
+
+      try {
+        const payload = JSON.parse(raw);
+        const { action, conditions } = extractImportSource(payload);
+        const validation = validateEditableConditions(conditions);
+        if (!validation.valid) {
+          throw new Error(validation.error);
+        }
+
+        const form = getCreateForm();
+        resetConditions(conditions);
+        form.condition_logic.value = action.trigger_logic || 'AND';
+        if (action.position_percent !== undefined) {
+          form.position_pct.value = action.position_percent;
+        }
+        if (action.stop_loss !== undefined) {
+          form.stop_loss_price.value = action.stop_loss;
+        }
+        form.order_type.value = inferOrderTypeFromConditions(conditions);
+        showToast('已导入触发建议，可继续调整参数', 'success');
+      } catch (error) {
+        showToast(`导入失败：${error.message}`, 'error');
+      }
+    }
+
+    function clearImportTextarea() {
+      const textarea = document.getElementById('import-report-input');
+      if (textarea) {
+        textarea.value = '';
+      }
+    }
+
+    // 加载监控池股票列表
+    async function loadMonitorPoolStocks() {
+      try {
+        const response = await fetch('/api/monitor/stock-list');
+        const result = await response.json();
+        
+        const selector = document.getElementById('stock-selector');
+        if (!selector) return;
+        
+        // 清空选项（保留第一个提示选项）
+        selector.innerHTML = '<option value="">从监控池选择...</option>';
+        
+        // 从已加载的条件单数据中提取监控池股票（临时方案）
+        // TODO: 修改 API 返回完整数据
+        if (result.success && result.stocks && result.stocks.length > 0) {
+          result.stocks.forEach(code => {
+            const option = document.createElement('option');
+            option.value = JSON.stringify({
+              ts_code: code,
+              stock_name: code
+            });
+            option.textContent = `${code} (${code})`;
+            selector.appendChild(option);
+          });
+        } else {
+          const option = document.createElement('option');
+          option.value = '';
+          option.textContent = '监控池为空，请手动输入';
+          option.disabled = true;
+          selector.appendChild(option);
+        }
+      } catch (error) {
+        console.error('加载监控池失败:', error);
+      }
+    }
+
+    // 股票选择器变更处理
+    function onStockSelected() {
+      const selector = document.getElementById('stock-selector');
+      const nameInput = document.getElementById('stock-name-input');
+      const selectedValue = selector.value;
+      
+      if (selectedValue) {
+        try {
+          const stock = JSON.parse(selectedValue);
+          // 填充股票代码和名称
+          const form = getCreateForm();
+          form.ts_code.value = stock.ts_code;
+          if (nameInput) {
+            nameInput.value = stock.stock_name;
+          }
+          showToast(`已选择 ${stock.stock_name}`, 'success');
+        } catch (error) {
+          console.error('解析股票数据失败:', error);
+        }
+      }
+    }
+
+    // 切换手动输入模式
+    function toggleStockInput() {
+      const selector = document.getElementById('stock-selector');
+      const manualInput = document.getElementById('stock-code-manual');
+      const toggleBtn = document.getElementById('toggle-stock-btn');
+      
+      if (manualInput.style.display === 'none') {
+        manualInput.style.display = 'block';
+        selector.style.display = 'none';
+        toggleBtn.textContent = '从监控池选择';
+        manualInput.focus();
+      } else {
+        manualInput.style.display = 'none';
+        selector.style.display = 'block';
+        toggleBtn.textContent = '手动输入';
+        loadMonitorPoolStocks();
+      }
+    }
+
     // 初始化
+    initListControls();
+    resetCreateForm();
+    updateBatchSummary(0);
     loadOrders();
+    handleImportFromQuery();
   </script>
 </body>
 </html>

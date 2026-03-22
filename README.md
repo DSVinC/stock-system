@@ -175,6 +175,100 @@ openclaw skills info sina-ashare-mcp
 - ✅ JSON安全解析（try-catch）
 - ✅ 环境变量配置（无硬编码敏感信息）
 
+## 开发流程
+
+### PR 工作流程
+
+本项目采用 Git 分支 + Codex 审查的 PR 流程：
+
+#### 1. 创建特性分支
+
+```bash
+git checkout -b feature/{feature-name}
+```
+
+#### 2. 开发与提交
+
+```bash
+# 开发完成后添加文件
+git add .
+
+# 提交代码（使用规范的 commit message）
+git commit -m "feat: 功能描述"
+# 或
+git commit -m "fix: 修复问题描述"
+```
+
+#### 3. 推送到远程
+
+```bash
+git push origin feature/{feature-name}
+```
+
+#### 4. 创建 PR 并请求审查
+
+```bash
+# 创建 PR（如果尚未创建）
+gh pr create --base main --head feature/{feature-name} --title "功能描述" --body "详细说明"
+
+# 请求 Codex 审查
+gh pr comment {PR_NUMBER} --body "@codex"
+```
+
+#### 5. ⚠️ 等待 Codex 审查（重要）
+
+- **等待时间**：提交 `@codex` 评论后，**等待 2 分钟**再查看回复
+- **原因**：Codex 需要时间拉取代码、运行测试、生成审查报告
+- **不要**：频繁刷新或重复 `@codex`，避免重复审查
+
+#### 6. 处理审查意见
+
+- 如果 Codex 提出问题：
+  ```bash
+  # 修复问题
+  # 修改代码...
+  
+  git add .
+  git commit -m "fix: 修复 Codex 审查问题"
+  git push origin feature/{feature-name}
+  
+  # 再次请求审查
+  gh pr comment {PR_NUMBER} --body "@codex 已修复，请重新审查"
+  ```
+
+- 如果 Codex 审查通过：
+  ```bash
+  # 合并到 main 分支
+  git checkout main
+  git pull origin main
+  git merge feature/{feature-name}
+  git push origin main
+  
+  # 删除特性分支（可选）
+  git branch -d feature/{feature-name}
+  git push origin --delete feature/{feature-name}
+  ```
+
+#### 7. 更新项目文档
+
+合并后更新相关文档：
+- `docs/PROJECT_PROGRESS.md` - 项目进度
+- `docs/runtime/{TASK_ID}_STATUS.md` - 任务状态
+
+---
+
+### Codex 审查检查清单
+
+Codex 会自动检查：
+- ✅ 代码语法正确性
+- ✅ 单元测试覆盖率
+- ✅ API 接口一致性
+- ✅ 数据库查询安全性
+- ✅ 错误处理完整性
+- ✅ 日志记录规范性
+
+---
+
 ## 项目日志
 
 项目进度日志：`memory/project/stock_system/`

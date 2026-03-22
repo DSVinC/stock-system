@@ -52,7 +52,7 @@ const { calculateCompositeScore } = require('./score-factors');
 const router = express.Router();
 const REPORT_DIR = path.join(__dirname, '..', '..', 'report', 'stockana');
 
-// 报告缓存：code -> { payload, timestamp }
+// 报告缓存：version:code -> { payload, timestamp }
 const reportCache = new Map();
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30分钟缓存
 
@@ -60,23 +60,23 @@ function getAnalysisRouter() {
   return require('./analysis');
 }
 
-function getCachedReport(stockCode) {
-  const cached = reportCache.get(stockCode);
+function getCachedReport(stockCode, version = "v1") {
+  const cached = reportCache.get(`${version}:${stockCode}`);
   if (!cached) return null;
   if (Date.now() - cached.timestamp > CACHE_TTL_MS) {
-    reportCache.delete(stockCode);
+    reportCache.delete(`${version}:${stockCode}`);
     return null;
   }
   return cached.payload;
 }
 
-function setCachedReport(stockCode, payload) {
-  reportCache.set(stockCode, { payload, timestamp: Date.now() });
+function setCachedReport(stockCode, payload, version = "v1") {
+  reportCache.set(`${version}:${stockCode}`, { payload, timestamp: Date.now() });
 }
 
-async function analyzeStockWithCache(stockCode) {
+async function analyzeStockWithCache(stockCode, version = "v1") {
   // 先检查缓存
-  const cached = getCachedReport(stockCode);
+  const cached = getCachedReport(stockCode, version);
   if (cached) {
     return cached;
   }
@@ -84,7 +84,7 @@ async function analyzeStockWithCache(stockCode) {
   // 调用 analysis router 的 runAnalysis
   try {
     const payload = await getAnalysisRouter().runAnalysis(stockCode);
-    setCachedReport(stockCode, payload);
+    setCachedReport(stockCode, payload, version);
     return payload;
   } catch (error) {
     console.error(`分析股票 ${stockCode} 失败:`, error.message);

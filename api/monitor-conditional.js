@@ -1,289 +1,551 @@
 /**
- * 监控触发集成模块 - 安全修复版
- * 修复：命令注入、硬编码配置、SQL注入、飞书推送安全
+ * 条件单监控模块
+ * 负责拉取实时行情、评估触发条件、调用执行器并输出监控日志
  */
 
+const { execFileSync } = require('child_process');
 const { getDatabase } = require('./db');
 const { checkCondition } = require('./conditional-order');
-const { execFile } = require('child_process');
-const { promisify } = require('util');
-const execFileAsync = promisify(execFile);
-const path = require('path');
+const { executeConditionalOrder } = require('./conditional-executor');
+const {
+  MarketDataError,
+  calculateTechnicalIndicators,
+  findLatestTradeDate,
+  getDailyHistory,
+  getLatestDailyBasic,
+  getMoneyflowRows,
+  getRealtimeQuote: fetchRealtimeQuoteFromMarketData,
+  getStockPePercentile,
+} = require('./market-data');
 
-// 从环境变量读取配置
-const SINA_MCP_SCRIPTS = process.env.SINA_MCP_SCRIPTS || '/Users/vvc/.openclaw/workspace/skills/sina-ashare-mcp/scripts';
 const FEISHU_OPEN_ID = process.env.FEISHU_OPEN_ID || 'ou_a21807011c59304bedfaf2f7440f5361';
+const LOCAL_TIMEZONE = process.env.MONITOR_TIMEZONE || 'Asia/Shanghai';
+const ACTIVE_ORDER_STATUSES = ['enabled', 'pending'];
+const TECHNICAL_TRIGGER_TYPES = new Set([
+  'ma_golden_cross',
+  'ma_death_cross',
+  'rsi_overbought',
+  'rsi_oversold',
+  'macd_bullish',
+  'macd_bearish',
+]);
+const FUNDAMENTAL_TRIGGER_TYPES = new Set(['pe_low', 'pe_high', 'volume_ratio_above']);
+const MONEYFLOW_TRIGGER_TYPES = new Set(['main_force_net_inflow', 'main_force_net_outflow']);
+const TECHNICAL_CONDITION_TYPES = new Set(['rsi', 'macd_cross']);
+const FUNDAMENTAL_CONDITION_TYPES = new Set(['volume_ratio', 'pe_percentile']);
+const MONEYFLOW_CONDITION_TYPES = new Set(['main_force_net']);
 
-// 股票代码格式校验
-const TS_CODE_REGEX = /^[0-9]{6}\.(SZ|SH|BJ)$/;
-
-function validateTsCode(ts_code) {
-  return TS_CODE_REGEX.test(ts_code);
+function createLogger(logger = console) {
+  return {
+    info: typeof logger.info === 'function' ? logger.info.bind(logger) : console.log.bind(console),
+    warn: typeof logger.warn === 'function' ? logger.warn.bind(logger) : console.warn.bind(console),
+    error: typeof logger.error === 'function' ? logger.error.bind(logger) : console.error.bind(console),
+  };
 }
 
-async function safeExecMCP(ts_code) {
-  if (!validateTsCode(ts_code)) {
-    throw new Error(`非法股票代码格式: ${ts_code}`);
-  }
-  const symbol = ts_code.replace(/\.(SZ|SH|BJ)$/, '');
-  const scriptPath = path.join(SINA_MCP_SCRIPTS, 'quote.cjs');
-  const { stdout } = await execFileAsync('node', [scriptPath, symbol], { 
-    timeout: 10000,
-    maxBuffer: 1024 * 1024
+function formatTimestamp(date = new Date()) {
+  return date.toLocaleString('zh-CN', { timeZone: LOCAL_TIMEZONE, hour12: false });
+}
+
+function formatDate(date = new Date()) {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: LOCAL_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
   });
-  return stdout;
+  const parts = formatter.formatToParts(date);
+  const year = parts.find((item) => item.type === 'year')?.value;
+  const month = parts.find((item) => item.type === 'month')?.value;
+  const day = parts.find((item) => item.type === 'day')?.value;
+  return `${year}-${month}-${day}`;
 }
 
-async function executeConditionalTrade(order, marketData) {
-  const db = await getDatabase();
-  await db.runPromise('BEGIN TRANSACTION');
+function safeJsonParse(raw, fallback = []) {
+  if (Array.isArray(raw)) {
+    return raw;
+  }
+
+  if (typeof raw !== 'string' || raw.trim() === '') {
+    return fallback;
+  }
 
   try {
-    // 检查行情数据有效性
-    if (!marketData || !marketData.price || marketData.price <= 0) {
-      throw new Error('获取行情失败或价格无效');
-    }
-
-    const account = await db.getPromise('SELECT * FROM portfolio_account WHERE id = ?', [order.account_id]);
-    if (!account) throw new Error('账户不存在');
-
-    let quantity;
-    if (order.quantity) {
-      quantity = Math.floor(order.quantity / 100) * 100;
-    } else if (order.amount) {
-      const maxShares = Math.floor(order.amount / marketData.price);
-      quantity = Math.floor(maxShares / 100) * 100;
-    }
-    
-    if (!quantity || quantity < 100) {
-      throw new Error('交易数量不足100股');
-    }
-    
-    const tradeAmount = quantity * marketData.price;
-    const fee = tradeAmount * 0.001;
-    
-    if (order.action === 'buy') {
-      const totalCost = tradeAmount + fee;
-      if (totalCost > account.current_cash) {
-        throw new Error('资金不足（含手续费）');
-      }
-      await db.runPromise(
-        'UPDATE portfolio_account SET current_cash = current_cash - ? WHERE id = ?',
-        [totalCost, order.account_id]
-      );
-      await updateOrCreatePosition(db, order.account_id, order.ts_code, order.stock_name, quantity, marketData.price);
-    } else {
-      const position = await db.getPromise(
-        'SELECT * FROM portfolio_position WHERE account_id = ? AND ts_code = ?',
-        [order.account_id, order.ts_code]
-      );
-      if (!position || position.quantity < quantity) {
-        throw new Error('持仓不足');
-      }
-      const netAmount = tradeAmount - fee;
-      await db.runPromise(
-        'UPDATE portfolio_account SET current_cash = current_cash + ? WHERE id = ?',
-        [netAmount, order.account_id]
-      );
-      await updatePositionOnSell(db, order.account_id, order.ts_code, quantity);
-    }
-    
-    await db.runPromise(`
-      INSERT INTO portfolio_trade (account_id, ts_code, stock_name, action, quantity, price, amount, trade_date, order_type, conditional_order_id, remark)
-      VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), 'conditional', ?, ?)
-    `, [order.account_id, order.ts_code, order.stock_name, order.action, quantity, marketData.price, tradeAmount, order.id, '条件单触发']);
-    
-    await db.runPromise(`
-      UPDATE conditional_order 
-      SET trigger_count = trigger_count + 1, 
-          last_trigger_time = datetime('now'),
-          status = CASE WHEN max_trigger_count > 0 AND trigger_count + 1 >= max_trigger_count THEN 'expired' ELSE 'triggered' END,
-          updated_at = datetime('now')
-      WHERE id = ?
-    `, [order.id]);
-    
-    await updateAccountValue(db, order.account_id);
-    await db.runPromise('COMMIT');
-    
-    console.log(`[条件单触发] ${order.ts_code} ${order.stock_name} ${order.action === 'buy' ? '买入' : '卖出'} ${quantity}股 @ ${marketData.price}`);
-    
-    return { success: true, order_id: order.id, action: order.action, quantity, price: marketData.price, amount: tradeAmount };
+    return JSON.parse(raw);
   } catch (error) {
-    await db.runPromise('ROLLBACK');
-    console.error('[条件单执行失败]', error.message);
-    return { success: false, error: error.message };
+    return fallback;
   }
 }
 
-async function updateOrCreatePosition(db, account_id, ts_code, stock_name, quantity, price) {
-  const existing = await db.getPromise('SELECT * FROM portfolio_position WHERE account_id = ? AND ts_code = ?', [account_id, ts_code]);
-  if (existing) {
-    const newQuantity = existing.quantity + quantity;
-    const newCost = existing.cost_amount + (quantity * price);
-    const newAvgPrice = newCost / newQuantity;
-    await db.runPromise(`UPDATE portfolio_position SET quantity = ?, avg_price = ?, cost_amount = ?, updated_at = datetime('now') WHERE id = ?`, [newQuantity, newAvgPrice, newCost, existing.id]);
-  } else {
-    await db.runPromise(`INSERT INTO portfolio_position (account_id, ts_code, stock_name, quantity, avg_price, cost_amount, current_price, market_value, unrealized_pnl, unrealized_pnl_rate, position_date, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, date('now'), datetime('now'))`, [account_id, ts_code, stock_name, quantity, price, quantity * price, price, quantity * price, 0, 0]);
+function toNumber(value, fallback = null) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
+function normalizeTsCode(tsCode) {
+  const value = String(tsCode || '').trim().toUpperCase();
+  if (!/^\d{6}\.(SZ|SH|BJ)$/.test(value)) {
+    throw new Error(`非法股票代码格式: ${tsCode}`);
   }
+  return value;
 }
 
-async function updatePositionOnSell(db, account_id, ts_code, quantity) {
-  const position = await db.getPromise('SELECT * FROM portfolio_position WHERE account_id = ? AND ts_code = ?', [account_id, ts_code]);
-  if (!position) return;
-  const newQuantity = position.quantity - quantity;
-  if (newQuantity <= 0) {
-    await db.runPromise('DELETE FROM portfolio_position WHERE id = ?', [position.id]);
-  } else {
-    const newCost = (newQuantity / position.quantity) * position.cost_amount;
-    await db.runPromise(`UPDATE portfolio_position SET quantity = ?, cost_amount = ?, updated_at = datetime('now') WHERE id = ?`, [newQuantity, newCost, position.id]);
+function normalizeRealtimeQuote(tsCode, rawQuote = {}) {
+  const normalizedTsCode = normalizeTsCode(tsCode);
+  const price = toNumber(
+    rawQuote.price
+    ?? rawQuote.currentPrice
+    ?? rawQuote.current_price
+    ?? rawQuote.lastPrice
+    ?? rawQuote.last_price
+  );
+
+  if (!price || price <= 0) {
+    throw new Error(`实时行情缺少有效价格: ${normalizedTsCode}`);
   }
+
+  const pctChange = toNumber(rawQuote.percent ?? rawQuote.pctChange ?? rawQuote.pct_chg, 0);
+  const prevClose = toNumber(
+    rawQuote.preClose
+    ?? rawQuote.prevClose
+    ?? rawQuote.previousPrice
+    ?? rawQuote.prevPrice,
+    pctChange !== null && pctChange !== -100
+      ? Number((price / (1 + (pctChange / 100))).toFixed(4))
+      : null
+  );
+
+  return {
+    ts_code: normalizedTsCode,
+    price,
+    pctChange,
+    volume: toNumber(rawQuote.volume ?? rawQuote.totalVolume ?? rawQuote.vol, 0),
+    turnover: toNumber(rawQuote.amount ?? rawQuote.turnover ?? rawQuote.totalAmount, 0),
+    open: toNumber(rawQuote.openPrice ?? rawQuote.open, 0),
+    high: toNumber(rawQuote.high, 0),
+    low: toNumber(rawQuote.low, 0),
+    prevClose,
+    status: rawQuote.status || rawQuote.tradeStatus || rawQuote.trade_status || '',
+    timestamp: rawQuote.hqTime || rawQuote.uptime || rawQuote.updateTime || formatTimestamp(),
+    raw: rawQuote,
+  };
 }
 
-async function updateAccountValue(db, account_id) {
-  const account = await db.getPromise('SELECT * FROM portfolio_account WHERE id = ?', [account_id]);
-  const positions = await db.allPromise('SELECT market_value FROM portfolio_position WHERE account_id = ?', [account_id]);
-  const positionValue = positions.reduce((sum, p) => sum + (p.market_value || 0), 0);
-  const totalValue = account.current_cash + positionValue;
-  const totalReturn = totalValue - account.initial_cash;
-  const returnRate = account.initial_cash > 0 ? totalReturn / account.initial_cash : 0;
-  await db.runPromise(`UPDATE portfolio_account SET total_value = ?, total_return = ?, return_rate = ?, updated_at = datetime('now') WHERE id = ?`, [totalValue, totalReturn, returnRate, account_id]);
+function getOrderConditions(order) {
+  const conditions = safeJsonParse(order.conditions, []);
+  if (!Array.isArray(conditions) || conditions.length === 0) {
+    throw new Error(`条件单 ${order.id} 缺少有效条件配置`);
+  }
+  return conditions;
 }
 
-async function getRealtimeQuote(ts_code) {
-  try {
-    if (!validateTsCode(ts_code)) {
-      throw new Error(`非法股票代码格式: ${ts_code}`);
+function resolveConditionRequirements(order) {
+  const conditions = getOrderConditions(order);
+  const requirements = {
+    conditions,
+    needsTechnical: false,
+    needsDailyBasic: false,
+    needsMoneyflow: false,
+  };
+
+  for (const condition of conditions) {
+    if (condition && typeof condition === 'object') {
+      if (condition.trigger_type) {
+        if (TECHNICAL_TRIGGER_TYPES.has(condition.trigger_type)) {
+          requirements.needsTechnical = true;
+        }
+        if (FUNDAMENTAL_TRIGGER_TYPES.has(condition.trigger_type)) {
+          requirements.needsDailyBasic = true;
+        }
+        if (MONEYFLOW_TRIGGER_TYPES.has(condition.trigger_type)) {
+          requirements.needsMoneyflow = true;
+        }
+        continue;
+      }
+
+      if (TECHNICAL_CONDITION_TYPES.has(condition.type)) {
+        requirements.needsTechnical = true;
+      }
+      if (FUNDAMENTAL_CONDITION_TYPES.has(condition.type)) {
+        requirements.needsDailyBasic = true;
+      }
+      if (MONEYFLOW_CONDITION_TYPES.has(condition.type)) {
+        requirements.needsMoneyflow = true;
+      }
     }
-    const stdout = await safeExecMCP(ts_code);
-    const response = JSON.parse(stdout);
-    if (response.error || response.code !== 0) {
-      throw new Error(response.error || response.message || 'MCP调用失败');
-    }
-    const data = response.data || {};
-    return {
-      ts_code,
-      price: parseFloat(data.price) || 0,
-      pctChange: parseFloat(data.percent) || 0,
-      volume: parseFloat(data.volume) || 0,
-      turnover: parseFloat(data.amount) || 0,
-      open: parseFloat(data.openPrice) || 0,
-      high: parseFloat(data.high) || 0,
-      low: parseFloat(data.low) || 0,
-      prevClose: parseFloat(data.preClose) || 0,
-      timestamp: data.hqTime || data.uptime
-    };
-  } catch (error) {
-    console.error(`[getRealtimeQuote] 获取 ${ts_code} 数据失败:`, error.message);
-    return { ts_code, price: 100 + Math.random() * 50, pctChange: (Math.random() - 0.5) * 10, volumeRatio: 1 + Math.random() * 3, mainForceNet: (Math.random() - 0.5) * 10000, _fallback: true };
   }
+
+  return requirements;
 }
 
-async function getTechnicalIndicators(ts_code) {
-  return { rsi: 30 + Math.random() * 40, macdSignal: Math.random() > 0.5 ? 'golden' : 'dead' };
+function getSymbolCacheEntry(cache, tsCode) {
+  const key = normalizeTsCode(tsCode);
+  if (!cache.has(key)) {
+    cache.set(key, {});
+  }
+  return cache.get(key);
 }
 
-// 安全的飞书推送 - 使用参数数组避免命令注入
+async function getCachedRealtimeQuote(tsCode, dependencies, cache) {
+  const entry = getSymbolCacheEntry(cache, tsCode);
+  if (!entry.realtimeQuotePromise) {
+    entry.realtimeQuotePromise = dependencies.quoteProvider(tsCode);
+  }
+  const rawQuote = await entry.realtimeQuotePromise;
+  if (!entry.normalizedQuote) {
+    entry.normalizedQuote = normalizeRealtimeQuote(tsCode, rawQuote);
+  }
+  return entry.normalizedQuote;
+}
+
+async function getCachedIndicatorRows(tsCode, dependencies, cache) {
+  const entry = getSymbolCacheEntry(cache, tsCode);
+  if (!entry.indicatorRowsPromise) {
+    entry.indicatorRowsPromise = dependencies.dailyHistoryProvider(tsCode).then((rows) => {
+      if (!Array.isArray(rows) || rows.length < 2) {
+        throw new Error(`历史行情不足，无法计算技术指标: ${tsCode}`);
+      }
+      return calculateTechnicalIndicators(rows);
+    });
+  }
+  return entry.indicatorRowsPromise;
+}
+
+async function getCachedDailyBasic(tsCode, dependencies, cache) {
+  const entry = getSymbolCacheEntry(cache, tsCode);
+  if (!entry.dailyBasicPromise) {
+    entry.dailyBasicPromise = dependencies.dailyBasicProvider(tsCode);
+  }
+  return entry.dailyBasicPromise;
+}
+
+async function getCachedPePercentile(tsCode, dependencies, cache) {
+  const entry = getSymbolCacheEntry(cache, tsCode);
+  if (!entry.pePercentilePromise) {
+    entry.pePercentilePromise = dependencies.pePercentileProvider(tsCode);
+  }
+  return entry.pePercentilePromise;
+}
+
+async function getCachedTradeDate(dependencies, cache) {
+  if (!cache.tradeDatePromise) {
+    cache.tradeDatePromise = dependencies.tradeDateProvider();
+  }
+  return cache.tradeDatePromise;
+}
+
+async function getCachedMoneyflow(tsCode, dependencies, cache) {
+  const entry = getSymbolCacheEntry(cache, tsCode);
+  if (!entry.moneyflowPromise) {
+    entry.moneyflowPromise = getCachedTradeDate(dependencies, cache).then((tradeDate) =>
+      dependencies.moneyflowProvider(tsCode, tradeDate)
+    );
+  }
+  return entry.moneyflowPromise;
+}
+
+function buildTechnicalData(indicatorRows) {
+  const latest = indicatorRows[indicatorRows.length - 1];
+  const previous = indicatorRows[indicatorRows.length - 2] || latest;
+  const macdSignalValue = toNumber(latest.macd_dif, 0) - toNumber(latest.macd_dea, 0);
+
+  return {
+    rsi: toNumber(latest.rsi),
+    macdSignalValue,
+    macdSignal: macdSignalValue,
+    macdDiff: toNumber(latest.macd_dif),
+    macdDea: toNumber(latest.macd_dea),
+    macdBar: toNumber(latest.macd_bar),
+    ma: {
+      5: toNumber(latest.ma5),
+      10: toNumber(latest.ma10),
+      20: toNumber(latest.ma20),
+      60: toNumber(latest.ma60),
+    },
+    prevMa: {
+      5: toNumber(previous.ma5),
+      10: toNumber(previous.ma10),
+      20: toNumber(previous.ma20),
+      60: toNumber(previous.ma60),
+    },
+    trade_date: latest.trade_date,
+  };
+}
+
+function summarizeContext(marketData, technicalData) {
+  return {
+    price: marketData.price,
+    pctChange: marketData.pctChange,
+    prevClose: marketData.prevClose,
+    volumeRatio: marketData.volumeRatio ?? null,
+    pe: marketData.pe ?? marketData.pe_ttm ?? null,
+    pePercentile: marketData.pePercentile ?? null,
+    mainForceNet: marketData.mainForceNet ?? null,
+    rsi: technicalData?.rsi ?? null,
+    macdSignalValue: technicalData?.macdSignalValue ?? null,
+  };
+}
+
+async function buildOrderContext(order, dependencies, cache) {
+  const requirements = resolveConditionRequirements(order);
+  const marketData = await getCachedRealtimeQuote(order.ts_code, dependencies, cache);
+  const technicalData = {};
+
+  if (requirements.needsTechnical) {
+    const indicatorRows = await getCachedIndicatorRows(order.ts_code, dependencies, cache);
+    Object.assign(technicalData, buildTechnicalData(indicatorRows));
+  }
+
+  if (requirements.needsDailyBasic) {
+    const dailyBasic = await getCachedDailyBasic(order.ts_code, dependencies, cache);
+    if (!dailyBasic) {
+      throw new Error(`未获取到 ${order.ts_code} 的日频基础指标`);
+    }
+    marketData.volumeRatio = toNumber(dailyBasic.volume_ratio);
+    marketData.pe = toNumber(dailyBasic.pe);
+    marketData.pe_ttm = toNumber(dailyBasic.pe_ttm);
+
+    const pePercentileData = await getCachedPePercentile(order.ts_code, dependencies, cache);
+    const pePercentile = toNumber(
+      pePercentileData?.percentile5y
+      ?? pePercentileData?.percentile3y
+      ?? pePercentileData?.percentile1y,
+      null
+    );
+
+    if (pePercentile !== null) {
+      marketData.pePercentile = pePercentile;
+    }
+  }
+
+  if (requirements.needsMoneyflow) {
+    const rows = await getCachedMoneyflow(order.ts_code, dependencies, cache);
+    const latest = Array.isArray(rows) && rows.length > 0 ? rows[rows.length - 1] : null;
+    if (!latest) {
+      throw new Error(`未获取到 ${order.ts_code} 的主力资金数据`);
+    }
+    marketData.mainForceNet = toNumber(latest.net_mf_amount);
+  }
+
+  return {
+    conditions: requirements.conditions,
+    marketData,
+    technicalData,
+  };
+}
+
+async function executeConditionalTrade(order, marketData, technicalData, dependencies, logger) {
+  const result = await dependencies.executor(order.id, marketData, technicalData, {
+    skipConditionCheck: true,
+  });
+
+  if (result.success) {
+    logger.info(
+      `[条件单执行] orderId=${order.id} ts_code=${order.ts_code} action=${order.action} quantity=${result.quantity} price=${result.price}`
+    );
+  } else {
+    logger.warn(
+      `[条件单执行失败] orderId=${order.id} ts_code=${order.ts_code} code=${result.code || 'UNKNOWN'} error=${result.error || 'unknown'}`
+    );
+  }
+
+  return result;
+}
+
 async function sendFeishuNotification(order, tradeResult) {
   const emoji = tradeResult.success ? '🎉' : '⚠️';
   const actionText = order.action === 'buy' ? '买入' : '卖出';
   const actionEmoji = order.action === 'buy' ? '🔴' : '🟢';
-  
+
   let message = `${emoji} 【条件单触发】${order.stock_name} (${order.ts_code})\n\n`;
   message += `${actionEmoji} 交易动作：${actionText}\n`;
-  
+
   if (tradeResult.success) {
     message += `📊 成交数量：${tradeResult.quantity}股\n`;
     message += `💰 成交价格：¥${tradeResult.price?.toFixed(2) || 'N/A'}\n`;
     message += `💵 成交金额：¥${tradeResult.amount?.toFixed(2) || 'N/A'}\n`;
-    message += `⏰ 触发时间：${new Date().toLocaleString('zh-CN')}\n\n`;
-    message += `✅ 状态：执行成功\n`;
-    message += `💡 建议：请登录系统查看持仓变化`;
+    message += `⏰ 触发时间：${formatTimestamp()}\n\n`;
+    message += '✅ 状态：执行成功\n';
+    message += '💡 建议：请登录系统查看持仓变化';
   } else {
-    message += `⏰ 触发时间：${new Date().toLocaleString('zh-CN')}\n\n`;
-    message += `❌ 状态：执行失败\n`;
+    message += `⏰ 触发时间：${formatTimestamp()}\n\n`;
+    message += '❌ 状态：执行失败\n';
     message += `⚠️ 原因：${tradeResult.error || '未知错误'}`;
   }
 
-  console.log('[飞书推送]', message);
-  
   try {
-    // 使用参数数组而非字符串拼接，避免命令注入
-    const { execFileSync } = require('child_process');
-    const args = [
-      'message', 'send',
-      '--channel', 'feishu',
-      '--target', `user:${FEISHU_OPEN_ID}`,
-      '--message', message
-    ];
-    execFileSync('openclaw', args, { encoding: 'utf-8', timeout: 15000 });
-    console.log('✅ 飞书推送成功');
+    execFileSync('openclaw', [
+      'message',
+      'send',
+      '--channel',
+      'feishu',
+      '--target',
+      `user:${FEISHU_OPEN_ID}`,
+      '--message',
+      message,
+    ], {
+      encoding: 'utf-8',
+      timeout: 15000,
+    });
+
     return { success: true };
   } catch (error) {
-    console.error('❌ 飞书推送失败:', error.message);
     return { success: false, error: error.message };
   }
 }
 
-// 主监控函数 - 检查所有pending条件单
-async function checkAllConditionalOrders() {
-  console.log('[监控] 开始检查条件单...');
-  
-  const db = await getDatabase();
+async function checkAllConditionalOrders(options = {}) {
+  const logger = createLogger(options.logger);
+  const db = options.db || await getDatabase();
+  const dependencies = {
+    quoteProvider: options.quoteProvider || fetchRealtimeQuoteFromMarketData,
+    dailyHistoryProvider: options.dailyHistoryProvider || getDailyHistory,
+    dailyBasicProvider: options.dailyBasicProvider || getLatestDailyBasic,
+    pePercentileProvider: options.pePercentileProvider || getStockPePercentile,
+    tradeDateProvider: options.tradeDateProvider || findLatestTradeDate,
+    moneyflowProvider: options.moneyflowProvider || getMoneyflowRows,
+    executor: options.executor || executeConditionalOrder,
+    notifier: options.notifier || sendFeishuNotification,
+  };
+
+  const today = formatDate(options.now || new Date());
+  const cache = new Map();
+  logger.info(`[监控] 开始检查条件单 current_date=${today}`);
+
   const orders = await db.allPromise(`
-    SELECT * FROM conditional_order 
-    WHERE status = 'pending' 
-    AND start_date <= date('now') 
-    AND end_date >= date('now')
-  `);
-  
-  console.log(`[监控] 发现 ${orders.length} 个待触发条件单`);
-  
+    SELECT * FROM conditional_order
+    WHERE status IN (${ACTIVE_ORDER_STATUSES.map(() => '?').join(', ')})
+      AND (start_date IS NULL OR start_date <= ?)
+      AND (end_date IS NULL OR end_date >= ?)
+    ORDER BY id ASC
+  `, [...ACTIVE_ORDER_STATUSES, today, today]);
+
+  logger.info(`[监控] 待检查条件单数量 total=${orders.length}`);
+
   const results = [];
-  
+
   for (const order of orders) {
+    const logPrefix = `[监控] orderId=${order.id} ts_code=${order.ts_code}`;
+
     try {
-      const marketData = await getRealtimeQuote(order.ts_code);
-      const technicalData = await getTechnicalIndicators(order.ts_code);
-      const triggered = checkCondition(order, marketData, technicalData);
-      
-      if (triggered) {
-        console.log(`[条件单触发] ${order.ts_code} ${order.stock_name}`);
-        const tradeResult = await executeConditionalTrade(order, marketData);
-        await sendFeishuNotification(order, tradeResult);
-        results.push({ order_id: order.id, ts_code: order.ts_code, triggered: true, trade_result: tradeResult });
+      const { marketData, technicalData } = await buildOrderContext(order, dependencies, cache);
+      logger.info(`${logPrefix} 行情上下文 ${JSON.stringify(summarizeContext(marketData, technicalData))}`);
+
+      const triggered = checkCondition(
+        {
+          ...order,
+          conditions: getOrderConditions(order),
+        },
+        marketData,
+        technicalData
+      );
+
+      if (!triggered) {
+        logger.info(`${logPrefix} 条件未满足`);
+        results.push({
+          order_id: order.id,
+          ts_code: order.ts_code,
+          status: 'checked',
+          triggered: false,
+          market: summarizeContext(marketData, technicalData),
+        });
+        continue;
       }
+
+      logger.info(`${logPrefix} 条件满足，准备调用执行器`);
+      const tradeResult = await executeConditionalTrade(order, marketData, technicalData, dependencies, logger);
+
+      let notification = null;
+      if (dependencies.notifier) {
+        notification = await dependencies.notifier(order, tradeResult);
+        if (notification && notification.success === false) {
+          logger.warn(`${logPrefix} 通知发送失败 error=${notification.error || 'unknown'}`);
+        }
+      }
+
+      results.push({
+        order_id: order.id,
+        ts_code: order.ts_code,
+        status: tradeResult.success ? 'triggered' : 'execution_failed',
+        triggered: true,
+        market: summarizeContext(marketData, technicalData),
+        trade_result: tradeResult,
+        notification,
+      });
     } catch (error) {
-      console.error(`[监控] 检查条件单 ${order.id} 失败:`, error.message);
-      results.push({ order_id: order.id, ts_code: order.ts_code, triggered: false, error: error.message });
+      const errorCode = error instanceof MarketDataError ? error.code : (error.code || 'MONITOR_CHECK_FAILED');
+      logger.error(`${logPrefix} 检查失败 code=${errorCode} error=${error.message}`);
+      results.push({
+        order_id: order.id,
+        ts_code: order.ts_code,
+        status: 'check_failed',
+        triggered: false,
+        error: error.message,
+        code: errorCode,
+      });
     }
   }
-  
-  console.log(`[监控] 检查完成，触发 ${results.filter(r => r.triggered).length} 个条件单`);
-  return results;
+
+  const summary = results.reduce((accumulator, item) => {
+    if (item.triggered) {
+      accumulator.triggered += 1;
+    }
+    if (item.status === 'execution_failed') {
+      accumulator.execution_failed += 1;
+    }
+    if (item.status === 'check_failed') {
+      accumulator.check_failed += 1;
+    }
+    return accumulator;
+  }, {
+    total: results.length,
+    triggered: 0,
+    execution_failed: 0,
+    check_failed: 0,
+  });
+
+  logger.info(
+    `[监控] 检查完成 total=${summary.total} triggered=${summary.triggered} execution_failed=${summary.execution_failed} check_failed=${summary.check_failed}`
+  );
+
+  return {
+    success: summary.check_failed === 0 && summary.execution_failed === 0,
+    ...summary,
+    results,
+  };
 }
 
-// 定时任务配置（用于外部调用）
-async function runMonitorJob() {
-  const startTime = new Date();
-  console.log(`[定时任务] 条件单监控开始: ${startTime.toISOString()}`);
-  
+async function runMonitorJob(options = {}) {
+  const logger = createLogger(options.logger);
+  const startedAt = new Date();
+  logger.info(`[定时任务] 条件单监控开始 at=${startedAt.toISOString()}`);
+
   try {
-    const results = await checkAllConditionalOrders();
-    const triggeredCount = results.filter(r => r.triggered).length;
-    console.log(`[定时任务] 完成: 触发 ${triggeredCount}/${results.length} 个条件单`);
-    return { success: true, triggered: triggeredCount, total: results.length };
+    const result = await checkAllConditionalOrders(options);
+    logger.info(
+      `[定时任务] 条件单监控结束 success=${result.success} total=${result.total} triggered=${result.triggered} check_failed=${result.check_failed}`
+    );
+    return result;
   } catch (error) {
-    console.error('[定时任务] 执行失败:', error);
-    return { success: false, error: error.message };
+    logger.error(`[定时任务] 执行失败 error=${error.message}`);
+    return {
+      success: false,
+      total: 0,
+      triggered: 0,
+      check_failed: 1,
+      error: error.message,
+      results: [],
+    };
   }
 }
 
 module.exports = {
+  buildOrderContext,
   checkAllConditionalOrders,
   executeConditionalTrade,
+  formatDate,
+  getOrderConditions,
+  normalizeRealtimeQuote,
   runMonitorJob,
-  getRealtimeQuote,
-  getTechnicalIndicators,
   sendFeishuNotification,
-  validateTsCode
 };

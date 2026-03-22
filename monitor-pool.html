@@ -34,6 +34,39 @@
       background: rgba(56, 189, 248, 0.15);
       color: var(--accent);
     }
+    .empty-state {
+      text-align: center;
+      padding: 4rem 2rem;
+      color: var(--text-soft);
+      display: none;
+    }
+    .empty-state.visible {
+      display: block;
+    }
+    .empty-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      opacity: 0.5;
+    }
+    .empty-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+    }
+    .empty-copy {
+      font-size: 0.875rem;
+      color: var(--text-soft);
+      max-width: 400px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+    .empty-actions {
+      margin-top: 1.5rem;
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+    }
   </style>
 </head>
 <body>
@@ -93,6 +126,7 @@
         <table aria-label="监控池股票表格">
           <thead>
             <tr>
+              <th scope="col"><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
               <th scope="col">股票名称</th>
               <th scope="col">代码</th>
               <th scope="col">添加时间</th>
@@ -103,9 +137,23 @@
         </table>
       </div>
 
+      <div class="batch-actions" id="batchActions" style="display:none; margin-top:16px;">
+        <span id="selectedCount">已选择 0 只股票</span>
+        <button class="button-primary" onclick="showBatchCreateModal()">批量创建条件单</button>
+        <button class="button-secondary" onclick="clearSelection()">取消选择</button>
+      </div>
+
       <section id="emptyState" class="empty-state" aria-live="polite">
+        <div class="empty-icon">📭</div>
         <h3 class="empty-title">监控池暂时为空</h3>
-        <p class="empty-copy">当分析页将股票加入监控池后，这里会显示名称、代码、添加时间以及报告入口。</p>
+        <p class="empty-copy">
+          当您在<strong>个股分析</strong>页面点击"加入监控池"后，股票会显示在这里。<br>
+          监控池中的股票会被条件单监控系统跟踪，触发条件时自动执行。
+        </p>
+        <div class="empty-actions">
+          <a href="./analysis.html" class="button-link button-primary">去添加股票</a>
+          <button class="button-secondary" onclick="loadMonitorPool()">刷新列表</button>
+        </div>
       </section>
     </section>
   </main>
@@ -280,13 +328,29 @@
 
       if (!stocks.length) {
         emptyState.classList.add('visible');
+        // 隐藏表格头部，只显示空状态
+        document.querySelector('table').style.display = 'none';
         return;
       }
 
       emptyState.classList.remove('visible');
+      // 显示表格
+      document.querySelector('table').style.display = 'table';
 
       for (const stock of stocks) {
         const row = document.createElement('tr');
+        
+        // 复选框单元格
+        const checkboxCell = document.createElement('td');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'stock-checkbox';
+        checkbox.value = stock.stock_code;
+        checkbox.dataset.name = stock.stock_name;
+        checkbox.onchange = updateBatchSummary;
+        checkboxCell.appendChild(checkbox);
+        row.appendChild(checkboxCell);
+        
         const nameCell = document.createElement('td');
         nameCell.dataset.label = '股票名称';
         const nameNode = document.createElement('div');
@@ -384,12 +448,18 @@
           statusText.textContent = stocks.length ? `已加载 ${stocks.length} 条监控记录。` : '监控池为空，等待新股票加入。';
         }
       } catch (error) {
-        emptyState.classList.add('visible');
+        // 只在真正有数据时才显示表格，否则显示空状态
+        if (error.message && error.message.includes('加载失败')) {
+          emptyState.classList.add('visible');
+          statusText.textContent = `数据加载失败：${error.message}`;
+          statusText.classList.add('error');
+        } else {
+          emptyState.classList.add('visible');
+          statusText.textContent = '监控池为空，等待新股票加入。';
+        }
         totalCount.textContent = '0';
         latestAdded.textContent = '-';
-        statusBadge.textContent = '异常';
-        statusText.textContent = `接口请求失败：${error.message}`;
-        statusText.classList.add('error');
+        statusBadge.textContent = '空池';
       } finally {
         setLoadingState(false);
       }
@@ -438,6 +508,71 @@
 
     refreshButton.addEventListener('click', () => loadMonitorPool());
     reloadButton.addEventListener('click', () => loadMonitorPool());
+
+    // ========== 批量操作功能 =========
+    function toggleSelectAll() {
+      const selectAll = document.getElementById('selectAll');
+      const checkboxes = document.querySelectorAll('.stock-checkbox');
+      checkboxes.forEach(cb => cb.checked = selectAll.checked);
+      updateBatchSummary();
+    }
+
+    function updateBatchSummary() {
+      const checkboxes = document.querySelectorAll('.stock-checkbox:checked');
+      const batchActions = document.getElementById('batchActions');
+      const selectedCount = document.getElementById('selectedCount');
+      
+      if (checkboxes.length > 0) {
+        batchActions.style.display = 'block';
+        selectedCount.textContent = `已选择 ${checkboxes.length} 只股票`;
+      } else {
+        batchActions.style.display = 'none';
+      }
+      
+      // 更新全选框状态
+      const selectAll = document.getElementById('selectAll');
+      const allCheckboxes = document.querySelectorAll('.stock-checkbox');
+      selectAll.checked = checkboxes.length === allCheckboxes.length && allCheckboxes.length > 0;
+    }
+
+    function clearSelection() {
+      const checkboxes = document.querySelectorAll('.stock-checkbox');
+      checkboxes.forEach(cb => cb.checked = false);
+      document.getElementById('selectAll').checked = false;
+      updateBatchSummary();
+    }
+
+    function getSelectedStocks() {
+      const checkboxes = document.querySelectorAll('.stock-checkbox:checked');
+      return Array.from(checkboxes).map(cb => ({
+        ts_code: cb.value,
+        stock_name: cb.dataset.name
+      }));
+    }
+
+    async function showBatchCreateModal() {
+      const selectedStocks = getSelectedStocks();
+      if (selectedStocks.length === 0) {
+        showToast('请至少选择一只股票', 'error');
+        return;
+      }
+
+      const accountId = localStorage.getItem('current_account_id');
+      if (!accountId) {
+        showToast('请先在账户管理中创建账户', 'error');
+        return;
+      }
+
+      // 跳转到条件单页面，传递批量创建参数
+      const params = encodeURIComponent(JSON.stringify({
+        mode: 'batch',
+        stocks: selectedStocks,
+        account_id: accountId
+      }));
+      window.location.href = `./conditional-order.html?batch=${params}`;
+    }
+
+    // ========== 批量操作功能 =========
 
     loadMonitorPool({ syncDraft: true });
   </script>

@@ -97,6 +97,36 @@ function calculateBollinger(prices, period = 20, stdDev = 2) {
   };
 }
 
+function toNumber(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+async function loadConditionalOrdersForBacktest(db, strategy, accountId) {
+  const params = strategy?.params || {};
+  const orderId = params.orderId || params.order_id;
+  let rows = [];
+
+  if (orderId) {
+    const row = await db.getPromise('SELECT * FROM conditional_order WHERE id = ?', [orderId]);
+    if (row) {
+      rows = [row];
+    }
+  } else if (accountId) {
+    rows = await db.allPromise(`
+      SELECT *
+      FROM conditional_order
+      WHERE account_id = ? AND status IN ('enabled', 'pending', 'triggered', 'expired')
+      ORDER BY created_at ASC
+    `, [accountId]);
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    conditions: typeof row.conditions === 'string' ? JSON.parse(row.conditions) : row.conditions
+  }));
+}
+
 /**
  * 回测引擎类
  */
@@ -123,6 +153,7 @@ class BacktestEngine {
 
     // 历史价格缓存（用于技术指标计算）
     this.priceHistory = {}; // {ts_code: [prices]}
+    this.conditionalOrders = Array.isArray(config.conditionalOrders) ? config.conditionalOrders : [];
 
     // 统计指标
     this.metrics = {
@@ -282,8 +313,6 @@ class BacktestEngine {
 
     // 检查最大持仓数限制
     const maxPositions = strategy.maxPositions || 10;
-    const currentPositions = Object.keys(this.state.positions).length;
-
     for (const stock of dayData) {
       // 更新价格历史
       if (!this.priceHistory[stock.ts_code]) {
@@ -322,13 +351,7 @@ class BacktestEngine {
           break;
 
         case 'conditional':
-          // 使用条件单的条件
-          if (strategy.buyCondition && !this.state.positions[stock.ts_code]) {
-            shouldBuy = this.evaluateCondition(strategy.buyCondition, stock);
-          }
-          if (strategy.sellCondition && this.state.positions[stock.ts_code]) {
-            shouldSell = this.evaluateCondition(strategy.sellCondition, stock);
-          }
+          ({ shouldBuy, shouldSell, orderConfig } = this.evaluateConditionalStrategy(stock, prices, strategy));
           break;
 
         default:
@@ -342,14 +365,35 @@ class BacktestEngine {
       }
 
       // 执行买入
+      const currentPositions = Object.keys(this.state.positions).length;
       if (shouldBuy && !this.state.positions[stock.ts_code] && currentPositions < maxPositions) {
-        const investRatio = strategy.params?.invest_ratio || strategy.investRatio || 0.3;
+        // 使用条件单的 sizing 配置，如果没有则使用默认值
+        let investRatio = 0.3;
+        if (orderConfig) {
+          if (orderConfig.orderType === 'position_percent' && orderConfig.positionPercent) {
+            investRatio = orderConfig.positionPercent / 100;
+          } else if (orderConfig.orderType === 'amount' && orderConfig.amount) {
+            investRatio = orderConfig.amount / this.state.cash;
+          }
+        } else {
+          investRatio = strategy.params?.invest_ratio || strategy.investRatio || 0.3;
+        }
         await this.buy(stock.ts_code, stock.stock_name, stock.price, stock, investRatio);
       }
 
       // 执行卖出
       if (shouldSell && this.state.positions[stock.ts_code]) {
-        await this.sell(stock.ts_code, stock.stock_name, stock.price);
+        // 卖出时使用条件单的 sizing 配置
+        let sellRatio = 1.0; // 默认全部卖出
+        if (orderConfig) {
+          if (orderConfig.orderType === 'position_percent' && orderConfig.positionPercent) {
+            sellRatio = orderConfig.positionPercent / 100;
+          } else if (orderConfig.orderType === 'quantity' && orderConfig.quantity) {
+            // 按数量卖出，在 sell 函数中处理
+            sellRatio = null; // 标记为按数量卖出
+          }
+        }
+        await this.sell(stock.ts_code, stock.stock_name, stock.price, sellRatio);
       }
     }
   }
@@ -484,6 +528,116 @@ class BacktestEngine {
       case '=': return actualValue === value;
       default: return false;
     }
+  }
+
+  buildMarketData(stock, prices) {
+    const previousPrice = prices.length > 1 ? prices[prices.length - 2] : null;
+    return {
+      price: stock.price,
+      prevClose: previousPrice,
+      pctChange: previousPrice && previousPrice > 0
+        ? ((stock.price - previousPrice) / previousPrice) * 100
+        : 0,
+      volumeRatio: toNumber(stock.volume_ratio) || toNumber(stock.volumeRatio) || 0,
+      pe: toNumber(stock.pe) || 0,
+      pb: toNumber(stock.pb) || 0,
+      market_cap: toNumber(stock.market_cap) || toNumber(stock.marketCap) || 0,
+      turnover: toNumber(stock.turnover) || 0,
+      mainForceNet: toNumber(stock.main_force_net) || toNumber(stock.mainForceNet) || 0
+    };
+  }
+
+  buildTechnicalData(prices, relatedOrders) {
+    const maPeriods = new Set();
+    for (const order of relatedOrders) {
+      const conditions = Array.isArray(order.conditions) ? order.conditions : [];
+      for (const condition of conditions) {
+        if (condition?.trigger_type === 'ma_golden_cross' || condition?.trigger_type === 'ma_death_cross') {
+          const shortPeriod = Number(condition?.params?.ma_short);
+          const longPeriod = Number(condition?.params?.ma_long);
+          if (shortPeriod > 0) maPeriods.add(shortPeriod);
+          if (longPeriod > 0) maPeriods.add(longPeriod);
+        }
+      }
+    }
+
+    const ma = {};
+    const prevMa = {};
+    for (const period of maPeriods) {
+      ma[period] = calculateSMA(prices, period);
+      prevMa[period] = calculateSMA(prices.slice(0, -1), period);
+    }
+
+    const macd = calculateMACD(prices);
+    return {
+      rsi: calculateRSI(prices),
+      ma,
+      prevMa,
+      macdSignalValue: macd?.histogram,
+      macdSignal: macd?.histogram
+    };
+  }
+
+  evaluateConditionalStrategy(stock, prices, strategy) {
+    const strategyOrders = Array.isArray(strategy?.params?.orders) && strategy.params.orders.length > 0
+      ? strategy.params.orders
+      : this.conditionalOrders;
+    const relatedOrders = strategyOrders.filter((order) => order.ts_code === stock.ts_code);
+
+    if (relatedOrders.length === 0) {
+      return { shouldBuy: false, shouldSell: false };
+    }
+
+    const marketData = this.buildMarketData(stock, prices);
+    const technicalData = this.buildTechnicalData(prices, relatedOrders);
+
+    let shouldBuy = false;
+    let shouldSell = false;
+    let orderConfig = null; // 保存第一个触发的订单配置（用于 sizing）
+    
+    for (const order of relatedOrders) {
+      // 【生命周期检查】检查订单是否已过期或达到最大触发次数
+      const today = new Date().toISOString().slice(0, 10);
+      if (order.end_date && order.end_date < today) {
+        continue; // 已过期
+      }
+      if (order.start_date && order.start_date > today) {
+        continue; // 尚未生效
+      }
+      if (order.max_trigger_count && order.trigger_count >= order.max_trigger_count) {
+        continue; // 已达到最大触发次数
+      }
+      
+      const matched = checkCondition(order, marketData, technicalData);
+      if (!matched) {
+        continue;
+      }
+
+      if (order.action === 'buy' && !this.state.positions[stock.ts_code]) {
+        shouldBuy = true;
+        if (!orderConfig) {
+          orderConfig = {
+            orderType: order.order_type,
+            quantity: order.quantity,
+            amount: order.amount,
+            positionPercent: order.position_percent
+          };
+        }
+      }
+      if (order.action === 'sell' && this.state.positions[stock.ts_code]) {
+        shouldSell = true;
+        if (!orderConfig) {
+          orderConfig = {
+            orderType: order.order_type,
+            quantity: order.quantity,
+            amount: order.amount,
+            positionPercent: order.position_percent
+          };
+        }
+      }
+    }
+
+    return { shouldBuy, shouldSell, orderConfig };
   }
   
   /**
@@ -666,12 +820,37 @@ class BacktestEngine {
  */
 async function runBacktest(req, res) {
   try {
-    const { startDate, endDate, initialCash, strategy, stocks } = req.body;
+    const { startDate, endDate, initialCash, strategy, stocks, account_id } = req.body;
+    const db = await getDatabase();
     
-    if (!startDate || !endDate || !strategy || !stocks || stocks.length === 0) {
+    if (!startDate || !endDate || !strategy) {
       return res.status(400).json({
         success: false,
-        error: '缺少必要参数: startDate, endDate, strategy, stocks'
+        error: '缺少必要参数: startDate, endDate, strategy'
+      });
+    }
+
+    let conditionalOrders = [];
+    let normalizedStocks = Array.isArray(stocks) ? [...stocks] : [];
+
+    if (strategy.type === 'conditional') {
+      conditionalOrders = await loadConditionalOrdersForBacktest(db, strategy, account_id || strategy?.params?.account_id);
+      if (conditionalOrders.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: '未找到可用于回测的条件单'
+        });
+      }
+
+      if (normalizedStocks.length === 0) {
+        normalizedStocks = [...new Set(conditionalOrders.map((order) => order.ts_code).filter(Boolean))];
+      }
+    }
+
+    if (normalizedStocks.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: '缺少必要参数: stocks'
       });
     }
     
@@ -680,7 +859,8 @@ async function runBacktest(req, res) {
       endDate,
       initialCash: initialCash || 1000000,
       strategy,
-      stocks
+      stocks: normalizedStocks,
+      conditionalOrders
     });
     
     const report = await engine.run();

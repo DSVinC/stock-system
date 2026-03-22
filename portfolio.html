@@ -231,6 +231,153 @@
       font-size: 13px;
       color: var(--text-faint);
     }
+
+    .detail-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
+
+    .tab-button {
+      padding: 10px 16px;
+      border-radius: 999px;
+      border: 1px solid rgba(154, 178, 214, 0.16);
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text-soft);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .tab-button.active {
+      border-color: rgba(56, 189, 248, 0.32);
+      background: rgba(56, 189, 248, 0.14);
+      color: var(--accent);
+    }
+
+    .tab-panel {
+      display: none;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    .detail-grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .detail-card {
+      padding: 18px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
+    }
+
+    .detail-card-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+
+    .detail-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .detail-meta {
+      font-size: 13px;
+      color: var(--text-faint);
+      line-height: 1.6;
+    }
+
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .badge-enabled {
+      background: rgba(74, 222, 128, 0.12);
+      color: var(--good);
+    }
+
+    .badge-disabled,
+    .badge-expired {
+      background: rgba(148, 163, 184, 0.14);
+      color: var(--text-soft);
+    }
+
+    .badge-triggered {
+      background: rgba(56, 189, 248, 0.14);
+      color: var(--accent);
+    }
+
+    .badge-buy {
+      background: rgba(251, 113, 133, 0.14);
+      color: var(--bad);
+    }
+
+    .badge-sell {
+      background: rgba(74, 222, 128, 0.14);
+      color: var(--good);
+    }
+
+    .detail-actions {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+
+    .inline-link {
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .execution-list {
+      margin-top: 14px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .execution-item {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.18);
+    }
+
+    .execution-item span {
+      font-size: 13px;
+      color: var(--text-soft);
+    }
+
+    .execution-item strong {
+      display: block;
+      margin-top: 4px;
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    @media (max-width: 760px) {
+      .execution-item {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
   </style>
 </head>
 <body>
@@ -303,6 +450,41 @@
         </div>
       </div>
     </section>
+
+    <section class="panel">
+      <div class="panel-inner">
+        <div class="detail-tabs">
+          <button class="tab-button active" type="button" data-tab="positions" onclick="switchDetailTab('positions')">持仓概览</button>
+          <button class="tab-button" type="button" data-tab="conditionals" onclick="switchDetailTab('conditionals')">条件单</button>
+        </div>
+
+        <div id="positions-panel" class="tab-panel active">
+          <div class="status-row">
+            <h2 class="section-title">当前持仓</h2>
+            <span class="stat-hint">显示当前账户的持仓摘要</span>
+          </div>
+          <div id="positions-list" class="detail-grid">
+            <div class="empty-state-guide">
+              <div class="title">请选择账户</div>
+              <div class="desc">选择左侧账户后，这里会显示当前持仓与成本概览。</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="conditionals-panel" class="tab-panel">
+          <div class="status-row">
+            <h2 class="section-title">账户条件单</h2>
+            <a class="inline-link" href="./conditional-order.html">前往条件单管理</a>
+          </div>
+          <div id="conditional-orders-list" class="detail-grid">
+            <div class="empty-state-guide">
+              <div class="title">请选择账户</div>
+              <div class="desc">选择账户后，可查看该账户的条件单、触发次数和执行历史。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
   
   <!-- 创建账户弹窗 -->
@@ -331,6 +513,7 @@
 
   <script>
     let currentAccountId = null;
+    let currentDetailTab = 'positions';
 
     // 重置账户总览显示为空状态提示
     function resetSummaryDisplay() {
@@ -342,6 +525,136 @@
           el.className = 'stat-value';
         }
       });
+    }
+
+    function switchDetailTab(tab) {
+      currentDetailTab = tab;
+      document.querySelectorAll('.tab-button').forEach((button) => {
+        button.classList.toggle('active', button.dataset.tab === tab);
+      });
+      document.querySelectorAll('.tab-panel').forEach((panel) => {
+        panel.classList.toggle('active', panel.id === `${tab}-panel`);
+      });
+    }
+
+    function formatCurrency(value) {
+      return '¥' + Number(value || 0).toLocaleString();
+    }
+
+    function getStatusLabel(status) {
+      const mapping = {
+        enabled: '生效中',
+        pending: '生效中',
+        disabled: '已停用',
+        cancelled: '已取消',
+        expired: '已过期',
+        triggered: '已触发'
+      };
+      return mapping[status] || status || '-';
+    }
+
+    function getStatusClass(status) {
+      if (status === 'enabled' || status === 'pending') return 'badge-enabled';
+      if (status === 'triggered') return 'badge-triggered';
+      if (status === 'expired') return 'badge-expired';
+      return 'badge-disabled';
+    }
+
+    function getActionLabel(action) {
+      return action === 'buy' ? '买入' : '卖出';
+    }
+
+    function renderPositions(positions) {
+      const listEl = document.getElementById('positions-list');
+      if (!positions || positions.length === 0) {
+        listEl.innerHTML = `
+          <div class="empty-state-guide">
+            <div class="title">当前账户暂无持仓</div>
+            <div class="desc">条件单执行买入后，这里会实时展示持仓数量、成本和浮动盈亏。</div>
+          </div>
+        `;
+        return;
+      }
+
+      listEl.innerHTML = positions.map((position) => `
+        <div class="detail-card">
+          <div class="detail-card-head">
+            <div>
+              <div class="detail-title">${position.stock_name || position.ts_code}</div>
+              <div class="detail-meta">${position.ts_code}</div>
+            </div>
+            <div class="detail-meta" style="text-align:right;">
+              数量
+              <strong style="display:block; color:var(--text); font-size:18px; margin-top:6px;">${Number(position.quantity || 0).toLocaleString()} 股</strong>
+            </div>
+          </div>
+          <div class="execution-item">
+            <span>成本价<strong>${Number(position.avg_price || 0).toFixed(2)}</strong></span>
+            <span>成本额<strong>${formatCurrency(position.cost_amount)}</strong></span>
+            <span>市值<strong>${formatCurrency(position.market_value)}</strong></span>
+            <span>浮动盈亏<strong>${formatCurrency(position.unrealized_pnl)}</strong></span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderConditionalOrders(orders, executions) {
+      const listEl = document.getElementById('conditional-orders-list');
+      if (!orders || orders.length === 0) {
+        listEl.innerHTML = `
+          <div class="empty-state-guide">
+            <div class="title">当前账户暂无条件单</div>
+            <div class="desc">您可以为当前账户创建价格、均线或 RSI 等触发条件的自动买卖单。</div>
+            <a class="button" href="./conditional-order.html">创建条件单</a>
+          </div>
+        `;
+        return;
+      }
+
+      listEl.innerHTML = orders.map((order) => {
+        const orderExecutions = (executions || []).filter((execution) => execution.order_id === order.id).slice(0, 3);
+        const conditions = Array.isArray(order.conditions) ? order.conditions : [];
+        const conditionText = conditions.length > 0
+          ? conditions.map((condition) => condition.trigger_type || condition.type || '条件').join(' / ')
+          : '未配置条件';
+
+        return `
+          <div class="detail-card">
+            <div class="detail-card-head">
+              <div>
+                <div class="detail-title">${order.stock_name || order.ts_code}</div>
+                <div class="detail-meta">${order.ts_code} · ${conditionText}</div>
+              </div>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <span class="badge-pill ${getStatusClass(order.status)}">${getStatusLabel(order.status)}</span>
+                <span class="badge-pill ${order.action === 'buy' ? 'badge-buy' : 'badge-sell'}">${getActionLabel(order.action)}</span>
+              </div>
+            </div>
+            <div class="execution-item">
+              <span>下单方式<strong>${order.order_type || '-'}</strong></span>
+              <span>触发次数<strong>${Number(order.trigger_count || 0)} / ${Number(order.max_trigger_count || 0) || '-'}</strong></span>
+              <span>生效区间<strong>${order.start_date || '-'} 至 ${order.end_date || '-'}</strong></span>
+              <span>目标账户<strong>${order.account_name || '-'}</strong></span>
+            </div>
+            <div class="detail-actions">
+              <span class="detail-meta">执行明细展示最近 3 次成交，完整管理请前往条件单页面。</span>
+              <a class="inline-link" href="./conditional-order.html">查看全部</a>
+            </div>
+            <div class="execution-list">
+              ${orderExecutions.length > 0 ? orderExecutions.map((execution) => `
+                <div class="execution-item">
+                  <span>成交时间<strong>${execution.trade_date || '-'}</strong></span>
+                  <span>成交数量<strong>${Number(execution.quantity || 0).toLocaleString()} 股</strong></span>
+                  <span>成交价格<strong>${Number(execution.price || 0).toFixed(2)}</strong></span>
+                  <span>成交金额<strong>${formatCurrency(execution.amount)}</strong></span>
+                </div>
+              `).join('') : `
+                <div class="detail-meta">暂无执行记录</div>
+              `}
+            </div>
+          </div>
+        `;
+      }).join('');
     }
 
     async function api(url, options = {}) {
@@ -422,6 +735,24 @@
       const rateEl = document.getElementById('return-rate');
       rateEl.textContent = (account.return_rate >= 0 ? '+' : '') + (account.return_rate * 100).toFixed(2) + '%';
       rateEl.className = 'stat-value ' + (account.return_rate >= 0 ? 'positive' : 'negative');
+
+      renderPositions(positions);
+      loadAccountConditionalOrders(id);
+    }
+
+    async function loadAccountConditionalOrders(id) {
+      const result = await api(`/api/portfolio/account/${id}/conditional-orders`);
+      if (!result.success) {
+        document.getElementById('conditional-orders-list').innerHTML = `
+          <div class="empty-state-guide">
+            <div class="title">条件单加载失败</div>
+            <div class="desc">${result.error || '请稍后重试'}</div>
+          </div>
+        `;
+        return;
+      }
+
+      renderConditionalOrders(result.data.orders, result.data.executions);
     }
     
     function showCreateModal() {
@@ -493,6 +824,7 @@
     
     // 初始化
     currentAccountId = parseInt(localStorage.getItem('current_account_id')) || null;
+    switchDetailTab(currentDetailTab);
     loadAccounts();
   </script>
 </body>

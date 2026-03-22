@@ -1,0 +1,132 @@
+{
+  "date": "2026-03-22",
+  "createdAt": "2026-03-22T11:24:45.736Z",
+  "updatedAt": "2026-03-22T11:25:57.119Z",
+  "snapshots": [
+    {
+      "stockCode": "300308.SZ",
+      "stockName": null,
+      "timestamp": "2026-03-22T11:24:57.026Z",
+      "factors": {
+        "trend": 0.9,
+        "momentum": 0.8,
+        "valuation": 0.7,
+        "capital": 0.6,
+        "earnings": 0.8,
+        "volatility": 0.7,
+        "sentiment": 0.9
+      },
+      "weights": {
+        "trend": 0.17,
+        "momentum": 0.15,
+        "valuation": 0.15,
+        "capital": 0.13,
+        "earnings": 0.13,
+        "volatility": 0.1,
+        "sentiment": 0.15
+      },
+      "weightedScore": 0.82,
+      "decision": "买入",
+      "confidence": 0.85,
+      "riskWarnings": [],
+      "blackSwanCheck": false,
+      "recordedAt": "2026-03-22T11:24:57.027Z",
+      "recordId": "300308.SZ_1774178697027"
+    },
+    {
+      "stockCode": "002475.SZ",
+      "stockName": "立讯精密",
+      "timestamp": "2026-03-22T18:35:00",
+      "factors": {
+        "trend": 0.82,
+        "momentum": 0.75,
+        "valuation": 0.68,
+        "capital": 0.72,
+        "earnings": 0.88,
+        "volatility": 0.65,
+        "sentiment": 0.78
+      },
+      "weights": {
+        "trend": 0.17,
+        "momentum": 0.15,
+        "valuation": 0.15,
+        "capital": 0.13,
+        "earnings": 0.13,
+        "volatility": 0.1,
+        "sentiment": 0.15
+      },
+      "weightedScore": 0.76,
+      "decision": "观望",
+      "confidence": 0.72,
+      "riskWarnings": [],
+      "blackSwanCheck": false,
+      "recordedAt": "2026-03-22T11:24:45.737Z",
+      "recordId": "002475.SZ_1774178685737"
+    },
+    {
+      "stockCode": "600519.SH",
+      "stockName": "贵州茅台",
+      "timestamp": "2026-03-22T18:40:00",
+      "factors": {
+        "trend": 0.65,
+        "momentum": 0.58,
+        "valuation": 0.42,
+        "capital": 0.55,
+        "earnings": 0.92,
+        "volatility": 0.38,
+        "sentiment": 0.85
+      },
+      "weights": {
+        "trend": 0.17,
+        "momentum": 0.15,
+        "valuation": 0.15,
+        "capital": 0.13,
+        "earnings": 0.13,
+        "volatility": 0.1,
+        "sentiment": 0.15
+      },
+      "weightedScore": 0.62,
+      "decision": "回避",
+      "confidence": 0.65,
+      "riskWarnings": [
+        "估值过高",
+        "政策风险"
+      ],
+      "blackSwanCheck": true,
+      "recordedAt": "2026-03-22T11:24:45.738Z",
+      "recordId": "600519.SH_1774178685738"
+    },
+    {
+      "stockCode": "000858.SZ",
+      "stockName": "五粮液",
+      "timestamp": "2026-03-22T11:25:57.118Z",
+      "factors": {
+        "trend": 0.78,
+        "momentum": 0.72,
+        "valuation": 0.65,
+        "capital": 0.68,
+        "earnings": 0.85,
+        "volatility": 0.62,
+        "sentiment": 0.8
+      },
+      "weights": {
+        "trend": 0.17,
+        "momentum": 0.15,
+        "valuation": 0.15,
+        "capital": 0.13,
+        "earnings": 0.13,
+        "volatility": 0.1,
+        "sentiment": 0.15
+      },
+      "weightedScore": 0.73,
+      "decision": "买入",
+      "confidence": 0.78,
+      "riskWarnings": [
+        "白酒行业政策风险"
+      ],
+      "blackSwanCheck": false,
+      "recordedAt": "2026-03-22T11:25:57.119Z",
+      "recordId": "000858.SZ_1774178757119"
+    }
+  ]
+}

@@ -34,6 +34,82 @@
       background: rgba(56, 189, 248, 0.15);
       color: var(--accent);
     }
+    /* 股票卡片样式优化 */
+    .stock-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px;
+      margin: 12px 0;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+      transition: all 0.2s ease;
+    }
+    .stock-card:hover {
+      border-color: var(--accent);
+    }
+    .stock-card .stock-name {
+      font-size: 1.1em;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .stock-card .stock-meta {
+      font-size: 0.875em;
+      color: var(--text-soft);
+      margin: 8px 0;
+      line-height: 1.6;
+    }
+    .stock-card .stock-summary {
+      font-size: 0.875em;
+      color: var(--text-soft);
+      margin: 8px 0;
+      line-height: 1.5;
+      padding: 8px 12px;
+      background: rgba(56, 189, 248, 0.08);
+      border-left: 3px solid var(--accent);
+      border-radius: 6px;
+    }
+    .stock-card .key-prices {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin: 12px 0;
+      font-size: 0.85em;
+    }
+    .stock-card .price-item {
+      padding: 6px 10px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 6px;
+      text-align: center;
+    }
+    .stock-card .price-item.buy-price {
+      color: var(--good);
+    }
+    .stock-card .price-item.stop-loss {
+      color: var(--bad);
+    }
+    .stock-card .price-item.position {
+      color: var(--accent);
+    }
+    .stock-card .stock-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .stock-card .btn-import {
+      background: var(--good);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+    .stock-card .btn-import:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
   </style>
 </head>
 <body>
@@ -113,6 +189,7 @@
 
     let directions = [];
     let stocks = [];
+    let stockV2Data = new Map(); // 存储 v2 结构化数据
 
     function safeJsonParse(rawValue) {
       try {
@@ -276,6 +353,7 @@
       stocks.forEach((stock, index) => {
         const card = document.createElement("article");
         card.className = "stock-card";
+        card.setAttribute("data-stock-code", stock.code);
 
         const label = document.createElement("label");
 
@@ -310,8 +388,39 @@
         decisionNode.textContent = stock.decision;
         meta.appendChild(decisionNode);
 
+        // 检查是否有 v2 数据
+        const v2Data = stockV2Data.get(stock.code);
+        let summaryEl = null;
+        let keyPricesEl = null;
+
+        if (v2Data) {
+          const strategy = v2Data.strategies?.balanced;
+          const firstAction = strategy?.actions?.[0];
+          const buyPrice = firstAction?.trigger_conditions?.[0]?.value;
+          const stopLoss = firstAction?.stop_loss || v2Data.stop_loss;
+          const position = firstAction?.position_percent || 0;
+
+          if (strategy?.summary_text) {
+            summaryEl = document.createElement("p");
+            summaryEl.className = "stock-summary";
+            // 确保 summary_text 是字符串
+            const summaryText = typeof strategy.summary_text === 'string' ? strategy.summary_text : '';
+            summaryEl.textContent = summaryText.slice(0, 100) + (summaryText.length > 100 ? '...' : '');
+          }
+
+          keyPricesEl = document.createElement("div");
+          keyPricesEl.className = "key-prices";
+          keyPricesEl.innerHTML = `
+            <span class="price-item buy-price">买入价：¥${buyPrice ? Number(buyPrice).toFixed(2) : 'N/A'}</span>
+            <span class="price-item stop-loss">止损价：¥${stopLoss ? Number(stopLoss).toFixed(2) : 'N/A'}</span>
+            <span class="price-item position">仓位：${position}%</span>
+          `;
+        }
+
         infoWrap.appendChild(nameNode);
         infoWrap.appendChild(meta);
+        if (summaryEl) infoWrap.appendChild(summaryEl);
+        if (keyPricesEl) infoWrap.appendChild(keyPricesEl);
 
         label.appendChild(checkbox);
         label.appendChild(infoWrap);
@@ -328,6 +437,18 @@
         });
         actions.appendChild(reportButton);
 
+        // 添加导入条件单按钮
+        if (v2Data) {
+          const importButton = document.createElement("button");
+          importButton.className = "button-secondary btn-import";
+          importButton.type = "button";
+          importButton.textContent = "导入条件单";
+          importButton.addEventListener("click", () => {
+            importToConditional(stock.code, stock.name, "balanced");
+          });
+          actions.appendChild(importButton);
+        }
+
         card.appendChild(label);
         card.appendChild(actions);
         resultsContainer.appendChild(card);
@@ -338,28 +459,123 @@
 
     async function viewStockReport(stockName, stockCode) {
       analyzeStatus.textContent = `正在生成 ${stockName} 的分析报告...`;
-      
-      try {
-        // 调用个股分析接口生成报告
-        const response = await fetch("/api/analysis/report", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ stock_name: stockName, stock_code: stockCode })
-        });
 
-        if (response.ok) {
-          const data = await response.json();
+      try {
+        // 并行调用 v2 API 和报告生成
+        const [v2Response, reportResponse] = await Promise.all([
+          fetch(`/api/v2/analyze/report?ts_code=${encodeURIComponent(stockCode)}`),
+          fetch("/api/analysis/report", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ stock_name: stockName, stock_code: stockCode })
+          })
+        ]);
+
+        // 处理 v2 数据
+        if (v2Response.ok) {
+          const v2Data = await v2Response.json();
+          if (v2Data.success && v2Data.data) {
+            stockV2Data.set(stockCode, v2Data.data);
+            // 更新股票卡片显示
+            updateStockCardWithV2Data(stockCode, v2Data.data);
+          }
+        }
+
+        // 处理报告生成
+        if (reportResponse.ok) {
+          const data = await reportResponse.json();
           if (data.report_path && openSafeUrl(data.report_path)) {
             analyzeStatus.textContent = `已打开 ${stockName} 分析报告`;
           } else {
             analyzeStatus.textContent = `报告生成成功，但未返回路径`;
           }
         } else {
-          const errorPayload = await response.json().catch(() => null);
-          analyzeStatus.textContent = errorPayload?.message || `个股分析报告生成失败（${response.status}）`;
+          const errorPayload = await reportResponse.json().catch(() => null);
+          analyzeStatus.textContent = errorPayload?.message || `个股分析报告生成失败（${reportResponse.status}）`;
         }
       } catch (error) {
         analyzeStatus.textContent = error.message || `暂无该股票的分析报告`;
+      }
+    }
+
+    // 使用 v2 数据更新股票卡片
+    function updateStockCardWithV2Data(stockCode, v2Data) {
+      const card = document.querySelector(`[data-stock-code="${stockCode}"]`);
+      if (!card) return;
+
+      const strategy = v2Data.strategies?.balanced;
+      const firstAction = strategy?.actions?.[0];
+      const buyPrice = firstAction?.trigger_conditions?.[0]?.value;
+      const stopLoss = firstAction?.stop_loss || v2Data.stop_loss;
+      const position = firstAction?.position_percent || 0;
+
+      // 更新或创建 key-prices 元素
+      let keyPricesEl = card.querySelector('.key-prices');
+      if (!keyPricesEl) {
+        keyPricesEl = document.createElement('div');
+        keyPricesEl.className = 'key-prices';
+        const summaryEl = card.querySelector('.stock-summary');
+        if (summaryEl) {
+          summaryEl.after(keyPricesEl);
+        } else {
+          card.querySelector('label span').appendChild(keyPricesEl);
+        }
+      }
+
+      keyPricesEl.innerHTML = `
+        <span class="price-item buy-price">买入价：¥${buyPrice ? Number(buyPrice).toFixed(2) : 'N/A'}</span>
+        <span class="price-item stop-loss">止损价：¥${stopLoss ? Number(stopLoss).toFixed(2) : 'N/A'}</span>
+        <span class="price-item position">仓位：${position}%</span>
+      `;
+
+      // 更新或创建 summary 元素
+      let summaryEl = card.querySelector('.stock-summary');
+      if (!summaryEl && strategy?.summary_text) {
+        summaryEl = document.createElement('p');
+        summaryEl.className = 'stock-summary';
+        const metaEl = card.querySelector('.stock-meta');
+        if (metaEl) {
+          metaEl.after(summaryEl);
+        }
+      }
+      if (summaryEl && strategy?.summary_text) {
+        // 确保 summary_text 是字符串
+        const summaryText = typeof strategy.summary_text === 'string' ? strategy.summary_text : '';
+        summaryEl.textContent = summaryText.slice(0, 100) + (summaryText.length > 100 ? '...' : '');
+      }
+
+      // 添加导入条件单按钮
+      let actionsEl = card.querySelector('.stock-actions');
+      if (actionsEl && !actionsEl.querySelector('.btn-import')) {
+        const importBtn = document.createElement('button');
+        importBtn.className = 'button-secondary btn-import';
+        importBtn.type = 'button';
+        importBtn.textContent = '导入条件单';
+        // 从 card 中获取股票名称
+        const nameEl = card.querySelector('.stock-name');
+        const name = nameEl ? nameEl.textContent : stockCode;
+        importBtn.addEventListener('click', () => importToConditional(stockCode, name, 'balanced'));
+        actionsEl.appendChild(importBtn);
+      }
+    }
+
+    // 导入条件单功能
+    async function importToConditional(stockCode, stockName, riskType) {
+      try {
+        const response = await fetch(`/api/v2/analyze/strategy/${encodeURIComponent(stockCode)}/${riskType}`);
+        const result = await response.json();
+
+        if (!result.success) {
+          alert('获取策略失败：' + result.error);
+          return;
+        }
+
+        // 跳转到条件单界面，传递策略数据
+        const strategyData = encodeURIComponent(JSON.stringify(result.data));
+        window.location.href = `./conditional-order.html?import=${strategyData}`;
+      } catch (error) {
+        console.error('导入失败:', error);
+        alert('导入失败：' + error.message);
       }
     }
 
@@ -386,7 +602,7 @@
       try {
         // 将对象数组转换为字符串数组（后端期望格式）
         const directionNames = directions.map(d => typeof d === 'string' ? d : d.name);
-        
+
         const response = await fetch("/api/analyze", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -408,6 +624,23 @@
         persistAnalysis();
         renderStocks();
         analyzeStatus.textContent = `分析完成，返回 ${stocks.length} 只候选股票`;
+
+        // 异步获取 v2 数据更新卡片
+        stocks.forEach(async (stock) => {
+          try {
+            const v2Response = await fetch(`/api/v2/analyze/report?ts_code=${encodeURIComponent(stock.code)}`);
+            if (v2Response.ok) {
+              const v2Data = await v2Response.json();
+              if (v2Data.success && v2Data.data) {
+                stockV2Data.set(stock.code, v2Data.data);
+                updateStockCardWithV2Data(stock.code, v2Data.data);
+              }
+            }
+          } catch (e) {
+            console.warn(`获取 ${stock.code} 的 v2 数据失败:`, e.message);
+          }
+        });
+
       } catch (error) {
         analyzeStatus.textContent = `分析失败: ${error.message}`;
       } finally {

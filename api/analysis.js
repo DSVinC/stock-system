@@ -34,6 +34,27 @@ function getAnalyzeRouter() {
   return require('./analyze');
 }
 
+// v2 格式检测函数
+function isV2Format(data) {
+  return data &&
+         data.strategies &&
+         typeof data.strategies.aggressive === 'object' &&
+         Array.isArray(data.strategies.aggressive.actions);
+}
+
+// v2 格式降级为 v1 格式
+function downgradeToV1(data) {
+  if (!isV2Format(data)) return data;
+  return {
+    ...data,
+    strategies: {
+      aggressive: data.strategies.aggressive.summary_text || '',
+      balanced: data.strategies.balanced.summary_text || '',
+      conservative: data.strategies.conservative.summary_text || '',
+    },
+  };
+}
+
 function slugify(value) {
   return String(value || 'stock')
     .trim()
@@ -490,25 +511,28 @@ async function buildAnalysisResponse(req, res, withReport = false) {
       payload = await buildFallbackPayload(query);
     }
 
+    // v1 接口需要降级 v2 格式
+    const v1Payload = downgradeToV1(payload);
+
     if (!withReport) {
       return res.json({
         success: true,
-        data: payload,
+        data: v1Payload,
       });
     }
 
     fs.mkdirSync(HTML_REPORT_DIR, { recursive: true });
-    const dateStamp = String(payload.generated_at || '').slice(0, 10).replace(/-/g, '') || new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const fileName = `stock_report_${slugify(payload.stock?.name)}_${dateStamp}.html`;
+    const dateStamp = String(v1Payload.generated_at || '').slice(0, 10).replace(/-/g, '') || new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const fileName = `stock_report_${slugify(v1Payload.stock?.name)}_${dateStamp}.html`;
     const fullPath = path.join(HTML_REPORT_DIR, fileName);
-    fs.writeFileSync(fullPath, buildHtmlReport(payload), 'utf8');
+    fs.writeFileSync(fullPath, buildHtmlReport(v1Payload), 'utf8');
 
     const baseUrl = `${req.protocol}://${req.get('host')}`;
     return res.json({
       success: true,
       report_path: `${baseUrl}/report/analysis/${encodeURIComponent(fileName)}`,
-      markdown_report_path: payload.report_path || '',
-      data: payload,
+      markdown_report_path: v1Payload.report_path || '',
+      data: v1Payload,
     });
   } catch (error) {
     return res.status(500).json({
@@ -520,6 +544,70 @@ async function buildAnalysisResponse(req, res, withReport = false) {
 
 router.post('/', async (req, res) => buildAnalysisResponse(req, res, false));
 router.post('/report', async (req, res) => buildAnalysisResponse(req, res, true));
+
+// ========== v2 接口 ==========
+
+// GET /api/v2/report - 返回原始 v2 结构化数据
+router.get('/v2/report', async (req, res) => {
+  const { ts_code } = req.query;
+
+  if (!ts_code) {
+    return res.status(400).json({ success: false, error: '缺少 ts_code 参数' });
+  }
+
+  try {
+    const payload = await runAnalysis(ts_code);
+
+    res.json({
+      success: true,
+      data: payload,
+      version: isV2Format(payload) ? 'v2' : 'v1',
+    });
+  } catch (error) {
+    console.error('v2 分析失败:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /api/v2/strategy/:ts_code/:riskType - 条件单导入专用接口
+router.get('/v2/strategy/:ts_code/:riskType', async (req, res) => {
+  const { ts_code, riskType } = req.params;
+
+  if (!['aggressive', 'balanced', 'conservative'].includes(riskType)) {
+    return res.status(400).json({
+      success: false,
+      error: 'riskType 必须是 aggressive/balanced/conservative',
+    });
+  }
+
+  try {
+    const payload = await runAnalysis(ts_code);
+
+    if (!isV2Format(payload)) {
+      return res.status(400).json({
+        success: false,
+        error: 'stock_analyzer.py 仍输出 v1 格式，请升级脚本以支持条件单导入',
+      });
+    }
+
+    const strategy = payload.strategies[riskType];
+
+    res.json({
+      success: true,
+      data: {
+        ts_code,
+        risk_level: strategy.risk_level,
+        actions: strategy.actions,
+        summary_text: strategy.summary_text,
+      },
+    });
+  } catch (error) {
+    console.error('获取策略失败:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ========== 导出 ==========
 
 router.runAnalysis = runAnalysis;
 router.buildFallbackPayload = buildFallbackPayload;
