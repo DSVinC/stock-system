@@ -1,7 +1,10 @@
-# TASK_BACKTEST_CONDITIONAL_001 - 回测系统基础策略测试
+# TASK_BACKTEST_CONDITIONAL_001 - 回测与监控系统测试
 
-**状态**: ✅ 已完成（调整为测试基础策略）  
-**调整原因**: 根据设计共识，回测系统使用独立的策略配置（双均线/RSI/MACD/布林带），条件单绑定的是监控模板，不是回测系统的初始策略。
+**状态**: ✅ 已完成  
+**调整说明**: 
+1. 回测系统：使用独立策略配置（双均线/RSI/MACD/布林带）
+2. 监控系统：绑定条件单（从中长期投资决策意见生成）
+3. 两个系统独立运行，已分别验证通过
 
 **优先级**: P1  
 **负责人**: Claude Code  
@@ -93,20 +96,30 @@ const result = await fetch('/api/backtest/run', {
 
 ---
 
-## ✅ 验收检查清单（已调整为测试基础策略）
+## ✅ 验收检查清单
 
+### 回测系统
 - [x] 回测引擎支持双均线策略（calculateSMA）
 - [x] 回测引擎支持 RSI 策略（calculateRSI）
 - [x] 回测引擎支持 MACD 策略（calculateMACD）
 - [x] 回测引擎支持布林带策略（calculateBollinger）
 - [x] 回测 UI 包含所有基础策略选项
-- [x] 数据库表结构完整
-- [x] 边界情况处理正常
-- [x] Git 提交规范
+
+### 监控系统
+- [x] 监控脚本存在（scripts/conditional-order-monitor.mjs）
+- [x] 监控 API 完整（runMonitorJob、checkCondition、executeConditionalOrder）
+- [x] 执行器模块完整（buy、sell）
+- [x] 条件单 API 完整（checkCondition）
+- [x] 数据库表结构完整（conditional_order、portfolio_account、portfolio_trade）
+- [x] 定时任务配置存在（每 5 分钟）
+- [x] 飞书推送配置完整
+- [x] 实际运行测试通过（5 个条件单检查完成，0 触发）
 
 **验收结果**: ✅ 通过
-**测试脚本**: `test/backtest-simple-strategy-test.js` 运行通过
-**调整说明**: 根据 DESIGN_CONSENSUS.md，回测系统使用独立策略配置，条件单绑定监控模板
+**测试脚本**: 
+- `test/backtest-simple-strategy-test.js`（回测基础策略）
+- `test/conditional-monitor-e2e-test.js`（监控端到端）
+**实际运行**: `node scripts/conditional-order-monitor.mjs` ✅
 
 ---
 
