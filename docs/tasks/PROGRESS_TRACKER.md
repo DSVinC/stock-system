@@ -49,13 +49,7 @@ TASK_004 (select.html) ✅ 完成，🟢 验收中
 
 ## 📝 进度日志（每 5 分钟更新）
 
-### 2026-03-22 12:41 - 自动检查
-- [ ] TASK_ANALYZE_STRUCT_002: 🟡 进行中
-- [ ] TASK_ANALYZE_STRUCT_003: 🟡 进行中
-- [ ] TASK_ANALYZE_STRUCT_004: 🟡 进行中
-- [ ] 下次检查：12:46
-
-### 2026-03-22 14:20 - 进度更新
+### 2026-03-22 14:30 - 进度更新
 - [x] TASK_002: ✅ 通过
 - [x] TASK_003: ✅ 通过
 - [x] TASK_004: ✅ 通过
@@ -65,7 +59,28 @@ TASK_004 (select.html) ✅ 完成，🟢 验收中
 - [x] TASK_CONDITIONAL_FIX_001: ✅ **通过**
 - [x] TASK_UI_FIX_008: ✅ **通过**
 - [x] TASK_CONDITIONAL_EXECUTOR_001: ✅ **通过**
-- [ ] 下一步：条件单监控集成 + 定时任务配置
+- [x] TASK_CONDITIONAL_MONITOR_001: ✅ **通过**（修复后）
+- [x] TASK_MONITOR_FIX_001: ✅ **通过**
+
+### 2026-03-22 12:41 - 自动检查
+- [ ] TASK_ANALYZE_STRUCT_002: 🟡 进行中
+- [ ] TASK_ANALYZE_STRUCT_003: 🟡 进行中
+- [ ] TASK_ANALYZE_STRUCT_004: 🟡 进行中
+- [ ] 下次检查：12:46
+
+### 2026-03-22 14:45 - 进度更新
+- [x] TASK_002: ✅ 通过
+- [x] TASK_003: ✅ 通过
+- [x] TASK_004: ✅ 通过
+- [x] TASK_CONDITIONAL_IMPORT_001: ✅ **通过**
+- [x] TASK_CONDITIONAL_TRIGGER_001: ✅ **通过**
+- [x] TASK_CONDITIONAL_UI_001: ✅ **通过**
+- [x] TASK_CONDITIONAL_FIX_001: ✅ **通过**
+- [x] TASK_UI_FIX_008: ✅ **通过**
+- [x] TASK_CONDITIONAL_EXECUTOR_001: ✅ **通过**
+- [x] TASK_CONDITIONAL_MONITOR_001: ✅ **通过**
+- [x] TASK_CONDITIONAL_PORTFOLIO_INTEGRATION_001: ✅ **通过**（Gemini 验收）
+- [ ] 下一步：条件单监控真实环境测试 + 回测联调
 
 ### 2026-03-22 13:50 - 进度更新
 - [x] TASK_002: ✅ 通过
