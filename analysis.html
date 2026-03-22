@@ -403,7 +403,7 @@
           if (strategy?.summary_text) {
             summaryEl = document.createElement("p");
             summaryEl.className = "stock-summary";
-            summaryEl.textContent = strategy.summary_text.slice(0, 100) + (strategy.summary_text.length > 100 ? '...' : '');
+            summaryEl.textContent = (strategy.summary_text || '').slice(0, 100) + (strategy.summary_text && strategy.summary_text.length > 100 ? '...' : '');
           }
 
           keyPricesEl = document.createElement("div");

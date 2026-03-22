@@ -1705,6 +1705,23 @@
     async function handleImportFromQuery() {
       const params = new URLSearchParams(window.location.search);
       const rawImport = params.get(IMPORT_PARAM_KEY);
+      const rawBatch = params.get('batch');
+      
+      // 处理批量创建模式
+      if (rawBatch) {
+        try {
+          const batchData = JSON.parse(decodeURIComponent(rawBatch));
+          if (batchData.mode === 'batch' && batchData.stocks) {
+            showBatchCreateModal(batchData);
+            clearBatchParam();
+            return;
+          }
+        } catch (error) {
+          console.error('解析批量创建参数失败:', error);
+          showToast('批量创建参数解析失败', 'error');
+        }
+      }
+      
       if (!rawImport) {
         return;
       }
@@ -1741,6 +1758,231 @@
         clearImportParam();
         showToast(`导入失败：${error.message}`, 'error');
       }
+    }
+
+    function clearBatchParam() {
+      const url = new URL(window.location);
+      url.searchParams.delete('batch');
+      window.history.replaceState({}, '', url);
+    }
+
+    // 批量创建模态框
+    async function showBatchCreateModal(batchData) {
+      const { stocks, account_id } = batchData;
+      
+      // 设置账户
+      if (account_id) {
+        localStorage.setItem('portfolioAccountId', account_id);
+      }
+      
+      // 显示批量创建模态框
+      const modal = document.getElementById('batch-create-modal');
+      if (!modal) {
+        // 创建批量创建模态框
+        createBatchCreateModal();
+      }
+      
+      // 填充股票列表
+      const stockListEl = document.getElementById('batch-stock-list');
+      if (stockListEl) {
+        stockListEl.innerHTML = stocks.map(s => 
+          `<div class="batch-stock-item">✓ ${s.stock_name} (${s.ts_code})</div>`
+        ).join('');
+      }
+      
+      // 存储股票数据
+      window.batchCreateStocks = stocks;
+      
+      document.getElementById('batch-create-modal').classList.add('show');
+    }
+
+    function createBatchCreateModal() {
+      const modalHtml = `
+        <div class="modal-overlay" id="batch-create-modal">
+          <div class="modal-dialog modal-lg">
+            <button class="modal-close" onclick="closeBatchCreateModal()">&times;</button>
+            <h3 class="modal-title">批量创建条件单</h3>
+            <div class="modal-body">
+              <div class="form-section">
+                <h4>已选股票</h4>
+                <div id="batch-stock-list" class="batch-stock-list"></div>
+              </div>
+              
+              <div class="form-section">
+                <h4>统一配置</h4>
+                <div class="form-row">
+                  <div class="form-field">
+                    <label class="form-label">交易动作</label>
+                    <select class="form-select" id="batch-action" required>
+                      <option value="buy">买入</option>
+                      <option value="sell">卖出</option>
+                    </select>
+                  </div>
+                  <div class="form-field">
+                    <label class="form-label">条件单类型</label>
+                    <select class="form-select" id="batch-order-type" required>
+                      <option value="price">价格条件</option>
+                      <option value="indicator">技术指标</option>
+                      <option value="capital">资金条件</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div class="form-field">
+                  <label class="form-label">触发条件</label>
+                  <div id="batch-conditions-list"></div>
+                  <button type="button" class="button button-secondary" onclick="addBatchCondition()">+ 添加条件</button>
+                </div>
+                
+                <div class="form-row">
+                  <div class="form-field">
+                    <label class="form-label">仓位占比 (%)</label>
+                    <input type="number" class="form-input" id="batch-position-pct" placeholder="建议仓位，如 10" min="0" max="100" step="0.1">
+                  </div>
+                  <div class="form-field">
+                    <label class="form-label">交易数量（股）</label>
+                    <input type="number" class="form-input" id="batch-quantity" placeholder="100 的倍数" min="100" step="100">
+                  </div>
+                </div>
+                
+                <div class="form-row">
+                  <div class="form-field">
+                    <label class="form-label">有效期开始</label>
+                    <input type="date" class="form-input" id="batch-start-date">
+                  </div>
+                  <div class="form-field">
+                    <label class="form-label">有效期结束</label>
+                    <input type="date" class="form-input" id="batch-end-date">
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="button button-secondary" onclick="closeBatchCreateModal()">取消</button>
+              <button class="button button-primary" onclick="executeBatchCreate()">批量创建</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+      
+      // 设置默认日期
+      const today = new Date().toISOString().split('T')[0];
+      const threeMonthsLater = new Date();
+      threeMonthsLater.setMonth(threeMonthsLater.getMonth() + 3);
+      document.getElementById('batch-start-date').value = today;
+      document.getElementById('batch-end-date').value = threeMonthsLater.toISOString().split('T')[0];
+      
+      // 初始化条件列表
+      addBatchCondition();
+    }
+
+    function addBatchCondition() {
+      const container = document.getElementById('batch-conditions-list');
+      const conditionIndex = container.children.length;
+      const conditionHtml = `
+        <div class="condition-row" data-index="${conditionIndex}">
+          <select class="form-select" name="batch-condition-type-${conditionIndex}">
+            <option value="price_cross_up">股价上穿</option>
+            <option value="price_cross_down">股价下穿</option>
+            <option value="price_above">股价高于</option>
+            <option value="price_below">股价低于</option>
+          </select>
+          <input type="number" class="form-input" name="batch-condition-value-${conditionIndex}" placeholder="价格" step="0.01" style="width:120px;">
+          <button type="button" class="button button-secondary" onclick="removeBatchCondition(this)">删除</button>
+        </div>
+      `;
+      container.insertAdjacentHTML('beforeend', conditionHtml);
+    }
+
+    function removeBatchCondition(btn) {
+      btn.parentElement.remove();
+    }
+
+    function closeBatchCreateModal() {
+      document.getElementById('batch-create-modal').classList.remove('show');
+    }
+
+    async function executeBatchCreate() {
+      const stocks = window.batchCreateStocks || [];
+      if (stocks.length === 0) {
+        showToast('没有股票数据', 'error');
+        return;
+      }
+
+      const accountId = getAccountId();
+      if (!accountId) {
+        showToast('请先选择账户', 'error');
+        return;
+      }
+
+      // 收集批量配置
+      const action = document.getElementById('batch-action').value;
+      const orderType = document.getElementById('batch-order-type').value;
+      const positionPct = document.getElementById('batch-position-pct').value;
+      const quantity = document.getElementById('batch-quantity').value;
+      const startDate = document.getElementById('batch-start-date').value;
+      const endDate = document.getElementById('batch-end-date').value;
+
+      // 收集条件
+      const conditions = [];
+      const conditionRows = document.querySelectorAll('#batch-conditions-list .condition-row');
+      conditionRows.forEach(row => {
+        const type = row.querySelector('select').value;
+        const value = row.querySelector('input').value;
+        if (value) {
+          conditions.push({ type, value });
+        }
+      });
+
+      if (conditions.length === 0) {
+        showToast('请至少添加一个触发条件', 'error');
+        return;
+      }
+
+      // 批量创建
+      const batchSize = stocks.length;
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const stock of stocks) {
+        const orderData = {
+          account_id: accountId,
+          ts_code: stock.ts_code,
+          stock_name: stock.stock_name,
+          action,
+          order_type: orderType,
+          conditions,
+          position_pct: positionPct ? parseFloat(positionPct) : null,
+          quantity: quantity ? parseInt(quantity) : null,
+          start_date: startDate,
+          end_date: endDate
+        };
+
+        try {
+          const response = await fetch('/api/conditional-order/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orderData)
+          });
+          const result = await response.json();
+          if (result.success) {
+            successCount++;
+          } else {
+            failCount++;
+            console.error(`创建失败 ${stock.ts_code}:`, result.error);
+          }
+        } catch (error) {
+          failCount++;
+          console.error(`创建异常 ${stock.ts_code}:`, error);
+        }
+      }
+
+      closeBatchCreateModal();
+      showToast(`批量创建完成：成功 ${successCount} 只，失败 ${failCount} 只`, successCount === batchSize ? 'success' : 'warning');
+      
+      // 刷新列表
+      loadOrders();
     }
 
     async function createOrder(e) {

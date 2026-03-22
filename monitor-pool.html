@@ -93,6 +93,7 @@
         <table aria-label="监控池股票表格">
           <thead>
             <tr>
+              <th scope="col"><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
               <th scope="col">股票名称</th>
               <th scope="col">代码</th>
               <th scope="col">添加时间</th>
@@ -101,6 +102,12 @@
           </thead>
           <tbody id="monitorTableBody"></tbody>
         </table>
+      </div>
+
+      <div class="batch-actions" id="batchActions" style="display:none; margin-top:16px;">
+        <span id="selectedCount">已选择 0 只股票</span>
+        <button class="button-primary" onclick="showBatchCreateModal()">批量创建条件单</button>
+        <button class="button-secondary" onclick="clearSelection()">取消选择</button>
       </div>
 
       <section id="emptyState" class="empty-state" aria-live="polite">
@@ -287,6 +294,18 @@
 
       for (const stock of stocks) {
         const row = document.createElement('tr');
+        
+        // 复选框单元格
+        const checkboxCell = document.createElement('td');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'stock-checkbox';
+        checkbox.value = stock.stock_code;
+        checkbox.dataset.name = stock.stock_name;
+        checkbox.onchange = updateBatchSummary;
+        checkboxCell.appendChild(checkbox);
+        row.appendChild(checkboxCell);
+        
         const nameCell = document.createElement('td');
         nameCell.dataset.label = '股票名称';
         const nameNode = document.createElement('div');
@@ -438,6 +457,71 @@
 
     refreshButton.addEventListener('click', () => loadMonitorPool());
     reloadButton.addEventListener('click', () => loadMonitorPool());
+
+    // ========== 批量操作功能 =========
+    function toggleSelectAll() {
+      const selectAll = document.getElementById('selectAll');
+      const checkboxes = document.querySelectorAll('.stock-checkbox');
+      checkboxes.forEach(cb => cb.checked = selectAll.checked);
+      updateBatchSummary();
+    }
+
+    function updateBatchSummary() {
+      const checkboxes = document.querySelectorAll('.stock-checkbox:checked');
+      const batchActions = document.getElementById('batchActions');
+      const selectedCount = document.getElementById('selectedCount');
+      
+      if (checkboxes.length > 0) {
+        batchActions.style.display = 'block';
+        selectedCount.textContent = `已选择 ${checkboxes.length} 只股票`;
+      } else {
+        batchActions.style.display = 'none';
+      }
+      
+      // 更新全选框状态
+      const selectAll = document.getElementById('selectAll');
+      const allCheckboxes = document.querySelectorAll('.stock-checkbox');
+      selectAll.checked = checkboxes.length === allCheckboxes.length && allCheckboxes.length > 0;
+    }
+
+    function clearSelection() {
+      const checkboxes = document.querySelectorAll('.stock-checkbox');
+      checkboxes.forEach(cb => cb.checked = false);
+      document.getElementById('selectAll').checked = false;
+      updateBatchSummary();
+    }
+
+    function getSelectedStocks() {
+      const checkboxes = document.querySelectorAll('.stock-checkbox:checked');
+      return Array.from(checkboxes).map(cb => ({
+        ts_code: cb.value,
+        stock_name: cb.dataset.name
+      }));
+    }
+
+    async function showBatchCreateModal() {
+      const selectedStocks = getSelectedStocks();
+      if (selectedStocks.length === 0) {
+        showToast('请至少选择一只股票', 'error');
+        return;
+      }
+
+      const accountId = localStorage.getItem('portfolioAccountId');
+      if (!accountId) {
+        showToast('请先在账户管理中创建账户', 'error');
+        return;
+      }
+
+      // 跳转到条件单页面，传递批量创建参数
+      const params = encodeURIComponent(JSON.stringify({
+        mode: 'batch',
+        stocks: selectedStocks,
+        account_id: accountId
+      }));
+      window.location.href = `./conditional-order.html?batch=${params}`;
+    }
+
+    // ========== 批量操作功能 =========
 
     loadMonitorPool({ syncDraft: true });
   </script>
