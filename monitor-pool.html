@@ -506,7 +506,7 @@
         return;
       }
 
-      const accountId = localStorage.getItem('portfolioAccountId');
+      const accountId = localStorage.getItem('current_account_id');
       if (!accountId) {
         showToast('请先在账户管理中创建账户', 'error');
         return;
