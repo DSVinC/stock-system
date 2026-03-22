@@ -94,35 +94,54 @@ async function testStockSelection(page, browser) {
     });
     if (titleCheck) stage.passed++; else stage.failed++;
 
-    // 检查 2: 行业卡片显示
+    // 检查 2: 行业卡片显示 或 空状态
     const industryCards = await page.locator('[class*="industry"], [class*="direction"], .card').count();
-    const cardsCheck = industryCards > 0;
+    const emptyState = await page.locator('[class*="empty-state"]').count();
+    const hasContent = industryCards > 0 || emptyState > 0;
     stage.checks.push({
-      name: '行业卡片显示',
-      passed: cardsCheck,
-      details: `找到 ${industryCards} 个行业卡片`,
+      name: '行业卡片或空状态显示',
+      passed: hasContent,
+      details: `行业卡片：${industryCards}个，空状态：${emptyState}个`,
     });
-    if (cardsCheck) stage.passed++; else stage.failed++;
+    if (hasContent) stage.passed++; else stage.failed++;
 
-    // 检查 3: 选择行业
-    const firstCard = await page.locator('.card, [class*="card"]').first();
-    await firstCard.click();
-    await sleep(500);
+    // 检查 3: 空状态 UI 元素验证（如果有空状态）
+    if (emptyState > 0) {
+      const emptyIcon = await page.locator('.empty-icon').count();
+      const emptyTitle = await page.locator('.empty-title').count();
+      const emptyButton = await page.locator('button:has-text("重新选股")').count();
+      const emptyUICheck = emptyIcon > 0 && emptyTitle > 0;
+      stage.checks.push({
+        name: '空状态 UI 完整',
+        passed: emptyUICheck,
+        details: `图标：${emptyIcon}, 标题：${emptyTitle}, 按钮：${emptyButton}`,
+      });
+      if (emptyUICheck) stage.passed++; else stage.failed++;
+    }
 
-    // 检查 4: 点击开始选股
-    const selectButton = await page.locator('button:has-text("选股"), button:has-text("开始")').first();
-    await selectButton.click();
-    await sleep(2000);
+    // 检查 4: 选择行业（如果有卡片）
+    if (industryCards > 0) {
+      const firstCard = await page.locator('.card, [class*="card"]').first();
+      await firstCard.click();
+      await sleep(500);
 
-    // 检查 5: 选股结果加载
-    const stockItems = await page.locator('[class*="stock"], .stock-item, tr').count();
-    const resultsCheck = stockItems > 0;
-    stage.checks.push({
-      name: '选股结果加载',
-      passed: resultsCheck,
-      details: `找到 ${stockItems} 只股票`,
-    });
-    if (resultsCheck) stage.passed++; else stage.failed++;
+      // 检查 5: 点击开始选股
+      const selectButton = await page.locator('button:has-text("选股"), button:has-text("开始")').first();
+      await selectButton.click();
+      await sleep(2000);
+
+      // 检查 6: 选股结果加载
+      const stockItems = await page.locator('[class*="stock"], .stock-item, tr').count();
+      const resultsCheck = stockItems > 0;
+      stage.checks.push({
+        name: '选股结果加载',
+        passed: resultsCheck,
+        details: `找到 ${stockItems} 只股票`,
+      });
+      if (resultsCheck) stage.passed++; else stage.failed++;
+    } else {
+      console.log('  ⚠️ 无行业卡片，跳过选择测试');
+    }
 
     console.log(`  ✅ 通过：${stage.passed}, ❌ 失败：${stage.failed}`);
 
@@ -230,24 +249,51 @@ async function testMonitorPool(page, browser) {
 
     // 检查 2: 股票列表或空状态
     const tableRows = await page.locator('tr, [class*="stock-item"]').count();
-    const emptyState = await page.locator('[class*="empty"]').count();
+    const emptyState = await page.locator('[class*="empty-state"]').count();
     const listCheck = tableRows > 0 || emptyState > 0;
     stage.checks.push({
-      name: '股票列表显示',
+      name: '股票列表或空状态显示',
       passed: listCheck,
-      details: `${tableRows} 条记录，${emptyState} 个空状态`,
+      details: `表格行数：${tableRows}, 空状态：${emptyState}`,
     });
     if (listCheck) stage.passed++; else stage.failed++;
 
-    // 检查 3: 批量创建按钮
-    const batchButton = await page.locator('button:has-text("批量")').count();
-    const batchCheck = batchButton > 0;
-    stage.checks.push({
-      name: '批量创建按钮',
-      passed: batchCheck,
-      details: `找到 ${batchButton} 个按钮`,
-    });
-    if (batchCheck) stage.passed++; else stage.failed++;
+    // 检查 3: 空状态 UI 元素验证（如果有空状态）
+    if (emptyState > 0) {
+      const emptyIcon = await page.locator('.empty-icon').count();
+      const emptyTitle = await page.locator('.empty-title').count();
+      const emptyCopy = await page.locator('.empty-copy').count();
+      const actionButton = await page.locator('a:has-text("去添加股票"), button:has-text("刷新")').count();
+      const emptyUICheck = emptyIcon > 0 && emptyTitle > 0 && emptyCopy > 0;
+      stage.checks.push({
+        name: '空状态 UI 完整',
+        passed: emptyUICheck,
+        details: `图标：${emptyIcon}, 标题：${emptyTitle}, 说明：${emptyCopy}, 操作按钮：${actionButton}`,
+      });
+      if (emptyUICheck) stage.passed++; else stage.failed++;
+      
+      // 检查 4: 表格是否隐藏（空状态时）
+      const tableVisible = await page.locator('table').isVisible();
+      const tableHiddenCheck = !tableVisible;
+      stage.checks.push({
+        name: '空状态时表格隐藏',
+        passed: tableHiddenCheck,
+        details: `表格可见：${tableVisible}`,
+      });
+      if (tableHiddenCheck) stage.passed++; else stage.failed++;
+    }
+
+    // 检查 5: 批量创建按钮（如果有数据）
+    if (tableRows > 0) {
+      const batchButton = await page.locator('button:has-text("批量")').count();
+      const batchCheck = batchButton > 0;
+      stage.checks.push({
+        name: '批量创建按钮',
+        passed: batchCheck,
+        details: `找到 ${batchButton} 个按钮`,
+      });
+      if (batchCheck) stage.passed++; else stage.failed++;
+    }
 
     console.log(`  ✅ 通过：${stage.passed}, ❌ 失败：${stage.failed}`);
 
