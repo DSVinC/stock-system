@@ -1,20 +1,17 @@
 /**
  * API 模块：Python 个股分析 (analysis.js)
  * 
- * 职责：负责调用 Python 脚本生成深度个股分析报告
- * - 调用 skills/a 股个股分析/scripts/stock_analyzer.py
- * - 生成 HTML 格式的详细分析报告
- * - 提供报告查看和下载接口
+ * 职责：调用 Python 脚本生成深度个股分析报告，输出 HTML 格式
  * 
- * 与 analyze.js 的区别：
- * - analyze.js: 纯 Node.js 实现，返回 JSON 数据，用于前端实时渲染
- * - analysis.js: 调用 Python 脚本，生成 HTML 报告，用于深度分析
+ * 与 analyze.js 的分工：
+ * - analyze.js: Node.js 原生分析 → 返回 JSON → 前端实时渲染（个股分析页面）
+ * - analysis.js: 调用 Python 脚本 → 生成 HTML 报告 → 深度分析报告下载
  * 
  * 主要接口：
- * - POST /api/analysis - 生成 Python 分析报告
- * - POST /api/analysis/report - 生成报告并返回 HTML
+ * - POST /api/analysis - 生成 Python 分析报告（同 analyze.js 的/report）
+ * - POST /api/analysis/report - 生成 HTML 报告并返回
  * 
- * 依赖：stock_analyzer.py (Python 分析脚本)
+ * 依赖：stock_analyzer.py (Python 分析脚本，位于 skills/a 股个股分析/scripts/)
  */
 
 const fs = require('node:fs');

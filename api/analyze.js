@@ -1,7 +1,11 @@
 /**
- * API 模块：个股分析报告 (analyze.js)
+ * API 模块：个股分析 (analyze.js)
  * 
- * 职责：负责按行业方向筛选股票列表，以及生成个股深度分析报告
+ * 职责：纯 Node.js 实现的个股分析，返回 JSON 数据，用于前端实时渲染
+ * 
+ * 与 analysis.js 的分工：
+ * - analyze.js: Node.js 原生分析 → 返回 JSON → 前端实时渲染（个股分析页面）
+ * - analysis.js: 调用 Python 脚本 → 生成 HTML 报告 → 深度分析报告下载
  * 
  * 接口分工：
  * 1. POST /api/analyze - 按行业方向筛选股票列表
@@ -9,10 +13,11 @@
  *    - 输出：stocks (待分析的股票列表，含基础数据)
  *    - 用途：选股后获取成分股列表
  * 
- * 2. POST /api/analyze/report - 生成单只股票深度分析报告并落盘
+ * 2. POST /api/analyze/report - 生成单只股票分析报告 (Node.js 版)
  *    - 输入：stock_code, stock_name
  *    - 输出：分析报告 JSON（技术面、基本面、资金面、估值、策略建议）
- *    - 用途：生成个股深度分析报告
+ *    - 用途：前端实时渲染个股分析页面
+ *    - 返回：success + report_path + stock (摘要信息，非完整报告)
  * 
  * 依赖：market-data.js (技术分析、财务数据、资金流)
  *      score-factors.js (综合评分计算)

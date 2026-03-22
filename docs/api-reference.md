@@ -316,6 +316,14 @@ POST /api/select
 }
 ```
 
+---
+
+## 个股分析 API (双实现)
+
+> **说明**：系统提供两种个股分析实现，按需选用：
+> - **Node.js 版** (`/api/analyze/report`): 返回 JSON，用于前端实时渲染（个股分析页面）
+> - **Python 版** (`/api/analysis/report`): 生成 HTML 报告，用于深度分析报告下载
+
 ### 按行业方向筛选股票
 
 ```http
@@ -335,32 +343,27 @@ POST /api/analyze
 ```json
 {
   "success": true,
-  "data": {
-    "directions": [
-      { "name": "储能", "ts_code": "885921.TI" }
-    ],
-    "stocks": [
-      {
-        "code": "300750.SZ",
-        "name": "宁德时代",
-        "industry": "电气设备",
-        "total_mv": 18848.78,
-        "turnover_rate": 1.26,
-        "volume_ratio": 1.63,
-        "pe_ttm": 26.11
-      }
-    ]
-  }
+  "stocks": [
+    {
+      "code": "300750.SZ",
+      "name": "宁德时代",
+      "industry": "电气设备",
+      "total_mv": 18848.78,
+      "turnover_rate": 1.26,
+      "volume_ratio": 1.63,
+      "pe_ttm": 26.11
+    }
+  ]
 }
 ```
 
-### 生成个股深度分析报告
+### 生成个股分析报告 (Node.js 版)
 
 ```http
 POST /api/analyze/report
 ```
 
-**职责**：生成单只股票的深度分析报告并落盘
+**职责**：Node.js 原生分析，返回摘要信息，用于前端实时渲染
 
 **请求参数：**
 ```json
@@ -374,19 +377,40 @@ POST /api/analyze/report
 ```json
 {
   "success": true,
-  "data": {
-    "ts_code": "300750.SZ",
-    "stock_name": "宁德时代",
-    "score": 75,
-    "factors": {
-      "technical": { "score": 80, "rsi": 65, "macd": "golden_cross" },
-      "fundamental": { "score": 70, "roe": 15, "revenue_growth": 25 },
-      "capital": { "score": 75, "main_force_net": 1000000 },
-      "valuation": { "score": 80, "pe": 25, "pe_percentile": 30 },
-      "sentiment": { "score": 70 },
-      "risk": { "score": 75, "volatility": 0.25 }
-    },
-    "report_path": "report/analysis/300750.SZ_2026-03-22.json"
+  "report_path": "report/analysis/300750.SZ_2026-03-22.json",
+  "stock": {
+    "code": "300750.SZ",
+    "name": "宁德时代",
+    "score": 75
   }
 }
 ```
+
+**说明**：此接口返回报告路径和股票摘要，前端通过报告路径加载完整 JSON 报告
+
+### 生成个股分析报告 (Python 版)
+
+```http
+POST /api/analysis/report
+```
+
+**职责**：调用 Python 脚本生成深度 HTML 分析报告
+
+**请求参数：**
+```json
+{
+  "stock_code": "300750.SZ",
+  "stock_name": "宁德时代"
+}
+```
+
+**响应：**
+```json
+{
+  "success": true,
+  "html": "<html>...</html>",
+  "report_path": "report/analysis/300750.SZ_2026-03-22.html"
+}
+```
+
+**说明**：此接口返回 HTML 报告内容，用于下载或查看深度分析报告
