@@ -683,11 +683,17 @@
         <div class="form-row">
           <div class="form-field">
             <label class="form-label">股票代码</label>
-            <input type="text" class="form-input" name="ts_code" placeholder="300308.SZ" required>
+            <div class="stock-selector">
+              <select id="stock-selector" class="form-select" onchange="onStockSelected()">
+                <option value="">从监控池选择...</option>
+              </select>
+              <input type="text" id="stock-code-manual" class="form-input" name="ts_code" placeholder="或手动输入代码 300308.SZ" style="display:none;">
+              <button type="button" class="button button-secondary" id="toggle-stock-btn" onclick="toggleStockInput()" style="margin-top:8px;">手动输入</button>
+            </div>
           </div>
           <div class="form-field">
             <label class="form-label">股票名称</label>
-            <input type="text" class="form-input" name="stock_name" placeholder="中际旭创" required>
+            <input type="text" class="form-input" name="stock_name" id="stock-name-input" placeholder="中际旭创" required>
           </div>
         </div>
 
@@ -1412,6 +1418,7 @@
       clearImportTextarea();
       setDefaultDates(form);
       resetConditions([{}]);
+      loadMonitorPoolStocks();
     }
 
     function showCreateModal(options = {}) {
@@ -2154,6 +2161,83 @@
       const textarea = document.getElementById('import-report-input');
       if (textarea) {
         textarea.value = '';
+      }
+    }
+
+    // 加载监控池股票列表
+    async function loadMonitorPoolStocks() {
+      try {
+        const response = await fetch('/api/monitor/stock-list');
+        const result = await response.json();
+        
+        const selector = document.getElementById('stock-selector');
+        if (!selector) return;
+        
+        // 清空选项（保留第一个提示选项）
+        selector.innerHTML = '<option value="">从监控池选择...</option>';
+        
+        // 从已加载的条件单数据中提取监控池股票（临时方案）
+        // TODO: 修改 API 返回完整数据
+        if (result.success && result.stocks && result.stocks.length > 0) {
+          result.stocks.forEach(code => {
+            const option = document.createElement('option');
+            option.value = JSON.stringify({
+              ts_code: code,
+              stock_name: code
+            });
+            option.textContent = `${code} (${code})`;
+            selector.appendChild(option);
+          });
+        } else {
+          const option = document.createElement('option');
+          option.value = '';
+          option.textContent = '监控池为空，请手动输入';
+          option.disabled = true;
+          selector.appendChild(option);
+        }
+      } catch (error) {
+        console.error('加载监控池失败:', error);
+      }
+    }
+
+    // 股票选择器变更处理
+    function onStockSelected() {
+      const selector = document.getElementById('stock-selector');
+      const nameInput = document.getElementById('stock-name-input');
+      const selectedValue = selector.value;
+      
+      if (selectedValue) {
+        try {
+          const stock = JSON.parse(selectedValue);
+          // 填充股票代码和名称
+          const form = getCreateForm();
+          form.ts_code.value = stock.ts_code;
+          if (nameInput) {
+            nameInput.value = stock.stock_name;
+          }
+          showToast(`已选择 ${stock.stock_name}`, 'success');
+        } catch (error) {
+          console.error('解析股票数据失败:', error);
+        }
+      }
+    }
+
+    // 切换手动输入模式
+    function toggleStockInput() {
+      const selector = document.getElementById('stock-selector');
+      const manualInput = document.getElementById('stock-code-manual');
+      const toggleBtn = document.getElementById('toggle-stock-btn');
+      
+      if (manualInput.style.display === 'none') {
+        manualInput.style.display = 'block';
+        selector.style.display = 'none';
+        toggleBtn.textContent = '从监控池选择';
+        manualInput.focus();
+      } else {
+        manualInput.style.display = 'none';
+        selector.style.display = 'block';
+        toggleBtn.textContent = '手动输入';
+        loadMonitorPoolStocks();
       }
     }
 
