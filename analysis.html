@@ -403,7 +403,9 @@
           if (strategy?.summary_text) {
             summaryEl = document.createElement("p");
             summaryEl.className = "stock-summary";
-            summaryEl.textContent = (strategy.summary_text || '').slice(0, 100) + (strategy.summary_text && strategy.summary_text.length > 100 ? '...' : '');
+            // 确保 summary_text 是字符串
+            const summaryText = typeof strategy.summary_text === 'string' ? strategy.summary_text : '';
+            summaryEl.textContent = summaryText.slice(0, 100) + (summaryText.length > 100 ? '...' : '');
           }
 
           keyPricesEl = document.createElement("div");
@@ -537,7 +539,9 @@
         }
       }
       if (summaryEl && strategy?.summary_text) {
-        summaryEl.textContent = strategy.summary_text.slice(0, 100) + (strategy.summary_text.length > 100 ? '...' : '');
+        // 确保 summary_text 是字符串
+        const summaryText = typeof strategy.summary_text === 'string' ? strategy.summary_text : '';
+        summaryEl.textContent = summaryText.slice(0, 100) + (summaryText.length > 100 ? '...' : '');
       }
 
       // 添加导入条件单按钮
