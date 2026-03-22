@@ -664,15 +664,18 @@
         const res = await fetch('/api/conditional-order/list');
         const data = await res.json();
         const selectEl = document.getElementById('conditionalOrderSelect');
-        
-        if (data.success && data.orders && data.orders.length > 0) {
+
+        const orders = data.orders || data.data || [];
+        if (data.success && orders.length > 0) {
           // 清空现有选项（保留第一个）
           selectEl.innerHTML = '<option value="">-- 请选择条件单 --</option>';
-          
-          data.orders.forEach(order => {
+
+          orders.forEach(order => {
             const option = document.createElement('option');
             option.value = order.id;
-            option.textContent = `${order.stockCode} - ${order.conditionType} - ${order.status === 'active' ? '生效中' : '已暂停'}`;
+            const stockCode = order.ts_code || order.stockCode || '-';
+            const statusText = ['enabled', 'pending'].includes(order.status) ? '生效中' : '已暂停';
+            option.textContent = `${stockCode} - ${order.action === 'buy' ? '买入' : '卖出'} - ${statusText}`;
             selectEl.appendChild(option);
           });
         } else {
@@ -733,7 +736,9 @@
 
       // 格式化条件显示
       const conditionsText = order.conditions ?
-        order.conditions.map(c => `${getConditionName(c.type)} ${c.operator} ${c.value}`).join('、') : '-';
+        order.conditions.map(c => c.trigger_type
+          ? `${getConditionName(c.trigger_type)}`
+          : `${getConditionName(c.type)} ${c.operator} ${c.value}`).join('、') : '-';
 
       contentEl.innerHTML = `
         <div style="display: grid; gap: 8px;">
@@ -789,10 +794,18 @@
     function getConditionName(type) {
       const names = {
         'price': '股价',
+        'price_above': '价格上穿',
+        'price_below': '价格下穿',
         'pct_change': '涨跌幅',
         'volume_ratio': '量比',
         'rsi': 'RSI',
+        'rsi_overbought': 'RSI超买',
+        'rsi_oversold': 'RSI超卖',
         'macd_cross': 'MACD信号',
+        'macd_bullish': 'MACD看多',
+        'macd_bearish': 'MACD看空',
+        'ma_golden_cross': '均线金叉',
+        'ma_death_cross': '均线死叉',
         'ma_cross': '均线交叉'
       };
       return names[type] || type;
@@ -940,6 +953,7 @@
             type: 'conditional',
             params: {
               orderId: loadedConditionalOrder.id,
+              account_id: loadedConditionalOrder.account_id,
               conditions: loadedConditionalOrder.conditions,
               action: loadedConditionalOrder.action || loadedConditionalOrder.tradeType,
               quantity: loadedConditionalOrder.quantity,
@@ -986,6 +1000,7 @@
             startDate,
             endDate,
             initialCash,
+            account_id: loadedConditionalOrder?.account_id || null,
             stocks: selectedStocks.map(s => s.code),
             strategy: strategyConfig
           })

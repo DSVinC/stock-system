@@ -6,6 +6,14 @@
 
 const { getDatabase } = require('./db');
 
+function safeJsonParse(value, fallback = null) {
+  try {
+    return typeof value === 'string' ? JSON.parse(value) : value;
+  } catch (_error) {
+    return fallback;
+  }
+}
+
 // 参数验证辅助函数
 function validateAccountName(name) {
   return typeof name === 'string' && name.length >= 1 && name.length <= 50 && /^[\u4e00-\u9fa5a-zA-Z0-9_\-]+$/.test(name);
@@ -229,7 +237,7 @@ async function getAccountConditionalOrders(req, res) {
         account,
         orders: orders.map((order) => ({
           ...order,
-          conditions: typeof order.conditions === 'string' ? JSON.parse(order.conditions) : order.conditions
+          conditions: safeJsonParse(order.conditions, [])
         })),
         executions
       }
