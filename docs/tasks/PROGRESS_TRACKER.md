@@ -55,6 +55,16 @@ TASK_004 (select.html) ✅ 完成，🟢 验收中
 - [ ] TASK_ANALYZE_STRUCT_004: 🟡 进行中
 - [ ] 下次检查：12:46
 
+### 2026-03-22 13:55 - 进度更新
+- [x] TASK_002: ✅ 通过
+- [x] TASK_003: ✅ 通过
+- [x] TASK_004: ✅ 通过
+- [x] TASK_CONDITIONAL_IMPORT_001: ✅ **修复完成，待验收**
+- [x] TASK_CONDITIONAL_UI_001: ✅ **修复完成，待验收**
+- [x] TASK_CONDITIONAL_TRIGGER_001: ✅ **修复完成，待验收**
+- [x] TASK_CONDITIONAL_FIX_001: ✅ **通过**（Codex 验收）
+- [ ] 下一步：条件单功能整体验收 + 后续任务
+
 ### 2026-03-22 13:50 - 进度更新
 - [x] TASK_002: ✅ 通过
 - [x] TASK_003: ✅ 通过
@@ -64,16 +74,6 @@ TASK_004 (select.html) ✅ 完成，🟢 验收中
 - [x] TASK_CONDITIONAL_TRIGGER_001: ❌ 验收不通过（映射/判定问题）
 - [x] TASK_CONDITIONAL_FIX_001: 🟢 **修复中**（4 个问题并行修复）
 - [ ] 下次检查：手动推进
-
-### 2026-03-22 13:40 - 进度更新
-- [x] TASK_002: ✅ 通过
-- [x] TASK_003: ✅ 通过
-- [x] TASK_004: ✅ 通过
-- [x] TASK_CONDITIONAL_IMPORT_001: ✅ 完成，🟢 验收中
-- [x] TASK_CONDITIONAL_UI_001: ✅ 完成，🟢 验收中
-- [x] TASK_CONDITIONAL_TRIGGER_001: ✅ 完成，🟢 验收中
-- [x] 代码提交：ec8b2ce（1023 行新增）
-- [ ] 下一步：条件单执行器 + 后端 API
 
 ### 2026-03-22 12:35 - 进度更新
 - [x] TASK_002: ✅ 通过
