@@ -286,18 +286,41 @@ async function updateConditionalOrder(req, res) {
     if (!['pending', 'enabled', 'disabled', 'cancelled'].includes(order.status)) {
       return res.status(400).json({ success: false, error: '当前状态的条件单不允许编辑' });
     }
+
+    if (updateData.ts_code !== undefined) {
+      const tsCodeRegex = /^[0-9]{6}\.(SZ|SH|BJ)$/;
+      if (!tsCodeRegex.test(updateData.ts_code)) {
+        return res.status(400).json({ success: false, error: '股票代码格式无效' });
+      }
+    }
+
+    if (updateData.conditions) {
+      const condValidation = validateConditions(updateData.conditions);
+      if (!condValidation.valid) {
+        return res.status(400).json({ success: false, error: condValidation.error });
+      }
+    }
     
     // 构建更新字段
     const fields = [];
     const values = [];
     
+    if (updateData.ts_code !== undefined) { fields.push('ts_code = ?'); values.push(updateData.ts_code); }
+    if (updateData.stock_name !== undefined) { fields.push('stock_name = ?'); values.push(updateData.stock_name); }
+    if (updateData.action !== undefined) { fields.push('action = ?'); values.push(updateData.action); }
+    if (updateData.order_type !== undefined) { fields.push('order_type = ?'); values.push(updateData.order_type); }
     if (updateData.quantity !== undefined) { fields.push('quantity = ?'); values.push(updateData.quantity); }
     if (updateData.amount !== undefined) { fields.push('amount = ?'); values.push(updateData.amount); }
     if (updateData.position_pct !== undefined) { fields.push('position_pct = ?'); values.push(updateData.position_pct); }
     if (updateData.conditions) { fields.push('conditions = ?'); values.push(JSON.stringify(updateData.conditions)); }
     if (updateData.condition_logic) { fields.push('condition_logic = ?'); values.push(updateData.condition_logic); }
+    if (updateData.start_date) { fields.push('start_date = ?'); values.push(updateData.start_date); }
     if (updateData.end_date) { fields.push('end_date = ?'); values.push(updateData.end_date); }
     if (updateData.max_trigger_count !== undefined) { fields.push('max_trigger_count = ?'); values.push(updateData.max_trigger_count); }
+
+    if (fields.length === 0) {
+      return res.status(400).json({ success: false, error: '没有可更新的字段' });
+    }
     
     fields.push('updated_at = datetime(\'now\')');
     values.push(id);
@@ -396,6 +419,51 @@ async function cancelConditionalOrder(req, res) {
     res.json({ success: true, message: '条件单已取消' });
   } catch (error) {
     console.error('取消条件单失败:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+/**
+ * 获取条件单执行历史
+ * GET /api/conditional-order/:id/history
+ */
+async function getConditionalOrderHistory(req, res) {
+  try {
+    const { id } = req.params;
+    const db = await getDatabase();
+
+    const order = await db.getPromise('SELECT id FROM conditional_order WHERE id = ?', [id]);
+    if (!order) {
+      return res.status(404).json({ success: false, error: '条件单不存在' });
+    }
+
+    const history = await db.allPromise(`
+      SELECT
+        id,
+        conditional_order_id,
+        ts_code,
+        stock_name,
+        action,
+        quantity,
+        price,
+        amount,
+        trade_date,
+        order_type,
+        remark
+      FROM portfolio_trade
+      WHERE conditional_order_id = ?
+      ORDER BY trade_date DESC, id DESC
+    `, [id]);
+
+    res.json({
+      success: true,
+      data: history.map((item) => ({
+        ...item,
+        status: 'executed'
+      }))
+    });
+  } catch (error) {
+    console.error('获取条件单执行历史失败:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 }
@@ -610,6 +678,7 @@ module.exports = {
   getConditionalOrder,
   createConditionalOrder,
   updateConditionalOrder,
+  getConditionalOrderHistory,
   deleteConditionalOrder,
   toggleConditionalOrder,
   cancelConditionalOrder,

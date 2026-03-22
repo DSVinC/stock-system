@@ -153,6 +153,7 @@ async function bootstrap() {
     const router = require('express').Router();
     router.get('/', conditionalOrder.getConditionalOrders);
     router.get('/list', conditionalOrder.getConditionalOrders);
+    router.get('/:id/history', conditionalOrder.getConditionalOrderHistory);
     router.get('/:id', conditionalOrder.getConditionalOrder);
     router.post('/', conditionalOrder.createConditionalOrder);
     router.put('/:id/toggle', conditionalOrder.toggleConditionalOrder);
