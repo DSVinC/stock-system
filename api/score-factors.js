@@ -1,8 +1,10 @@
 /**
- * 6因子评分系统
- * 趋势因子、动能因子、估值因子、资金因子、业绩因子、波动率因子
+ * 7因子评分系统
+ * 趋势因子、动能因子、估值因子、资金因子、业绩因子、波动率因子、舆情因子
  */
 
+const fs = require('fs');
+const path = require('path');
 const {
   toNumber,
   getATR,
@@ -10,14 +12,55 @@ const {
   getStockPePercentile,
 } = require('./market-data');
 
-const FACTOR_WEIGHTS = {
-  trend: 0.20,      // 趋势因子 20%
-  momentum: 0.18,   // 动能因子 18%
-  valuation: 0.18,  // 估值因子 18%
-  capital: 0.16,    // 资金因子 16%
-  earnings: 0.16,   // 业绩因子 16%
-  volatility: 0.12  // 波动率因子 12%
+// 加载舆情因子模块
+const { calculateSentimentFactor } = require('./sentiment-factor');
+
+// 从配置文件加载权重
+const CONFIG_DIR = path.join(__dirname, '..', 'config');
+const WEIGHTS_FILE = path.join(CONFIG_DIR, 'factor-weights.json');
+
+// 默认权重（如果配置文件不存在）
+const DEFAULT_WEIGHTS = {
+  trend: 0.17,      // 趋势因子 17%
+  momentum: 0.15,   // 动能因子 15%
+  valuation: 0.15,  // 估值因子 15%
+  capital: 0.13,    // 资金因子 13%
+  earnings: 0.13,   // 业绩因子 13%
+  volatility: 0.12, // 波动率因子 12%
+  sentiment: 0.15   // 舆情因子 15%
 };
+
+// 加载配置文件中的权重
+function loadFactorWeights() {
+  try {
+    if (fs.existsSync(WEIGHTS_FILE)) {
+      const content = fs.readFileSync(WEIGHTS_FILE, 'utf8');
+      const config = JSON.parse(content);
+      
+      // 验证权重总和
+      const total = Object.entries(config)
+        .filter(([key]) => !key.startsWith('_'))
+        .reduce((sum, [_, value]) => sum + value, 0);
+      
+      // 权重总和必须在 0.99 到 1.01 之间（允许微小舍入误差）
+      if (Math.abs(total - 1.0) > 0.01) {
+        console.warn(`权重配置文件权重总和 ${total} 不等于 1.0，使用默认权重`);
+        return DEFAULT_WEIGHTS;
+      }
+      
+      return config;
+    } else {
+      console.warn(`权重配置文件不存在: ${WEIGHTS_FILE}，使用默认权重`);
+      return DEFAULT_WEIGHTS;
+    }
+  } catch (error) {
+    console.error(`加载权重配置文件失败: ${error.message}，使用默认权重`);
+    return DEFAULT_WEIGHTS;
+  }
+}
+
+// 导出权重配置（兼容旧版代码）
+const FACTOR_WEIGHTS = loadFactorWeights();
 
 // 评分范围：0.6 ~ 1.2，对应 1-5 分的 0.6-1.2 倍
 const SCORE_MIN = 0.6;
@@ -384,11 +427,45 @@ function calculateVolatilityFactor(technical, atr20) {
 }
 
 /**
- * 计算综合评分
+ * 计算加权总分（7因子）
+ * @param {Object} factors - 各因子得分对象
+ * @param {Object} weights - 权重配置（可选，默认使用配置文件权重）
+ * @returns {number} 加权总分
+ */
+function calculateWeightedScore(factors, weights = FACTOR_WEIGHTS) {
+  const {
+    trend = 0.6,
+    momentum = 0.6,
+    valuation = 0.6,
+    capital = 0.6,
+    earnings = 0.6,
+    volatility = 0.6,
+    sentiment = 0.6
+  } = factors;
+
+  // 验证权重
+  const validWeights = { ...DEFAULT_WEIGHTS, ...weights };
+  
+  // 计算加权总分
+  const weightedScore =
+    trend * validWeights.trend +
+    momentum * validWeights.momentum +
+    valuation * validWeights.valuation +
+    capital * validWeights.capital +
+    earnings * validWeights.earnings +
+    volatility * validWeights.volatility +
+    sentiment * validWeights.sentiment;
+
+  return weightedScore;
+}
+
+/**
+ * 计算综合评分（7因子）
  * @param {Object} params - 评分所需参数
+ * @param {string} stockCode - 股票代码（用于舆情因子）
  * @returns {Object} 完整评分结果
  */
-async function calculateCompositeScore(params) {
+async function calculateCompositeScore(params, stockCode = null) {
   const {
     technical,
     valuation,
@@ -401,7 +478,7 @@ async function calculateCompositeScore(params) {
     peHistory
   } = params;
 
-  // 计算各因子
+  // 计算 6 个基础因子
   const trend = calculateTrendFactor(technical);
   const momentum = calculateMomentumFactor(technical);
   const valuationResult = await calculateValuationFactor(valuation, industry, peHistory);
@@ -409,14 +486,27 @@ async function calculateCompositeScore(params) {
   const earnings = calculateEarningsFactor(fina, income);
   const volatility = calculateVolatilityFactor(technical, atr20);
 
-  // 加权总分
-  const weightedScore =
-    trend.score * FACTOR_WEIGHTS.trend +
-    momentum.score * FACTOR_WEIGHTS.momentum +
-    valuationResult.score * FACTOR_WEIGHTS.valuation +
-    capital.score * FACTOR_WEIGHTS.capital +
-    earnings.score * FACTOR_WEIGHTS.earnings +
-    volatility.score * FACTOR_WEIGHTS.volatility;
+  // 计算舆情因子（如果提供了股票代码）
+  let sentiment = { score: 0.6, details: { message: '未提供股票代码，使用默认舆情分' } };
+  if (stockCode) {
+    try {
+      sentiment = await calculateSentimentFactor(stockCode);
+    } catch (error) {
+      console.warn(`计算舆情因子失败(${stockCode}):`, error.message);
+      sentiment = { score: 0.6, details: { error: error.message } };
+    }
+  }
+
+  // 计算加权总分
+  const weightedScore = calculateWeightedScore({
+    trend: trend.score,
+    momentum: momentum.score,
+    valuation: valuationResult.score,
+    capital: capital.score,
+    earnings: earnings.score,
+    volatility: volatility.score,
+    sentiment: sentiment.score
+  });
 
   // 映射到 1-5 分
   const reportScore = Math.min(5, Math.max(1, weightedScore));
@@ -436,7 +526,8 @@ async function calculateCompositeScore(params) {
       valuation: { ...valuationResult, weight: FACTOR_WEIGHTS.valuation },
       capital: { ...capital, weight: FACTOR_WEIGHTS.capital },
       earnings: { ...earnings, weight: FACTOR_WEIGHTS.earnings },
-      volatility: { ...volatility, weight: FACTOR_WEIGHTS.volatility }
+      volatility: { ...volatility, weight: FACTOR_WEIGHTS.volatility },
+      sentiment: { ...sentiment, weight: FACTOR_WEIGHTS.sentiment }
     },
     weights: FACTOR_WEIGHTS
   };
@@ -450,6 +541,8 @@ module.exports = {
   calculateEarningsFactor,
   calculateVolatilityFactor,
   calculateCompositeScore,
+  calculateWeightedScore,
+  loadFactorWeights,
   FACTOR_WEIGHTS,
   SCORE_MIN,
   SCORE_MAX
