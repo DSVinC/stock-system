@@ -71,7 +71,7 @@ function getCachedReport(stockCode, version = "v1") {
 }
 
 function setCachedReport(stockCode, payload, version = "v1") {
-  reportCache.set(`${version}:${stockCode}, { payload, timestamp: Date.now() });
+  reportCache.set(`${version}:${stockCode}`, { payload, timestamp: Date.now() });
 }
 
 async function analyzeStockWithCache(stockCode, version = "v1") {
