@@ -29,10 +29,15 @@ function validateConditions(conditions) {
     ma_death_cross: { params: ['ma_short', 'ma_long'] },
     rsi_overbought: { params: ['threshold'] },
     rsi_oversold: { params: ['threshold'] },
+    volume_ratio_above: { params: ['ratio'] },
+    macd_bullish: { params: ['signal'] },
+    macd_bearish: { params: ['signal'] },
     pe_low: { params: ['pe'] },
     pe_high: { params: ['pe'] },
     daily_gain: { params: ['percent'] },
-    daily_loss: { params: ['percent'] }
+    daily_loss: { params: ['percent'] },
+    main_force_net_inflow: { params: ['amount'] },
+    main_force_net_outflow: { params: ['amount'] }
   };
   const validTypes = ['price', 'pct_change', 'volume_ratio', 'rsi', 'macd_cross', 'pe_percentile', 'main_force_net', 'indicator', 'fundamental'];
   const validOperators = ['>=', '<=', '>', '<', '==', '!='];
@@ -63,8 +68,14 @@ function validateConditions(conditions) {
           return { valid: false, error: `${key} 必须在 0-100 之间` };
         }
       }
+      if (cond.trigger_type === 'volume_ratio_above' && Number(params.ratio) < 0) {
+        return { valid: false, error: '量比阈值不能为负数' };
+      }
       if (['pe_low', 'pe_high'].includes(cond.trigger_type) && Number(params.pe) < 0) {
         return { valid: false, error: 'PE 阈值不能为负数' };
+      }
+      if (['main_force_net_inflow', 'main_force_net_outflow'].includes(cond.trigger_type) && Number(params.amount) < 0) {
+        return { valid: false, error: '主力净额阈值不能为负数' };
       }
       if (['ma_golden_cross', 'ma_death_cross'].includes(cond.trigger_type)) {
         const shortMa = Number(params.ma_short);
@@ -462,14 +473,14 @@ function evaluateTriggerTypeCondition(condition, marketData, technicalData) {
   switch (triggerType) {
     case 'price_above':
       return evaluateCrossCondition(
-        marketData?.previousPrice ?? marketData?.prevPrice,
+        marketData?.prevClose ?? marketData?.previousPrice ?? marketData?.prevPrice,
         marketData?.price,
         Number(params.price),
         'above'
       );
     case 'price_below':
       return evaluateCrossCondition(
-        marketData?.previousPrice ?? marketData?.prevPrice,
+        marketData?.prevClose ?? marketData?.previousPrice ?? marketData?.prevPrice,
         marketData?.price,
         Number(params.price),
         'below'
@@ -482,6 +493,12 @@ function evaluateTriggerTypeCondition(condition, marketData, technicalData) {
       return compareValues(technicalData?.rsi, '>=', Number(params.threshold));
     case 'rsi_oversold':
       return compareValues(technicalData?.rsi, '<=', Number(params.threshold));
+    case 'volume_ratio_above':
+      return compareValues(marketData?.volumeRatio, '>=', Number(params.ratio));
+    case 'macd_bullish':
+      return compareValues(technicalData?.macdSignal, '>=', Number(params.signal));
+    case 'macd_bearish':
+      return compareValues(technicalData?.macdSignal, '<=', Number(params.signal));
     case 'pe_low':
       return compareValues(marketData?.pe ?? marketData?.pe_ttm, '<=', Number(params.pe));
     case 'pe_high':
@@ -490,6 +507,10 @@ function evaluateTriggerTypeCondition(condition, marketData, technicalData) {
       return compareValues(marketData?.pctChange, '>=', Number(params.percent));
     case 'daily_loss':
       return compareValues(marketData?.pctChange, '<=', -Math.abs(Number(params.percent)));
+    case 'main_force_net_inflow':
+      return compareValues(marketData?.mainForceNet, '>=', Number(params.amount));
+    case 'main_force_net_outflow':
+      return compareValues(marketData?.mainForceNet, '<=', -Math.abs(Number(params.amount)));
     default:
       console.warn(`未知触发类型: ${triggerType}`);
       return false;

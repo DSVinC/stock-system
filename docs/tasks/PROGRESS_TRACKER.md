@@ -55,21 +55,25 @@ TASK_004 (select.html) ✅ 完成，🟢 验收中
 - [ ] TASK_ANALYZE_STRUCT_004: 🟡 进行中
 - [ ] 下次检查：12:46
 
-### 2026-03-22 13:30 - 进度更新
+### 2026-03-22 13:50 - 进度更新
 - [x] TASK_002: ✅ 通过
 - [x] TASK_003: ✅ 通过
 - [x] TASK_004: ✅ 通过
-- [x] TASK_CONDITIONAL_IMPORT_001: 🟢 执行中（swift-comet, pid 36991）
-- [x] TASK_CONDITIONAL_UI_001: 🟢 执行中（faint-basil, pid 39280）
-- [x] TASK_CONDITIONAL_TRIGGER_001: 🟢 执行中（mild-falcon, pid 39441）
+- [x] TASK_CONDITIONAL_IMPORT_001: ❌ 验收不通过（2 个问题）
+- [x] TASK_CONDITIONAL_UI_001: ❌ 验收不通过（功能缺失）
+- [x] TASK_CONDITIONAL_TRIGGER_001: ❌ 验收不通过（映射/判定问题）
+- [x] TASK_CONDITIONAL_FIX_001: 🟢 **修复中**（4 个问题并行修复）
 - [ ] 下次检查：手动推进
 
-### 2026-03-22 13:15 - 进度更新
+### 2026-03-22 13:40 - 进度更新
 - [x] TASK_002: ✅ 通过
-- [x] TASK_003: ✅ **通过**（Codex 验收，warm-shoal）
+- [x] TASK_003: ✅ 通过
 - [x] TASK_004: ✅ 通过
-- [x] TASK_CONDITIONAL_IMPORT_001: 🟢 **启动中**（并行开发）
-- [ ] 下次检查：手动推进
+- [x] TASK_CONDITIONAL_IMPORT_001: ✅ 完成，🟢 验收中
+- [x] TASK_CONDITIONAL_UI_001: ✅ 完成，🟢 验收中
+- [x] TASK_CONDITIONAL_TRIGGER_001: ✅ 完成，🟢 验收中
+- [x] 代码提交：ec8b2ce（1023 行新增）
+- [ ] 下一步：条件单执行器 + 后端 API
 
 ### 2026-03-22 12:35 - 进度更新
 - [x] TASK_002: ✅ 通过

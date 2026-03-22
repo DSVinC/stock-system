@@ -602,7 +602,7 @@
         <h3 class="modal-title">新建条件单</h3>
         <button class="modal-close" onclick="closeCreateModal()">&times;</button>
       </div>
-      <form id="create-form" onsubmit="saveOrder(event)">
+      <form id="create-form" onsubmit="createOrder(event)">
         <div class="form-row">
           <div class="form-field">
             <label class="form-label">股票代码</label>
@@ -758,6 +758,33 @@
         ],
         preview: (params) => `RSI 低于 ${formatNumber(params.threshold)}（超卖）`
       },
+      volume_ratio_above: {
+        label: '量比高于',
+        category: 'indicator',
+        orderType: 'indicator',
+        params: [
+          { key: 'ratio', label: '量比阈值', type: 'number', min: '0', step: '0.1', placeholder: '如 2' }
+        ],
+        preview: (params) => `量比高于 ${formatNumber(params.ratio)}`
+      },
+      macd_bullish: {
+        label: 'MACD 金叉',
+        category: 'indicator',
+        orderType: 'indicator',
+        params: [
+          { key: 'signal', label: '信号值', type: 'number', step: '0.1', placeholder: '如 0' }
+        ],
+        preview: (params) => `MACD 金叉，信号值高于 ${formatNumber(params.signal)}`
+      },
+      macd_bearish: {
+        label: 'MACD 死叉',
+        category: 'indicator',
+        orderType: 'indicator',
+        params: [
+          { key: 'signal', label: '信号值', type: 'number', step: '0.1', placeholder: '如 0' }
+        ],
+        preview: (params) => `MACD 死叉，信号值低于 ${formatNumber(params.signal)}`
+      },
       pe_low: {
         label: 'PE 低于',
         category: 'fundamental',
@@ -793,6 +820,24 @@
           { key: 'percent', label: '跌幅阈值', type: 'number', min: '0', max: '100', step: '0.1', placeholder: '如 3' }
         ],
         preview: (params) => `日跌幅超过 ${formatNumber(params.percent)}%`
+      },
+      main_force_net_inflow: {
+        label: '主力净流入高于',
+        category: 'capital',
+        orderType: 'capital',
+        params: [
+          { key: 'amount', label: '净流入阈值', type: 'number', step: '0.01', placeholder: '如 5000000' }
+        ],
+        preview: (params) => `主力净流入高于 ${formatNumber(params.amount)}`
+      },
+      main_force_net_outflow: {
+        label: '主力净流出高于',
+        category: 'capital',
+        orderType: 'capital',
+        params: [
+          { key: 'amount', label: '净流出阈值', type: 'number', step: '0.01', placeholder: '如 5000000' }
+        ],
+        preview: (params) => `主力净流出高于 ${formatNumber(params.amount)}`
       }
     };
     const IMPORT_PARAM_KEY = 'import';
@@ -842,81 +887,111 @@
         headers: { 'Content-Type': 'application/json' },
         ...options
       });
-      return response.json();
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || result.message || '请求失败');
+      }
+      return result;
+    }
+
+    function normalizeOrderStatus(status) {
+      if (status === 'pending' || status === 'enabled') return 'enabled';
+      if (status === 'cancelled' || status === 'disabled') return 'disabled';
+      if (status === 'expired') return 'expired';
+      return status || 'disabled';
     }
 
     function getAccountId() {
-      currentAccountId = parseInt(localStorage.getItem('current_account_id'));
-      return currentAccountId;
+      currentAccountId = parseInt(localStorage.getItem('current_account_id'), 10);
+      return Number.isFinite(currentAccountId) ? currentAccountId : null;
+    }
+
+    function getVisibleOrders() {
+      return ordersData.filter((order) => {
+        const status = normalizeOrderStatus(order.status);
+        const matchesStatus = currentFilter === 'all' || status === currentFilter;
+        const keyword = currentSearch.trim().toLowerCase();
+        const matchesSearch = !keyword
+          || String(order.ts_code || '').toLowerCase().includes(keyword)
+          || String(order.stock_name || '').toLowerCase().includes(keyword);
+        return matchesStatus && matchesSearch;
+      });
     }
 
     async function loadOrders() {
       const accountId = getAccountId();
-      if (!accountId) {
-        ordersData = [];
-        document.getElementById('order-list').innerHTML = '<div class="empty-state"><p class="empty-copy">请先选择账户</p></div>';
-        return;
-      }
-
-      const url = currentFilter === 'all'
-        ? `/api/conditional-order?account_id=${accountId}`
-        : `/api/conditional-order?account_id=${accountId}&status=${currentFilter}`;
-
-      const result = await api(url);
       const listEl = document.getElementById('order-list');
 
-      const filteredData = (result.data || []).filter((order) => {
-        if (!currentSearch) {
-          return true;
-        }
-        const keyword = currentSearch.toLowerCase();
-        return String(order.ts_code || '').toLowerCase().includes(keyword)
-          || String(order.stock_name || '').toLowerCase().includes(keyword);
-      });
-
-      if (!result.success || filteredData.length === 0) {
+      if (!accountId) {
         ordersData = [];
-        listEl.innerHTML = '<div class="empty-state"><p class="empty-title">暂无条件单</p><p class="empty-copy">点击上方按钮创建</p></div>';
+        listEl.innerHTML = '<div class="empty-state"><p class="empty-title">未选择账户</p><p class="empty-copy">请先前往账户管理选择账户，再查看条件单列表。</p></div>';
         return;
       }
 
-      // 保存数据供导出使用
-      ordersData = filteredData;
+      try {
+        const result = await api(`/api/conditional-order?account_id=${accountId}`);
+        ordersData = Array.isArray(result.data)
+          ? result.data.map((order) => ({ ...order, status: normalizeOrderStatus(order.status) }))
+          : [];
+        renderOrders();
+      } catch (error) {
+        ordersData = [];
+        listEl.innerHTML = `<div class="empty-state"><p class="empty-title">加载失败</p><p class="empty-copy">${escapeHtml(error.message)}</p></div>`;
+      }
+    }
+
+    function renderOrders() {
+      const listEl = document.getElementById('order-list');
+      const visibleOrders = getVisibleOrders();
+
+      if (ordersData.length === 0) {
+        listEl.innerHTML = '<div class="empty-state"><p class="empty-title">暂无条件单</p><p class="empty-copy"><strong>点击“新建条件单”</strong>，开始为股票设置自动触发规则。</p></div>';
+        return;
+      }
+
+      if (visibleOrders.length === 0) {
+        listEl.innerHTML = '<div class="empty-state"><p class="empty-title">没有匹配的条件单</p><p class="empty-copy">请调整状态筛选或搜索关键词。</p></div>';
+        return;
+      }
 
       listEl.innerHTML = `
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>状态</th>
-                <th>股票</th>
+                <th>股票名</th>
+                <th>代码</th>
+                <th>触发条件</th>
                 <th>动作</th>
-                <th>条件</th>
-                <th>有效期</th>
-                <th>触发</th>
+                <th>状态</th>
                 <th>操作</th>
               </tr>
             </thead>
             <tbody>
-              ${filteredData.map(order => `
-                <tr>
-                  <td><span class="status-badge status-${order.status}">${getStatusText(order.status)}</span></td>
-                  <td>${order.ts_code}<br><small style="color:var(--text-soft)">${order.stock_name}</small></td>
-                  <td><span class="action-tag ${order.action === 'buy' ? 'buy' : 'sell'}">${order.action === 'buy' ? '买入' : '卖出'}</span></td>
-                  <td>${formatConditions(order.conditions)}</td>
-                  <td>${order.start_date} 至 ${order.end_date}</td>
-                  <td>${order.trigger_count}/${order.max_trigger_count}</td>
-                  <td>
-                    <div class="action-buttons">
-                      <button class="action-btn primary" onclick="exportToBacktest(${order.id})">导入回测</button>
-                      <button class="action-btn" onclick="copyOrderData(${order.id})">复制</button>
-                      ${order.status === 'enabled' || order.status === 'pending' ? `
-                        <button class="action-btn danger" onclick="cancelOrder(${order.id})">取消</button>
-                      ` : ''}
-                    </div>
-                  </td>
-                </tr>
-              `).join('')}
+              ${visibleOrders.map((order) => {
+                const normalizedStatus = normalizeOrderStatus(order.status);
+                return `
+                  <tr>
+                    <td><span class="stock-name">${escapeHtml(order.stock_name || '-')}</span></td>
+                    <td><span class="stock-code">${escapeHtml(order.ts_code || '-')}</span></td>
+                    <td><span class="condition-copy">${escapeHtml(formatConditions(order.conditions))}</span></td>
+                    <td><span class="action-tag ${order.action === 'buy' ? 'buy' : 'sell'}">${order.action === 'buy' ? '买入' : '卖出'}</span></td>
+                    <td><span class="status-badge status-${normalizedStatus}">${getStatusText(normalizedStatus)}</span></td>
+                    <td>
+                      <div class="table-actions">
+                        ${normalizedStatus === 'triggered' ? '<span class="action-btn">已完成</span>' : `
+                          <label class="switch" title="${normalizedStatus === 'enabled' ? '禁用条件单' : '启用条件单'}">
+                            <input type="checkbox" ${normalizedStatus === 'enabled' ? 'checked' : ''} onchange="toggleOrder(${order.id})">
+                            <span class="switch-slider"></span>
+                          </label>
+                        `}
+                        <button class="action-btn" type="button" onclick="editOrder(${order.id})">编辑</button>
+                        <button class="action-btn danger" type="button" onclick="deleteOrder(${order.id})">删除</button>
+                      </div>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
             </tbody>
           </table>
         </div>
@@ -925,12 +1000,12 @@
 
     function getStatusText(status) {
       const map = {
-        enabled: '启用中',
-        pending: '待触发',
-        disabled: '已禁用',
-        cancelled: '已取消',
+        enabled: '启用',
+        pending: '启用',
+        disabled: '禁用',
+        cancelled: '禁用',
         triggered: '已触发',
-        expired: '已过期'
+        expired: '已结束'
       };
       return map[status] || status;
     }
@@ -954,7 +1029,10 @@
         const fieldMap = {
           price: '股价',
           pct_change: '涨跌幅',
+          volume_ratio: '量比',
           rsi: 'RSI',
+          macd_cross: 'MACD',
+          main_force_net: '主力净额',
           pe: 'PE'
         };
         return `${fieldMap[condition.type] || condition.type}${condition.operator}${condition.value}`;
@@ -1030,6 +1108,12 @@
           return { ...base, type: 'indicator', field: 'rsi', operator: '>=', value: normalized.threshold };
         case 'rsi_oversold':
           return { ...base, type: 'indicator', field: 'rsi', operator: '<=', value: normalized.threshold };
+        case 'volume_ratio_above':
+          return { ...base, type: 'indicator', field: 'volume_ratio', operator: '>=', value: normalized.ratio };
+        case 'macd_bullish':
+          return { ...base, type: 'indicator', field: 'macd_cross', operator: '>=', value: normalized.signal };
+        case 'macd_bearish':
+          return { ...base, type: 'indicator', field: 'macd_cross', operator: '<=', value: normalized.signal };
         case 'pe_low':
           return { ...base, type: 'fundamental', field: 'pe', operator: '<=', value: normalized.pe };
         case 'pe_high':
@@ -1038,6 +1122,10 @@
           return { ...base, type: 'pct_change', field: 'pct_change', operator: '>=', value: normalized.percent, unit: '%' };
         case 'daily_loss':
           return { ...base, type: 'pct_change', field: 'pct_change', operator: '<=', value: normalized.percent ? -Math.abs(normalized.percent) : normalized.percent, unit: '%' };
+        case 'main_force_net_inflow':
+          return { ...base, type: 'fundamental', field: 'main_force_net', operator: '>=', value: normalized.amount };
+        case 'main_force_net_outflow':
+          return { ...base, type: 'fundamental', field: 'main_force_net', operator: '<=', value: normalized.amount ? -Math.abs(normalized.amount) : normalized.amount };
         default:
           return base;
       }
@@ -1362,6 +1450,24 @@
         return createLegacyCompatibleCondition('rsi_oversold', { threshold: value });
       }
 
+      if (field === 'volume_ratio') {
+        return createLegacyCompatibleCondition('volume_ratio_above', { ratio: value });
+      }
+
+      if (field === 'macd' || field === 'macd_cross') {
+        if (operator === '<=' || operator === '<' || String(value).startsWith('-')) {
+          return createLegacyCompatibleCondition('macd_bearish', { signal: value });
+        }
+        return createLegacyCompatibleCondition('macd_bullish', { signal: value });
+      }
+
+      if (field === 'main_force_net') {
+        if (operator === '<=' || operator === '<' || Number(value) < 0) {
+          return createLegacyCompatibleCondition('main_force_net_outflow', { amount: Math.abs(Number(value)) || value });
+        }
+        return createLegacyCompatibleCondition('main_force_net_inflow', { amount: value });
+      }
+
       if (field === 'pe' || field === 'pe_percentile' || condition?.type === 'fundamental') {
         if (operator === '>=' || operator === '>') {
           return createLegacyCompatibleCondition('pe_high', { pe: value });
@@ -1519,6 +1625,40 @@
       } else {
         showToast('创建失败: ' + result.error, 'error');
       }
+    }
+
+    async function toggleOrder(id) {
+      try {
+        const result = await api(`/api/conditional-order/${id}/toggle`, {
+          method: 'PUT'
+        });
+
+        await loadOrders();
+        showToast(result.data?.status === 'enabled' ? '条件单已启用' : '条件单已禁用', 'success');
+      } catch (error) {
+        showToast('切换失败: ' + error.message, 'error');
+      }
+    }
+
+    async function deleteOrder(id) {
+      if (!confirm('确定要删除这个条件单吗？删除后无法恢复。')) {
+        return;
+      }
+
+      try {
+        await api(`/api/conditional-order/${id}`, {
+          method: 'DELETE'
+        });
+
+        await loadOrders();
+        showToast('条件单已删除', 'success');
+      } catch (error) {
+        showToast('删除失败: ' + error.message, 'error');
+      }
+    }
+
+    function editOrder(id) {
+      showToast(`编辑功能待补充，当前仅支持启用/禁用和删除（ID: ${id}）`, 'info');
     }
 
     async function cancelOrder(id) {
