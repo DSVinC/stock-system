@@ -155,6 +155,7 @@ async function bootstrap() {
     router.get('/list', conditionalOrder.getConditionalOrders);
     router.get('/:id', conditionalOrder.getConditionalOrder);
     router.post('/', conditionalOrder.createConditionalOrder);
+    router.put('/:id/toggle', conditionalOrder.toggleConditionalOrder);
     router.put('/:id', conditionalOrder.updateConditionalOrder);
     router.delete('/:id', conditionalOrder.deleteConditionalOrder);
     router.post('/:id/cancel', conditionalOrder.cancelConditionalOrder);

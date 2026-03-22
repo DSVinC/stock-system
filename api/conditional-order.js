@@ -21,11 +21,61 @@ function validateConditions(conditions) {
   if (!Array.isArray(conditions) || conditions.length === 0) {
     return { valid: false, error: 'conditions必须是非空数组' };
   }
-  
-  const validTypes = ['price', 'pct_change', 'volume_ratio', 'rsi', 'macd_cross', 'pe_percentile', 'main_force_net'];
+
+  const triggerTypeDefs = {
+    price_above: { params: ['price'] },
+    price_below: { params: ['price'] },
+    ma_golden_cross: { params: ['ma_short', 'ma_long'] },
+    ma_death_cross: { params: ['ma_short', 'ma_long'] },
+    rsi_overbought: { params: ['threshold'] },
+    rsi_oversold: { params: ['threshold'] },
+    pe_low: { params: ['pe'] },
+    pe_high: { params: ['pe'] },
+    daily_gain: { params: ['percent'] },
+    daily_loss: { params: ['percent'] }
+  };
+  const validTypes = ['price', 'pct_change', 'volume_ratio', 'rsi', 'macd_cross', 'pe_percentile', 'main_force_net', 'indicator', 'fundamental'];
   const validOperators = ['>=', '<=', '>', '<', '==', '!='];
-  
+
+  const isFiniteNumber = (value) => Number.isFinite(Number(value));
+
   for (const cond of conditions) {
+    if (cond.trigger_type) {
+      const triggerDef = triggerTypeDefs[cond.trigger_type];
+      if (!triggerDef) {
+        return { valid: false, error: `无效的触发类型: ${cond.trigger_type}` };
+      }
+
+      const params = cond.params && typeof cond.params === 'object' ? cond.params : {};
+      for (const key of triggerDef.params) {
+        if (!isFiniteNumber(params[key])) {
+          return { valid: false, error: `触发参数 ${key} 无效` };
+        }
+      }
+
+      if (['price_above', 'price_below'].includes(cond.trigger_type) && Number(params.price) <= 0) {
+        return { valid: false, error: '价格必须为正数' };
+      }
+      if (['daily_gain', 'daily_loss', 'rsi_overbought', 'rsi_oversold'].includes(cond.trigger_type)) {
+        const key = cond.trigger_type.startsWith('rsi') ? 'threshold' : 'percent';
+        const value = Number(params[key]);
+        if (value < 0 || value > 100) {
+          return { valid: false, error: `${key} 必须在 0-100 之间` };
+        }
+      }
+      if (['pe_low', 'pe_high'].includes(cond.trigger_type) && Number(params.pe) < 0) {
+        return { valid: false, error: 'PE 阈值不能为负数' };
+      }
+      if (['ma_golden_cross', 'ma_death_cross'].includes(cond.trigger_type)) {
+        const shortMa = Number(params.ma_short);
+        const longMa = Number(params.ma_long);
+        if (shortMa < 1 || longMa < 1 || shortMa >= longMa) {
+          return { valid: false, error: 'MA 参数无效，要求短期均线小于长期均线' };
+        }
+      }
+      continue;
+    }
+
     if (!cond.type || !validTypes.includes(cond.type)) {
       return { valid: false, error: `无效的条件类型: ${cond.type}` };
     }
@@ -38,6 +88,27 @@ function validateConditions(conditions) {
   }
   
   return { valid: true };
+}
+
+function normalizeStatusForWrite(status) {
+  if (status === 'pending') return 'enabled';
+  if (status === 'cancelled') return 'disabled';
+  return status;
+}
+
+function buildStatusClause(status) {
+  switch (status) {
+    case 'enabled':
+      return { clause: 'status IN (?, ?)', params: ['enabled', 'pending'] };
+    case 'disabled':
+      return { clause: 'status IN (?, ?)', params: ['disabled', 'cancelled'] };
+    case 'triggered':
+      return { clause: 'status = ?', params: ['triggered'] };
+    case 'expired':
+      return { clause: 'status = ?', params: ['expired'] };
+    default:
+      return null;
+  }
 }
 
 // ========== 条件单管理 API ==========
@@ -60,8 +131,14 @@ async function getConditionalOrders(req, res) {
       params.push(account_id);
     }
     if (status) {
-      conditions.push('status = ?');
-      params.push(status);
+      const statusClause = buildStatusClause(status);
+      if (statusClause) {
+        conditions.push(statusClause.clause);
+        params.push(...statusClause.params);
+      } else {
+        conditions.push('status = ?');
+        params.push(status);
+      }
     }
     
     if (conditions.length > 0) {
@@ -74,6 +151,7 @@ async function getConditionalOrders(req, res) {
     // 安全解析conditions JSON
     const parsedOrders = orders.map(order => ({
       ...order,
+      status: normalizeStatusForWrite(order.status),
       conditions: safeJsonParse(order.conditions, [])
     }));
     
@@ -102,6 +180,7 @@ async function getConditionalOrder(req, res) {
     // 安全解析 conditions JSON
     const parsedOrder = {
       ...order,
+      status: normalizeStatusForWrite(order.status),
       conditions: safeJsonParse(order.conditions, [])
     };
     
@@ -157,7 +236,7 @@ async function createConditionalOrder(req, res) {
         start_date, end_date, status,
         max_trigger_count, trigger_count,
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 0, datetime('now'), datetime('now'))
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'enabled', ?, 0, datetime('now'), datetime('now'))
     `, [
       account_id, ts_code, stock_name, order_type, action,
       quantity || null, amount || null, position_pct || null,
@@ -169,7 +248,7 @@ async function createConditionalOrder(req, res) {
     
     res.json({ 
       success: true, 
-      data: { id: result.lastID, ts_code, stock_name, action, status: 'pending' }
+      data: { id: result.lastID, ts_code, stock_name, action, status: 'enabled' }
     });
   } catch (error) {
     console.error('创建条件单失败:', error);
@@ -193,8 +272,8 @@ async function updateConditionalOrder(req, res) {
     if (!order) {
       return res.status(404).json({ success: false, error: '条件单不存在' });
     }
-    if (order.status !== 'pending') {
-      return res.status(400).json({ success: false, error: '只能修改待触发状态的条件单' });
+    if (!['pending', 'enabled', 'disabled', 'cancelled'].includes(order.status)) {
+      return res.status(400).json({ success: false, error: '当前状态的条件单不允许编辑' });
     }
     
     // 构建更新字段
@@ -246,6 +325,43 @@ async function deleteConditionalOrder(req, res) {
 }
 
 /**
+ * 启用/禁用切换
+ * PUT /api/conditional-order/:id/toggle
+ */
+async function toggleConditionalOrder(req, res) {
+  try {
+    const { id } = req.params;
+    const db = await getDatabase();
+
+    const order = await db.getPromise('SELECT * FROM conditional_order WHERE id = ?', [id]);
+    if (!order) {
+      return res.status(404).json({ success: false, error: '条件单不存在' });
+    }
+
+    if (['triggered', 'expired'].includes(order.status)) {
+      return res.status(400).json({ success: false, error: '已触发条件单不支持启用/禁用切换' });
+    }
+
+    const nextStatus = ['enabled', 'pending'].includes(order.status) ? 'disabled' : 'enabled';
+    await db.runPromise(
+      'UPDATE conditional_order SET status = ?, updated_at = datetime(\'now\') WHERE id = ?',
+      [nextStatus, id]
+    );
+
+    res.json({
+      success: true,
+      data: {
+        id: Number(id),
+        status: nextStatus
+      }
+    });
+  } catch (error) {
+    console.error('切换条件单状态失败:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+/**
  * 取消条件单
  * POST /api/conditional-order/:id/cancel
  */
@@ -258,12 +374,12 @@ async function cancelConditionalOrder(req, res) {
     if (!order) {
       return res.status(404).json({ success: false, error: '条件单不存在' });
     }
-    if (order.status !== 'pending') {
+    if (!['pending', 'enabled'].includes(order.status)) {
       return res.status(400).json({ success: false, error: `条件单状态为${order.status}，无法取消` });
     }
     
     await db.runPromise(`
-      UPDATE conditional_order SET status = 'cancelled', updated_at = datetime('now') WHERE id = ?
+      UPDATE conditional_order SET status = 'disabled', updated_at = datetime('now') WHERE id = ?
     `, [id]);
     
     res.json({ success: true, message: '条件单已取消' });
@@ -302,6 +418,10 @@ function checkCondition(order, marketData, technicalData) {
  * @param {Object} technicalData - 技术指标数据
  */
 function evaluateCondition(condition, marketData, technicalData) {
+  if (condition?.trigger_type) {
+    return evaluateTriggerTypeCondition(condition, marketData, technicalData);
+  }
+
   const { type, operator, value } = condition;
   let actualValue;
   
@@ -333,6 +453,104 @@ function evaluateCondition(condition, marketData, technicalData) {
   }
   
   return compareValues(actualValue, operator, value);
+}
+
+function evaluateTriggerTypeCondition(condition, marketData, technicalData) {
+  const triggerType = condition.trigger_type;
+  const params = condition.params || {};
+
+  switch (triggerType) {
+    case 'price_above':
+      return evaluateCrossCondition(
+        marketData?.previousPrice ?? marketData?.prevPrice,
+        marketData?.price,
+        Number(params.price),
+        'above'
+      );
+    case 'price_below':
+      return evaluateCrossCondition(
+        marketData?.previousPrice ?? marketData?.prevPrice,
+        marketData?.price,
+        Number(params.price),
+        'below'
+      );
+    case 'ma_golden_cross':
+      return evaluateMovingAverageCross(technicalData, params, 'golden');
+    case 'ma_death_cross':
+      return evaluateMovingAverageCross(technicalData, params, 'death');
+    case 'rsi_overbought':
+      return compareValues(technicalData?.rsi, '>=', Number(params.threshold));
+    case 'rsi_oversold':
+      return compareValues(technicalData?.rsi, '<=', Number(params.threshold));
+    case 'pe_low':
+      return compareValues(marketData?.pe ?? marketData?.pe_ttm, '<=', Number(params.pe));
+    case 'pe_high':
+      return compareValues(marketData?.pe ?? marketData?.pe_ttm, '>=', Number(params.pe));
+    case 'daily_gain':
+      return compareValues(marketData?.pctChange, '>=', Number(params.percent));
+    case 'daily_loss':
+      return compareValues(marketData?.pctChange, '<=', -Math.abs(Number(params.percent)));
+    default:
+      console.warn(`未知触发类型: ${triggerType}`);
+      return false;
+  }
+}
+
+function evaluateCrossCondition(previousValue, currentValue, threshold, direction) {
+  if (!Number.isFinite(currentValue) || !Number.isFinite(threshold)) {
+    return false;
+  }
+
+  if (!Number.isFinite(previousValue)) {
+    return direction === 'above'
+      ? currentValue >= threshold
+      : currentValue <= threshold;
+  }
+
+  return direction === 'above'
+    ? previousValue < threshold && currentValue >= threshold
+    : previousValue > threshold && currentValue <= threshold;
+}
+
+function getMovingAverageValue(technicalData, period, previous = false) {
+  if (!technicalData) {
+    return undefined;
+  }
+
+  const currentMap = technicalData.ma || technicalData.movingAverages;
+  const previousMap = technicalData.prevMa || technicalData.previousMa || technicalData.prevMovingAverages;
+  const source = previous ? previousMap : currentMap;
+  if (source && source[period] !== undefined) {
+    return Number(source[period]);
+  }
+
+  const directKey = `ma${period}`;
+  const prevKey = `prevMa${period}`;
+  return Number(previous ? technicalData[prevKey] : technicalData[directKey]);
+}
+
+function evaluateMovingAverageCross(technicalData, params, mode) {
+  const shortPeriod = Number(params.ma_short);
+  const longPeriod = Number(params.ma_long);
+  const shortCurrent = getMovingAverageValue(technicalData, shortPeriod, false);
+  const longCurrent = getMovingAverageValue(technicalData, longPeriod, false);
+
+  if (!Number.isFinite(shortCurrent) || !Number.isFinite(longCurrent)) {
+    return false;
+  }
+
+  const shortPrevious = getMovingAverageValue(technicalData, shortPeriod, true);
+  const longPrevious = getMovingAverageValue(technicalData, longPeriod, true);
+
+  if (!Number.isFinite(shortPrevious) || !Number.isFinite(longPrevious)) {
+    return mode === 'golden'
+      ? shortCurrent >= longCurrent
+      : shortCurrent <= longCurrent;
+  }
+
+  return mode === 'golden'
+    ? shortPrevious < longPrevious && shortCurrent >= longCurrent
+    : shortPrevious > longPrevious && shortCurrent <= longCurrent;
 }
 
 /**
@@ -372,6 +590,7 @@ module.exports = {
   createConditionalOrder,
   updateConditionalOrder,
   deleteConditionalOrder,
+  toggleConditionalOrder,
   cancelConditionalOrder,
   checkCondition,
   evaluateCondition,

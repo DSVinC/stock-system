@@ -224,14 +224,14 @@ async function sendFeishuNotification(order, tradeResult) {
   }
 }
 
-// 主监控函数 - 检查所有pending条件单
+// 主监控函数 - 检查所有启用中的条件单
 async function checkAllConditionalOrders() {
   console.log('[监控] 开始检查条件单...');
   
   const db = await getDatabase();
   const orders = await db.allPromise(`
     SELECT * FROM conditional_order 
-    WHERE status = 'pending' 
+    WHERE status IN ('enabled', 'pending')
     AND start_date <= date('now') 
     AND end_date >= date('now')
   `);
