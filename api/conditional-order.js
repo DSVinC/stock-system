@@ -518,7 +518,7 @@ function evaluateCondition(condition, marketData, technicalData) {
       actualValue = technicalData?.rsi;
       break;
     case 'macd_cross':
-      actualValue = technicalData?.macdSignal;
+      actualValue = technicalData?.macdSignalValue ?? technicalData?.macdSignal;
       return compareValues(actualValue, operator, value);
     case 'pe_percentile':
       actualValue = marketData.pePercentile;
@@ -564,9 +564,17 @@ function evaluateTriggerTypeCondition(condition, marketData, technicalData) {
     case 'volume_ratio_above':
       return compareValues(marketData?.volumeRatio, '>=', Number(params.ratio));
     case 'macd_bullish':
-      return compareValues(technicalData?.macdSignal, '>=', Number(params.signal));
+      return compareValues(
+        technicalData?.macdSignalValue ?? technicalData?.macdSignal,
+        '>=',
+        Number(params.signal)
+      );
     case 'macd_bearish':
-      return compareValues(technicalData?.macdSignal, '<=', Number(params.signal));
+      return compareValues(
+        technicalData?.macdSignalValue ?? technicalData?.macdSignal,
+        '<=',
+        Number(params.signal)
+      );
     case 'pe_low':
       return compareValues(marketData?.pe ?? marketData?.pe_ttm, '<=', Number(params.pe));
     case 'pe_high':
