@@ -60,7 +60,7 @@ function getAnalysisRouter() {
   return require('./analysis');
 }
 
-function getCachedReport(stockCode, version = "v1") {
+function getCachedReport(stockCode) {
   const cached = reportCache.get(`${version}:${stockCode}`);
   if (!cached) return null;
   if (Date.now() - cached.timestamp > CACHE_TTL_MS) {
@@ -70,11 +70,11 @@ function getCachedReport(stockCode, version = "v1") {
   return cached.payload;
 }
 
-function setCachedReport(stockCode, payload, version = "v1") {
+function setCachedReport(stockCode, payload, version) {
   reportCache.set(`${version}:${stockCode}, { payload, timestamp: Date.now() });
 }
 
-async function analyzeStockWithCache(stockCode, version = "v1") {
+async function analyzeStockWithCache(stockCode, version) {
   // 先检查缓存
   const cached = getCachedReport(stockCode, version);
   if (cached) {
