@@ -351,7 +351,7 @@ class BacktestEngine {
           break;
 
         case 'conditional':
-          ({ shouldBuy, shouldSell } = this.evaluateConditionalStrategy(stock, prices, strategy));
+          ({ shouldBuy, shouldSell, orderConfig } = this.evaluateConditionalStrategy(stock, prices, strategy));
           break;
 
         default:
@@ -367,13 +367,33 @@ class BacktestEngine {
       // 执行买入
       const currentPositions = Object.keys(this.state.positions).length;
       if (shouldBuy && !this.state.positions[stock.ts_code] && currentPositions < maxPositions) {
-        const investRatio = strategy.params?.invest_ratio || strategy.investRatio || 0.3;
+        // 使用条件单的 sizing 配置，如果没有则使用默认值
+        let investRatio = 0.3;
+        if (orderConfig) {
+          if (orderConfig.orderType === 'position_percent' && orderConfig.positionPercent) {
+            investRatio = orderConfig.positionPercent / 100;
+          } else if (orderConfig.orderType === 'amount' && orderConfig.amount) {
+            investRatio = orderConfig.amount / this.state.cash;
+          }
+        } else {
+          investRatio = strategy.params?.invest_ratio || strategy.investRatio || 0.3;
+        }
         await this.buy(stock.ts_code, stock.stock_name, stock.price, stock, investRatio);
       }
 
       // 执行卖出
       if (shouldSell && this.state.positions[stock.ts_code]) {
-        await this.sell(stock.ts_code, stock.stock_name, stock.price);
+        // 卖出时使用条件单的 sizing 配置
+        let sellRatio = 1.0; // 默认全部卖出
+        if (orderConfig) {
+          if (orderConfig.orderType === 'position_percent' && orderConfig.positionPercent) {
+            sellRatio = orderConfig.positionPercent / 100;
+          } else if (orderConfig.orderType === 'quantity' && orderConfig.quantity) {
+            // 按数量卖出，在 sell 函数中处理
+            sellRatio = null; // 标记为按数量卖出
+          }
+        }
+        await this.sell(stock.ts_code, stock.stock_name, stock.price, sellRatio);
       }
     }
   }
@@ -573,7 +593,21 @@ class BacktestEngine {
 
     let shouldBuy = false;
     let shouldSell = false;
+    let orderConfig = null; // 保存第一个触发的订单配置（用于 sizing）
+    
     for (const order of relatedOrders) {
+      // 【生命周期检查】检查订单是否已过期或达到最大触发次数
+      const today = new Date().toISOString().slice(0, 10);
+      if (order.end_date && order.end_date < today) {
+        continue; // 已过期
+      }
+      if (order.start_date && order.start_date > today) {
+        continue; // 尚未生效
+      }
+      if (order.max_trigger_count && order.trigger_count >= order.max_trigger_count) {
+        continue; // 已达到最大触发次数
+      }
+      
       const matched = checkCondition(order, marketData, technicalData);
       if (!matched) {
         continue;
@@ -581,13 +615,29 @@ class BacktestEngine {
 
       if (order.action === 'buy' && !this.state.positions[stock.ts_code]) {
         shouldBuy = true;
+        if (!orderConfig) {
+          orderConfig = {
+            orderType: order.order_type,
+            quantity: order.quantity,
+            amount: order.amount,
+            positionPercent: order.position_percent
+          };
+        }
       }
       if (order.action === 'sell' && this.state.positions[stock.ts_code]) {
         shouldSell = true;
+        if (!orderConfig) {
+          orderConfig = {
+            orderType: order.order_type,
+            quantity: order.quantity,
+            amount: order.amount,
+            positionPercent: order.position_percent
+          };
+        }
       }
     }
 
-    return { shouldBuy, shouldSell };
+    return { shouldBuy, shouldSell, orderConfig };
   }
   
   /**
