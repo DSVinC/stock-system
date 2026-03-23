@@ -130,12 +130,14 @@ function formatYiFromYuan(value) {
 }
 
 function toStars(score) {
-  return '★'.repeat(clamp(Math.round(score), 1, 5)) + '☆'.repeat(5 - clamp(Math.round(score), 1, 5));
+  // 0-10 分，缩放到 1-5 星
+  const starScore = score / 2;
+  return '★'.repeat(clamp(Math.round(starScore), 1, 5)) + '☆'.repeat(5 - clamp(Math.round(starScore), 1, 5));
 }
 
 function deriveDecision(reportScore) {
-  if (reportScore >= 4.2) return '买入';
-  if (reportScore >= 3.2) return '观望';
+  if (reportScore >= 8.4) return '买入';
+  if (reportScore >= 6.4) return '观望';
   return '回避';
 }
 
@@ -191,12 +193,12 @@ async function buildAnalyzeList(directions) {
   analysisResults.forEach(({ code, payload }) => {
     const stock = resultMap.get(code);
     if (stock && payload) {
-      stock.score = payload.summary?.report_score || 3;
+      stock.score = payload.summary?.report_score || 6;
       stock.decision = payload.summary?.decision || '观望';
       stock.reportPayload = payload; // 保存完整报告数据供后续使用
     } else if (stock) {
       // 分析失败时使用默认评分
-      stock.score = 3;
+      stock.score = 6;
       stock.decision = '观望';
     }
   });
@@ -292,8 +294,8 @@ function calculateTargetPrice(technical, buyZone, reportScore, decision) {
   }
 
   // 基于评分确定目标倍数
-  const targetMultiplier = reportScore >= 4.5 ? 1.25 :
-                           reportScore >= 3.5 ? 1.15 : 1.08;
+  const targetMultiplier = reportScore >= 9.0 ? 1.25 :
+                           reportScore >= 7.0 ? 1.15 : 1.08;
 
   // 目标价：建仓区间上限 × 倍数 或 布林上轨，取较高者
   const targetFromZone = buyHigh * targetMultiplier;
@@ -617,7 +619,7 @@ function renderStockReport(payload) {
     `- 股票代码：${payload.stock.ts_code}`,
     `- 当前价格：${formatYuan(payload.technical.price)}`,
     `- 行业：${payload.stock.industry || '-'}`,
-    `- 推荐评分：${toStars(payload.reportScore)}（${payload.reportScore.toFixed(1)} / 5）`,
+    `- 推荐评分：${toStars(payload.reportScore)}（${payload.reportScore.toFixed(1)} / 10）`,
     `- 最终决策：${payload.decision}`,
     `- 实时行情：今日涨跌 ${payload.technical.change.toFixed(2)} 元（${payload.technical.pctChange.toFixed(2)}%），开盘 ${formatYuan(payload.technical.open)}，最高 ${formatYuan(payload.technical.high)}，最低 ${formatYuan(payload.technical.low)}`,
     '',

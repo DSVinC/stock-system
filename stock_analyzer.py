@@ -513,7 +513,7 @@ def build_committee_opinion(decision, score, score_factors, technical, valuation
     else:
         discipline = f"【关注指标】PE降至35倍以下或股价站稳MA60({to_float(technical.get('ma60')):.2f}元)再评估。"
     
-    return f"风险管理委员会意见：评分{score}/5，主要依据：{factors_text}。{base_opinion}{risk_text}{discipline}"
+    return f"风险管理委员会意见：评分{score}/10，主要依据：{factors_text}。{base_opinion}{risk_text}{discipline}"
 
 
 def build_strategies(decision, price, technical, valuation, fundamental):
@@ -859,23 +859,23 @@ def build_structured_payload(ts_code, basic_info, technical, fundamental, capita
     stock_name = basic_info.get('name', ts_code)
     industry = basic_info.get('industry', '')
     price = to_float(technical.get('price'))
-    report_score = 3.0
+    report_score = 6.0
 
     if price > to_float(technical.get('ma20')):
-        report_score += 0.5
+        report_score += 1.0
     if '金叉' in technical.get('macd_signal', '') or '多头' in technical.get('macd_signal', ''):
-        report_score += 0.5
+        report_score += 1.0
     if 0 < to_float(valuation.get('pe_ttm') or valuation.get('pe')) <= 35:
-        report_score += 0.5
+        report_score += 1.0
     if to_float(capital.get('vol_ratio')) >= 1:
-        report_score += 0.25
+        report_score += 0.5
     if to_float(fundamental.get('roe')) >= 8:
-        report_score += 0.25
+        report_score += 0.5
 
-    report_score = min(5, round(report_score, 1))
-    if report_score >= 4.2:
+    report_score = min(10, round(report_score, 1))
+    if report_score >= 8.4:
         decision = '买入'
-    elif report_score >= 3.2:
+    elif report_score >= 6.4:
         decision = '观望'
     else:
         decision = '回避'
@@ -918,8 +918,8 @@ def build_structured_payload(ts_code, basic_info, technical, fundamental, capita
         report_score -= 0.3
         score_factors.append('ROE偏低')
     
-    # 限制分数范围
-    report_score = max(1.0, min(5.0, round(report_score, 1)))
+    # 限制分数范围（0-10 分量程）
+    report_score = max(0.0, min(10.0, round(report_score, 1)))
     
     technical_table = [
         {'indicator': 'MA5', 'value': round(to_float(technical.get('ma5')), 2), 'judgment': '股价在MA5上方' if price >= to_float(technical.get('ma5')) else '股价跌破MA5'},
@@ -1086,7 +1086,7 @@ def generate_report(pro, ts_code, basic_info, technical, fundamental, capital, v
         f"| **今日最高** | {payload['summary']['high']:.2f} 元 |",
         f"| **今日最低** | {payload['summary']['low']:.2f} 元 |",
         f"| **总市值** | {payload['summary']['total_mv']:.2f} 亿元 |",
-        f"| **推荐评分** | {payload['summary']['rating']}（{payload['summary']['report_score']:.1f}/5） |",
+        f"| **推荐评分** | {payload['summary']['rating']}（{payload['summary']['report_score']:.1f}/10） |",
         f"| **最终决策** | **{payload['summary']['decision']}** |",
         "",
         "---",

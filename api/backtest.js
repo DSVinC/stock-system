@@ -1283,9 +1283,157 @@ async function generateBacktestReport(req, res) {
   }
 }
 
+/**
+ * 批量回测（TASK_100）
+ * 对参数范围内的所有组合进行回测，返回最优参数
+ */
+async function runBatchBacktest(req, res) {
+  try {
+    const { 
+      startDate, 
+      endDate, 
+      initialCash, 
+      strategy, 
+      stocks, 
+      paramRange,
+      account_id 
+    } = req.body;
+    
+    const db = await getDatabase();
+    
+    if (!startDate || !endDate || !strategy || !paramRange) {
+      return res.status(400).json({
+        success: false,
+        error: '缺少必要参数：startDate, endDate, strategy, paramRange'
+      });
+    }
+    
+    if (!paramRange.fastMin || !paramRange.fastMax || !paramRange.slowMin || !paramRange.slowMax || !paramRange.step) {
+      return res.status(400).json({
+        success: false,
+        error: '参数范围不完整：需要 fastMin, fastMax, slowMin, slowMax, step'
+      });
+    }
+    
+    // 规范化股票代码格式
+    let normalizedStocks = normalizeArrayToDb(Array.isArray(stocks) ? stocks : []);
+    
+    if (normalizedStocks.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: '缺少必要参数：stocks'
+      });
+    }
+    
+    // 生成参数组合
+    const paramCombinations = [];
+    for (let fast = paramRange.fastMin; fast <= paramRange.fastMax; fast += paramRange.step) {
+      for (let slow = paramRange.slowMin; slow <= paramRange.slowMax; slow += paramRange.step) {
+        // 确保快线 < 慢线
+        if (fast < slow) {
+          paramCombinations.push({
+            fastPeriod: fast,
+            slowPeriod: slow
+          });
+        }
+      }
+    }
+    
+    if (paramCombinations.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: '没有有效的参数组合（确保快线最大值 < 慢线最小值）'
+      });
+    }
+    
+    console.log(`[批量回测] 开始执行，共 ${paramCombinations.length} 个参数组合`);
+    
+    // 并行执行所有回测
+    const results = [];
+    for (const params of paramCombinations) {
+      try {
+        const strategyConfig = {
+          ...strategy,
+          params: {
+            ...strategy.params,
+            fastPeriod: params.fastPeriod,
+            slowPeriod: params.slowPeriod
+          }
+        };
+        
+        const engine = new BacktestEngine({
+          startDate,
+          endDate,
+          initialCash: initialCash || 1000000,
+          strategy: strategyConfig,
+          stocks: normalizedStocks,
+          conditionalOrders: []
+        });
+        
+        const report = await engine.run();
+        
+        results.push({
+          params: params,
+          report: report,
+          metrics: {
+            returnRate: report.metrics.returnRate,
+            annualizedReturn: report.metrics.annualizedReturn,
+            sharpeRatio: report.metrics.sharpeRatio,
+            maxDrawdown: report.metrics.maxDrawdown,
+            winRate: report.metrics.winRate,
+            tradeCount: report.metrics.tradeCount
+          }
+        });
+        
+        console.log(`[批量回测] 完成参数组合：快线=${params.fastPeriod}, 慢线=${params.slowPeriod}, 收益率=${(report.metrics.returnRate * 100).toFixed(2)}%`);
+      } catch (error) {
+        console.error(`[批量回测] 参数组合失败：快线=${params.fastPeriod}, 慢线=${params.slowPeriod}`, error.message);
+        results.push({
+          params: params,
+          error: error.message
+        });
+      }
+    }
+    
+    // 找出最优参数（按收益率排序）
+    const validResults = results.filter(r => r.metrics && r.metrics.returnRate !== undefined);
+    validResults.sort((a, b) => b.metrics.returnRate - a.metrics.returnRate);
+    
+    const bestParams = validResults.length > 0 ? {
+      fastPeriod: validResults[0].params.fastPeriod,
+      slowPeriod: validResults[0].params.slowPeriod,
+      returnRate: validResults[0].metrics.returnRate,
+      sharpeRatio: validResults[0].metrics.sharpeRatio,
+      maxDrawdown: validResults[0].metrics.maxDrawdown
+    } : null;
+    
+    res.json({
+      success: true,
+      data: {
+        totalCombinations: paramCombinations.length,
+        validResults: validResults.length,
+        bestParams: bestParams,
+        allResults: results,
+        recommended: bestParams ? {
+          fastPeriod: bestParams.fastPeriod,
+          slowPeriod: bestParams.slowPeriod,
+          description: `最优参数：快线${bestParams.fastPeriod}日，慢线${bestParams.slowPeriod}日，收益率${(bestParams.returnRate * 100).toFixed(2)}%`
+        } : null
+      }
+    });
+  } catch (error) {
+    console.error('[批量回测] 运行失败:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
 module.exports = {
   BacktestEngine,
   runBacktest,
+  runBatchBacktest,
   getBacktestHistory,
   getBacktestDetail,
   saveBacktestReport,

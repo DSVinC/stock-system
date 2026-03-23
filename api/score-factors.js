@@ -511,8 +511,8 @@ async function calculateCompositeScore(params, stockCode = null) {
     sentiment: sentiment.score
   });
 
-  // 映射到 0-10 分（原 weightedScore 范围 0.6-1.2，映射到 1-5 后 ×2 得 0-10）
-  const reportScore = Math.min(10, Math.max(0, weightedScore * 2));
+  // 映射到 0-10 分（原 weightedScore 范围 0.6-1.2，线性映射到 0-10）
+  const reportScore = Math.min(10, Math.max(0, ((weightedScore - 0.6) / 0.6) * 10));
 
   // 【黑天鹅一票否决】检查黑天鹅事件
   let blackSwanEvent = null;

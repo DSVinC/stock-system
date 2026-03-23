@@ -105,7 +105,9 @@ function toNumber(value, fallback = 0) {
 }
 
 function toStars(score) {
-  const rounded = Math.min(5, Math.max(1, Math.round(toNumber(score, 3))));
+  // 0-10 分，缩放到 1-5 星
+  const starScore = toNumber(score, 6) / 2;
+  const rounded = Math.min(5, Math.max(1, Math.round(starScore)));
   return '★'.repeat(rounded) + '☆'.repeat(5 - rounded);
 }
 
@@ -232,7 +234,7 @@ function buildHtmlReport(payload) {
       <div class="summary-item"><div class="summary-label">股票代码</div><div class="summary-value">${escapeHtml(stock.ts_code)}</div></div>
       <div class="summary-item"><div class="summary-label">所属行业</div><div class="summary-value">${escapeHtml(stock.industry || '-')}</div></div>
       <div class="summary-item"><div class="summary-label">当前价格</div><div class="summary-value">${escapeHtml(formatYuan(summary.current_price))}</div></div>
-      <div class="summary-item"><div class="summary-label">推荐评分</div><div class="summary-value">${escapeHtml(summary.rating)} (${escapeHtml(toNumber(summary.report_score).toFixed(1))} / 5)</div></div>
+      <div class="summary-item"><div class="summary-label">推荐评分</div><div class="summary-value">${escapeHtml(summary.rating)} (${escapeHtml(toNumber(summary.report_score).toFixed(1))} / 10)</div></div>
       <div class="summary-item"><div class="summary-label">最终决策</div><div class="summary-value">${escapeHtml(summary.decision)}</div></div>
       <div class="summary-item"><div class="summary-label">生成时间</div><div class="summary-value">${escapeHtml(payload.generated_at)}</div></div>
     </section>
@@ -251,7 +253,7 @@ function buildHtmlReport(payload) {
             <li>所属行业：${escapeHtml(stock.industry || '-')}</li>
             <li>当前价格：${escapeHtml(formatYuan(summary.current_price))}</li>
             <li>今日涨跌：${escapeHtml(toNumber(summary.change).toFixed(2))} 元 (${escapeHtml(toNumber(summary.pct_chg).toFixed(2))}%)</li>
-            <li>推荐评分：${escapeHtml(summary.rating)}（${escapeHtml(toNumber(summary.report_score).toFixed(1))}/5）</li>
+            <li>推荐评分：${escapeHtml(summary.rating)}（${escapeHtml(toNumber(summary.report_score).toFixed(1))}/10）</li>
             <li>最终决策：${escapeHtml(summary.decision)}</li>
           </ul>
         </div>

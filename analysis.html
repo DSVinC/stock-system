@@ -451,37 +451,62 @@
 
         // 检查是否有 v2 数据
         const v2Data = stockV2Data.get(stock.code);
-        let summaryEl = null;
-        let keyPricesEl = null;
+        let strategiesPanelEl = null;
 
         if (v2Data) {
-          const strategy = v2Data.strategies?.balanced;
-          const firstAction = strategy?.actions?.[0];
-          const buyPrice = firstAction?.trigger_conditions?.[0]?.value;
-          const stopLoss = firstAction?.stop_loss || v2Data.stop_loss;
-          const position = firstAction?.position_percent || 0;
+          const strategies = v2Data.strategies || {};
 
-          if (strategy?.summary_text) {
-            summaryEl = document.createElement("p");
-            summaryEl.className = "stock-summary";
-            // 确保 summary_text 是字符串
-            const summaryText = typeof strategy.summary_text === 'string' ? strategy.summary_text : '';
-            summaryEl.textContent = summaryText.slice(0, 100) + (summaryText.length > 100 ? '...' : '');
-          }
+          // 创建策略面板
+          strategiesPanelEl = document.createElement('div');
+          strategiesPanelEl.className = 'strategies-panel';
 
-          keyPricesEl = document.createElement("div");
-          keyPricesEl.className = "key-prices";
-          keyPricesEl.innerHTML = `
-            <span class="price-item buy-price">买入价：¥${buyPrice ? Number(buyPrice).toFixed(2) : 'N/A'}</span>
-            <span class="price-item stop-loss">止损价：¥${stopLoss ? Number(stopLoss).toFixed(2) : 'N/A'}</span>
-            <span class="price-item position">仓位：${position}%</span>
+          // 构建策略标签
+          const tabsHtml = `
+            <div class="strategy-tabs">
+              <span class="strategy-tab aggressive active" data-strategy="aggressive">激进</span>
+              <span class="strategy-tab balanced" data-strategy="balanced">稳健</span>
+              <span class="strategy-tab conservative" data-strategy="conservative">保守</span>
+            </div>
           `;
+
+          // 构建各策略内容
+          const strategiesHtml = ['aggressive', 'balanced', 'conservative'].map((type, idx) => {
+            const strategy = strategies[type] || {};
+            const firstAction = strategy?.actions?.[0] || {};
+            const buyPrice = firstAction?.trigger_conditions?.[0]?.value;
+            const stopLoss = firstAction?.stop_loss || v2Data.stop_loss;
+            const position = firstAction?.position_percent || 0;
+            const summaryText = typeof strategy?.summary_text === 'string' ? strategy.summary_text : '';
+
+            return `
+              <div class="strategy-content ${idx === 0 ? 'active' : ''}" data-strategy="${type}">
+                <div class="strategy-summary">${summaryText || '暂无策略'}</div>
+                <div class="strategy-prices">
+                  <span>买入：<span class="buy">${buyPrice ? Number(buyPrice).toFixed(2) : 'N/A'}</span></span>
+                  <span>止损：<span class="stop">${stopLoss ? Number(stopLoss).toFixed(2) : 'N/A'}</span></span>
+                  <span>仓位：<span class="pos">${position}%</span></span>
+                </div>
+              </div>
+            `;
+          }).join('');
+
+          strategiesPanelEl.innerHTML = tabsHtml + strategiesHtml;
+
+          // 添加标签切换事件
+          strategiesPanelEl.querySelectorAll('.strategy-tab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+              const strategyType = e.target.dataset.strategy;
+              strategiesPanelEl.querySelectorAll('.strategy-tab').forEach(t => t.classList.remove('active'));
+              e.target.classList.add('active');
+              strategiesPanelEl.querySelectorAll('.strategy-content').forEach(c => c.classList.remove('active'));
+              strategiesPanelEl.querySelector(`.strategy-content[data-strategy="${strategyType}"]`)?.classList.add('active');
+            });
+          });
         }
 
         infoWrap.appendChild(nameNode);
         infoWrap.appendChild(meta);
-        if (summaryEl) infoWrap.appendChild(summaryEl);
-        if (keyPricesEl) infoWrap.appendChild(keyPricesEl);
+        if (strategiesPanelEl) infoWrap.appendChild(strategiesPanelEl);
 
         label.appendChild(checkbox);
         label.appendChild(infoWrap);

@@ -211,6 +211,8 @@ async function bootstrap() {
     router.post('/scan', backtest.scanParameters);
     // TASK_BACKTEST_003: 报告生成
     router.post('/:id/report', backtest.generateBacktestReport);
+    // TASK_100: 批量回测
+    router.post('/batch', backtest.runBatchBacktest);
     app.use('/api/backtest', router);
     mounted.push('/api/backtest');
   } catch (e) {
