@@ -270,13 +270,18 @@ async function clearPositions(req, res) {
     const accountBefore = await db.getPromise('SELECT current_cash FROM portfolio_account WHERE id = ?', [id]);
     const cashBefore = accountBefore ? accountBefore.current_cash : 0;
     
-    // 更新账户的现金和总值（保留已实现损益）
+    // 更新账户的现金和总值，并重新计算损益
     const newCash = cashBefore + totalProceeds;
+    const account = await db.getPromise('SELECT initial_cash FROM portfolio_account WHERE id = ?', [id]);
+    const initialCash = account ? account.initial_cash : newCash;
+    const totalReturn = newCash - initialCash;
+    const returnRate = initialCash > 0 ? totalReturn / initialCash : 0;
+    
     await db.runPromise(`
       UPDATE portfolio_account 
-      SET current_cash = ?, total_value = ?, updated_at = datetime('now')
+      SET current_cash = ?, total_value = ?, total_return = ?, return_rate = ?, updated_at = datetime('now')
       WHERE id = ?
-    `, [newCash, newCash, id]);
+    `, [newCash, newCash, totalReturn, returnRate, id]);
     
     res.json({ success: true, message: '已清空所有持仓，资金已退回' });
   } catch (error) {
