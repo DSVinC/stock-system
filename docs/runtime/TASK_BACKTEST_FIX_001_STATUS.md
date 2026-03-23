@@ -1,44 +1,43 @@
 # TASK_BACKTEST_FIX_001 运行状态
 
-**状态**: in_progress  
-**创建时间**: 2026-03-23 12:26  
-**最后更新**: 2026-03-23 12:26  
+**状态**: ✅ completed
+**开始时间**: 2026-03-23 14:15
+**完成时间**: 2026-03-23 15:30
+**负责人**: Claude Code (并行开发)
 
----
+## 子任务进度
 
-## 📊 当前进度
+- [x] TASK_BACKTEST_FIX_001_01 - 股票代码格式转换 ✅ 2026-03-23
+- [x] TASK_BACKTEST_FIX_001_02 - 修复 orderConfig 未定义 bug ✅ 2026-03-23
+- [x] TASK_BACKTEST_FIX_001_03 - 优化数据库连接 ✅ 2026-03-23
+- [x] TASK_BACKTEST_FIX_001_04 - 端到端测试 ✅ 2026-03-23
 
-| 子任务 | 状态 | 完成时间 | 备注 |
-|--------|------|----------|------|
-| TASK_BACKTEST_FIX_001_01 | ⏳ pending | - | 股票代码格式转换 |
-| TASK_BACKTEST_FIX_001_02 | ⏳ pending | - | orderConfig bug 修复 |
-| TASK_BACKTEST_FIX_001_03 | ⏳ pending | - | 数据库连接优化 |
-| TASK_BACKTEST_FIX_001_04 | ⏳ pending | - | 端到端测试 |
+## 并行会话
 
----
+- Session 1: FIX_001_01 (股票代码格式转换) ✅ 完成
+- Session 2: FIX_001_02 (orderConfig bug 修复) ✅ 完成
+- Session 3: FIX_001_03 (数据库连接优化) ✅ 完成
+- Session 4: FIX_001_04 (端到端测试) ✅ 完成
 
-## 🔍 问题诊断
+## 任务详情
 
-### 已确认的问题
-1. ✅ 股票代码格式不一致（API vs DB）
-2. ✅ `orderConfig is not defined` 错误
-3. ✅ `SQLITE_BUSY` 数据库锁竞争
+### TASK_BACKTEST_FIX_001_01 完成记录
 
-### 待确认的问题
-- [ ] 双均线策略逻辑是否正确
-- [ ] 数据加载逻辑是否完整
+**创建文件**:
+- `utils/format.js` - 股票代码格式转换工具
 
----
+**修改文件**:
+- `api/backtest.js` - 集成格式转换功能
 
-## 📝 下一步行动
+**功能**:
+- `detectFormat(tsCode)` - 检测股票代码格式 ('api' | 'db' | 'unknown')
+- `apiToDb(code)` - API 格式转 DB 格式 (300308.SZ -> sz.300308)
+- `dbToApi(code)` - DB 格式转 API 格式 (sz.300308 -> 300308.SZ)
+- `normalizeToDb(code)` - 自动检测并转换为 DB 格式
+- `normalizeToApi(code)` - 自动检测并转换为 API 格式
+- `normalizeArrayToDb(codes)` - 批量转换为 DB 格式
+- `normalizeArrayToApi(codes)` - 批量转换为 API 格式
 
-1. 创建子任务文档
-2. 分配 Claude Code 执行修复
-3. 验证修复结果
-
----
-
-## 📋 相关文档
-
-- 任务文档：`docs/tasks/TASK_BACKTEST_FIX_001.md`
-- 交接文档：`docs/handover/TASK_BACKTEST_FIX_001_HANDOVER.md`
+**测试**:
+- `utils/format.test.js` - 47 个测试用例全部通过
+- 支持深交所 (SZ)、上交所 (SH)、北交所 (BJ)

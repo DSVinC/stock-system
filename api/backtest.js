@@ -7,6 +7,7 @@
 
 const { getDatabase } = require('./db');
 const { checkCondition } = require('./conditional-order');
+const { normalizeToDb, normalizeArrayToDb } = require('../utils/format');
 
 /**
  * 计算简单移动平均线
@@ -216,15 +217,18 @@ class BacktestEngine {
   async loadHistoricalData() {
     const dataByDate = {};
     const db = await getDatabase();
-    
+
     // 从数据库获取历史行情数据
     for (const tsCode of this.config.stocks) {
+      // 转换股票代码为数据库格式 (如 300308.SZ -> sz.300308)
+      const dbCode = normalizeToDb(tsCode);
+
       const rows = await db.allPromise(`
         SELECT trade_date, ts_code, stock_name, close as price, pe, pb, market_cap, amount as turnover
-        FROM stock_daily 
+        FROM stock_daily
         WHERE ts_code = ? AND trade_date BETWEEN ? AND ?
         ORDER BY trade_date ASC
-      `, [tsCode, this.config.startDate, this.config.endDate]);
+      `, [dbCode, this.config.startDate, this.config.endDate]);
       
       if (rows.length === 0) {
         console.warn(`[回测] 警告: ${tsCode} 在指定日期范围内无历史数据，使用模拟数据`);
@@ -323,6 +327,7 @@ class BacktestEngine {
       const prices = this.priceHistory[stock.ts_code];
       let shouldBuy = false;
       let shouldSell = false;
+      let orderConfig = null; // 在 switch 外声明，确保所有分支都能访问
 
       // 根据策略类型判断买卖信号
       switch (strategyType) {
@@ -837,7 +842,8 @@ async function runBacktest(req, res) {
     }
 
     let conditionalOrders = [];
-    let normalizedStocks = Array.isArray(stocks) ? [...stocks] : [];
+    // 规范化股票代码格式（转换为数据库格式）
+    let normalizedStocks = normalizeArrayToDb(Array.isArray(stocks) ? stocks : []);
 
     if (strategy.type === 'conditional') {
       conditionalOrders = await loadConditionalOrdersForBacktest(db, strategy, account_id || strategy?.params?.account_id);
@@ -849,7 +855,9 @@ async function runBacktest(req, res) {
       }
 
       if (normalizedStocks.length === 0) {
-        normalizedStocks = [...new Set(conditionalOrders.map((order) => order.ts_code).filter(Boolean))];
+        normalizedStocks = normalizeArrayToDb(
+          [...new Set(conditionalOrders.map((order) => order.ts_code).filter(Boolean))]
+        );
       }
     }
 
