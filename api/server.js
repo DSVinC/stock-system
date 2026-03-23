@@ -129,6 +129,21 @@ async function bootstrap() {
     mounted.push('/api/monitor');
   }
 
+  // 监控池管理 API
+  try {
+    const monitorPool = require('./monitor-pool');
+    const router = require('express').Router();
+    router.post('/add', monitorPool.addToPool);
+    router.get('/list', monitorPool.getPoolList);
+    router.delete('/remove', monitorPool.removeFromPool);
+    router.post('/batch-add', monitorPool.batchAddToPool);
+    router.delete('/batch-remove', monitorPool.batchRemoveFromPool);
+    app.use('/api/monitor-pool', router);
+    mounted.push('/api/monitor-pool');
+  } catch (e) {
+    console.log('[mountApi] monitor-pool 模块加载失败:', e.message);
+  }
+
   // 投资组合/账户API
   try {
     const portfolio = require('./portfolio');
