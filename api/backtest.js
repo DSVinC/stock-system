@@ -1003,7 +1003,7 @@ async function scanParameters(req, res) {
             endDate,
             initialCash: initialCash || 1000000,
             strategy: {
-              type: 'dual_ma',
+              type: 'double_ma',
               name: `双均线 (快${fast}/慢${slow})`,
               params: { fast_period: fast, slow_period: slow }
             },
@@ -1155,9 +1155,9 @@ function generateHtmlReport(report) {
           ${(trades || []).slice(0, 20).map(trade => `
             <tr>
               <td>${trade.date}</td>
-              <td>${trade.code}</td>
+              <td>${trade.ts_code}</td>
               <td class="${trade.action === 'BUY' ? 'positive' : 'negative'}">${trade.action}</td>
-              <td>${trade.qty}</td>
+              <td>${trade.quantity}</td>
               <td>¥${trade.price.toFixed(2)}</td>
               <td>¥${(trade.qty * trade.price).toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
             </tr>
@@ -1209,7 +1209,7 @@ function generateMarkdownReport(report) {
 | 日期 | 股票 | 操作 | 数量 | 价格 | 金额 |
 |------|------|------|------|------|------|
 ${(trades || []).slice(0, 20).map(trade => 
-  `| ${trade.date} | ${trade.code} | ${trade.action} | ${trade.qty} | ¥${trade.price.toFixed(2)} | ¥${(trade.qty * trade.price).toLocaleString(undefined, {maximumFractionDigits: 0})} |`
+  `| ${trade.date} | ${trade.ts_code} | ${trade.action} | ${trade.quantity} | ¥${trade.price.toFixed(2)} | ¥${(trade.qty * trade.price).toLocaleString(undefined, {maximumFractionDigits: 0})} |`
 ).join('\n')}
 
 ---
