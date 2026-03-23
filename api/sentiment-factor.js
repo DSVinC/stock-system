@@ -16,7 +16,7 @@ const fs = require('fs');
 const execFileAsync = promisify(execFile);
 
 // 数据库路径
-const DB_PATH = path.join(__dirname, '..', 'data', 'stock_system.db');
+const DB_PATH = '/Volumes/SSD500/openclaw/stock-system/stock_system.db';
 const NEWS_DB_PATH = '/Volumes/SSD500/data/news_system/news.db';
 
 /**

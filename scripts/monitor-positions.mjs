@@ -51,64 +51,6 @@ async function getHoldings() {
 }
 
 /**
- * Get current factors for a stock (simplified - calls analysis API)
- */
-async function getCurrentFactors(tsCode) {
-  try {
-    // Call the factor analysis API
-    // This is a simplified version - in production, call the actual API
-    return {
-      total: 70, // Default score
-      value: 10,
-      growth: 10,
-      profitability: 10,
-      safety: 10,
-      sentiment: 10,
-      momentum: 10,
-      valuation: 10
-    };
-  } catch (error) {
-    console.error(`获取因子数据失败 ${tsCode}:`, error.message);
-    return { total: 70 };
-  }
-}
-
-/**
- * Get historical factors (from snapshot library)
- */
-async function getHistoricalFactors(tsCode) {
-  try {
-    // Read from factor snapshots
-    const snapshotPath = join(rootDir, 'data', 'factor-snapshots', `${tsCode.replace('.', '_')}.json`);
-    if (fs.existsSync(snapshotPath)) {
-      const data = JSON.parse(fs.readFileSync(snapshotPath, 'utf8'));
-      return data.latest || { total: 70 };
-    }
-    return { total: 70 };
-  } catch (error) {
-    console.error(`获取历史因子失败 ${tsCode}:`, error.message);
-    return { total: 70 };
-  }
-}
-
-/**
- * Get news data for a stock
- */
-async function getNewsData(tsCode) {
-  try {
-    // Call news API or use cached data
-    // Simplified version
-    return {
-      negativeCount: 0,
-      blackSwanEvents: []
-    };
-  } catch (error) {
-    console.error(`获取新闻数据失败 ${tsCode}:`, error.message);
-    return { negativeCount: 0, blackSwanEvents: [] };
-  }
-}
-
-/**
  * Send Feishu alert
  */
 async function sendFeishuAlert(signals) {
@@ -223,47 +165,26 @@ function formatFeishuMessage(signals) {
  * Main monitoring function
  */
 async function monitorPositions() {
-  console.log('📈 获取持仓列表...');
-  const holdings = await getHoldings();
+  const { runFullMonitoring } = await import('../api/position-signals.js');
   
-  console.log(`📊 持仓股票：${holdings.length}只`);
+  console.log('📈 开始执行持仓监控...');
+  const result = await runFullMonitoring();
   
-  if (holdings.length === 0) {
-    console.log('✅ 无持仓，跳过监控');
+  if (!result.success) {
+    console.error('❌ 监控执行失败:', result.message || '未知错误');
     return;
   }
   
-  const allSignals = [];
+  const { signals, count } = result;
+  console.log(`📊 持仓股票：${count}只`);
   
-  for (const holding of holdings) {
-    console.log(`\n🔍 分析 ${holding.stock_name}(${holding.ts_code})...`);
-    
-    const currentFactors = await getCurrentFactors(holding.ts_code);
-    const historicalFactors = await getHistoricalFactors(holding.ts_code);
-    const news = await getNewsData(holding.ts_code);
-    
-    // Import signal generation logic
-    const { generateSignals } = await import('../api/position-signals.js');
-    const signals = generateSignals(holding, currentFactors, historicalFactors, news);
-    
-    if (signals.length > 0) {
-      console.log(`  ⚠️ 生成 ${signals.length} 条信号`);
-      allSignals.push(...signals);
-    } else {
-      console.log(`  ✅ 无异常信号`);
-    }
-  }
-  
-  // Save signals to database
-  if (allSignals.length > 0) {
-    console.log(`\n💾 保存 ${allSignals.length} 条信号到数据库...`);
-    const { saveSignals } = await import('../api/position-signals.js');
-    await saveSignals(allSignals);
-    
+  if (signals && signals.length > 0) {
+    console.log(`⚠️ 生成 ${signals.length} 条信号`);
     // Send Feishu alert
-    await sendFeishuAlert(allSignals);
+    await sendFeishuAlert(signals);
   } else if (mode === 'morning') {
     // 盘前关注：即使无信号也推送摘要
+    const holdings = await getHoldings();
     await sendMorningBrief(holdings);
   } else {
     console.log('\n✅ 无异常信号，不推送');

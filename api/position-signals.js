@@ -255,6 +255,82 @@ async function markSignalRead(signalId) {
   await db.runPromise(`UPDATE position_signals SET is_read = 1 WHERE id = ?`, [signalId]);
 }
 
+/**
+ * Run full monitoring cycle for all positions
+ */
+async function runFullMonitoring() {
+  const { getDatabase } = require('./db');
+  const db = await getDatabase();
+  
+  // Get all holdings
+  const holdings = await db.allPromise(`
+    SELECT DISTINCT account_id, ts_code, stock_name, quantity, avg_price
+    FROM portfolio_position 
+    WHERE quantity > 0
+  `);
+  
+  if (holdings.length === 0) {
+    return { success: true, message: '无持仓，跳过监控', signals: [] };
+  }
+  
+  const allSignals = [];
+  const { buildReportPayload } = require('./analyze');
+  const { querySnapshot } = require('./factor-snapshot');
+  const { checkBlackSwan } = require('./black-swan-check');
+  
+  for (const holding of holdings) {
+    try {
+      console.log(`[Monitor] 正在分析 ${holding.stock_name}(${holding.ts_code})...`);
+      
+      // 1. 获取当前数据和评分
+      const currentData = await buildReportPayload(holding.ts_code);
+      const currentFactors = {
+        total: currentData.reportScore,
+        // 其他因子详情可以从 currentData.scoreFactors.factors 获取
+      };
+      
+      // 2. 获取历史快照（昨天的）
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split('T')[0];
+      const historicalSnapshot = await querySnapshot(holding.ts_code, yesterdayStr);
+      
+      const historicalFactors = {
+        total: historicalSnapshot ? historicalSnapshot.weightedScore : 3.0 // 默认中性分
+      };
+      
+      // 3. 获取舆情和黑天鹅数据
+      const news = {
+        negativeCount: currentData.scoreFactors.factors.sentiment.details.negativeCount || 0,
+        blackSwanEvents: currentData.scoreFactors.blackSwanEvent ? [currentData.scoreFactors.blackSwanEvent.title] : []
+      };
+      
+      // 4. 生成信号
+      const signals = generateSignals(holding, currentFactors, historicalFactors, news);
+      
+      if (signals.length > 0) {
+        allSignals.push(...signals);
+      }
+    } catch (error) {
+      console.error(`[Monitor] 分析 ${holding.ts_code} 失败:`, error.message);
+    }
+  }
+  
+  // 保存并返回
+  if (allSignals.length > 0) {
+    await saveSignals(allSignals);
+    
+    // 如果有飞书推送逻辑，可以在这里调用
+    // 但通常建议由调用者（如脚本或 API 处理程序）决定是否推送
+  }
+  
+  return {
+    success: true,
+    count: holdings.length,
+    signals: allSignals
+  };
+}
+
 // ========== Express API Handlers ==========
 
 async function handleGetSignals(req, res) {
@@ -317,6 +393,7 @@ module.exports = {
   getUnreadSignals,
   getSignals,
   getMonitorOverview,
+  runFullMonitoring,
   markAsRead,
   markSignalRead,
   handleGetSignals,

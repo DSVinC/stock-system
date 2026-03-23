@@ -226,7 +226,7 @@ async function bootstrap() {
     router.post('/signals/:id/read', positionSignals.handleMarkRead);
     router.post('/run', async (req, res) => {
       try {
-        const result = await positionSignals.generateSignals();
+        const result = await positionSignals.runFullMonitoring();
         res.json({ success: true, data: result });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });
