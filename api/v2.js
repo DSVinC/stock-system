@@ -238,6 +238,56 @@ function convertToV2Format(v1Payload) {
 }
 
 /**
+ * GET /api/v2/analysis/:stockCode
+ * TASK_104: 获取指定股票的 v2 结构化报告（URL 参数版本）
+ * 直接返回 stock_analyzer.py 的 v2 格式输出
+ */
+router.get('/analysis/:stockCode', async (req, res) => {
+  const { stockCode } = req.params;
+
+  if (!stockCode) {
+    return res.status(400).json({
+      success: false,
+      error: 'stockCode is required'
+    });
+  }
+
+  try {
+    // 优先使用 Python 分析脚本的输出
+    const payload = await analysisRouter.runAnalysis(stockCode);
+
+    // 检查是否为 v2 格式
+    const isV2 = payload &&
+                 payload.strategies &&
+                 typeof payload.strategies.aggressive === 'object' &&
+                 Array.isArray(payload.strategies.aggressive.actions);
+
+    if (isV2) {
+      // 直接返回 v2 格式
+      return res.json({
+        success: true,
+        data: payload,
+        version: 'v2'
+      });
+    }
+
+    // 如果不是 v2 格式，转换 v1 到 v2
+    const v2Data = convertToV2Format(payload);
+    return res.json({
+      success: true,
+      data: v2Data,
+      version: 'v1-converted'
+    });
+  } catch (error) {
+    console.error(`[v2/analysis/:stockCode] 分析失败:`, error.message);
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
  * GET /api/v2/analyze/report?ts_code=xxx
  * 获取单只股票的 v2 结构化报告
  */
