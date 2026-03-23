@@ -2590,7 +2590,7 @@
     // 加载监控池股票列表
     async function loadMonitorPoolStocks() {
       try {
-        const response = await fetch('/api/monitor/stock-list');
+        const response = await fetch('/api/monitor-pool/stock-list');
         const result = await response.json();
         
         const selector = document.getElementById('stock-selector');

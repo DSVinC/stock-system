@@ -262,10 +262,36 @@ async function batchRemoveFromPool(req, res) {
   }
 }
 
+/**
+ * 获取监控池股票代码列表（用于条件单页面）
+ */
+async function getStockList(req, res) {
+  try {
+    const db = getDatabase();
+    
+    const stocks = await db.allPromise(`
+      SELECT stock_code, stock_name FROM monitor_pool
+      ORDER BY added_at DESC
+    `);
+    
+    res.json({
+      success: true,
+      stocks: stocks ? stocks.map(s => s.stock_code) : []
+    });
+  } catch (error) {
+    console.error('Get monitor pool stock list error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
 module.exports = {
   addToPool,
   getPoolList,
   removeFromPool,
   batchAddToPool,
-  batchRemoveFromPool
+  batchRemoveFromPool,
+  getStockList
 };

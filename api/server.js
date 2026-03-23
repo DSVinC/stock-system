@@ -135,6 +135,7 @@ async function bootstrap() {
     const router = require('express').Router();
     router.post('/add', monitorPool.addToPool);
     router.get('/list', monitorPool.getPoolList);
+    router.get('/stock-list', monitorPool.getStockList); // 条件单页面使用
     router.delete('/remove', monitorPool.removeFromPool);
     router.post('/batch-add', monitorPool.batchAddToPool);
     router.delete('/batch-remove', monitorPool.batchRemoveFromPool);
