@@ -1,6 +1,6 @@
 # 股票系统 - 项目进度总览
 
-**最后更新**: 2026-03-23 07:55  
+**最后更新**: 2026-03-23 12:10  
 **项目经理**: 灵爪  
 **程序员**: Claude Code  
 **验收员**: Gemini CLI / Codex  
@@ -21,12 +21,18 @@
 | TASK_POSITION_MONITOR | 持仓监控功能 | P0 | 🟢 accepted | 灵爪 | 100% |
 | ~~TASK_STRATEGY_LIB_001~~ | ~~策略模板库设计与实现~~ | ~~P0~~ | ~~🟡 acceptance_failed~~ | ~~Claude Code~~ | ~~90%~~ |
 | ~~TASK_STRATEGY_LIB_001_FIX_001~~ | ~~策略执行脚本数据库导出修复~~ | ~~P0~~ | ~~🟡 in_progress~~ | ~~Claude Code~~ | ~~0%~~ |
-| **TASK_BACKTEST_SYSTEM_001** | **回测系统完整功能实现** | **P0** | **🔵 in_progress** | **Claude Code** | **0%** |
-| └─ TASK_BACKTEST_001 | 策略执行脚本数据库导出 | P0 | 🔵 in_progress | Claude Code | 0% |
-| └─ TASK_BACKTEST_002 | 回测引擎核心功能 | P0 | 🔵 in_progress | Claude Code | 0% |
-| └─ TASK_BACKTEST_003 | 回测报告生成 | P0 | 🔵 in_progress | Claude Code | 0% |
-| └─ TASK_BACKTEST_004 | 策略参数扫描回测 | P1 | 🔵 in_progress | Claude Code | 0% |
-| └─ TASK_BACKTEST_005 | 行情阶段识别框架 | P1 | 🔵 in_progress | Claude Code | 0% |
+| ~~TASK_BACKTEST_SYSTEM_001~~ | ~~回测系统完整功能实现~~ | ~~P0~~ | ~~🟢 accepted~~ | ~~Claude Code~~ | ~~100%~~ |
+| ~~└─ TASK_BACKTEST_001~~ | ~~策略执行脚本数据库导出~~ | ~~P0~~ | ~~🟢 accepted~~ | ~~Claude Code~~ | ~~100%~~ |
+| ~~└─ TASK_BACKTEST_002~~ | ~~回测引擎核心功能~~ | ~~P0~~ | ~~🟢 accepted~~ | ~~Claude Code~~ | ~~100%~~ |
+| ~~└─ TASK_BACKTEST_003~~ | ~~回测报告生成~~ | ~~P0~~ | ~~🟢 accepted~~ | ~~Claude Code~~ | ~~100%~~ |
+| ~~└─ TASK_BACKTEST_004~~ | ~~策略参数扫描回测~~ | ~~P1~~ | ~~🟢 accepted~~ | ~~Claude Code~~ | ~~100%~~ |
+| ~~└─ TASK_BACKTEST_005~~ | ~~行情阶段识别框架~~ | ~~P1~~ | ~~🟢 accepted~~ | ~~Claude Code~~ | ~~100%~~ |
+| **TASK_CODEX_FIX_001~005** | **PR #4 遗留问题修复** | **P0** | **🟢 accepted** | **灵爪** | **100%** |
+| └─ TASK_CODEX_FIX_001 | analyze.js ReferenceError 修复 | P0 | 🟢 accepted | 灵爪 | 100% |
+| └─ TASK_CODEX_FIX_002 | portfolio.js 清仓损益修复 | P0 | 🟢 accepted | 灵爪 | 100% |
+| └─ TASK_CODEX_FIX_003 | monitor.js DB 方法修复 | P0 | 🟢 accepted | 灵爪 | 100% |
+| └─ TASK_CODEX_FIX_004 | backtest.js 年化收益修复 | P0 | 🟢 accepted | 灵爪 | 100% |
+| └─ TASK_CODEX_FIX_005 | backtest.js 字段名修复 | P0 | 🟢 accepted | 灵爪 | 100% |
 
 ---
 
@@ -78,6 +84,8 @@
 | 2026-03-23 07:20 | 策略模板库开发启动 | ✅ |
 | 2026-03-23 07:45 | 策略模板库开发完成 | ✅ |
 | 2026-03-23 07:50 | 策略模板库验收（未通过） | ✅ |
+| 2026-03-23 12:05 | PR #4 遗留问题修复完成 | ✅ |
+| 2026-03-23 12:10 | PR #5 创建待审查 | ⏳ |
 | 2026-03-23 07:50 | 修复任务启动 | ✅ |
 | 2026-03-23 预计 08:15 | 修复完成并重新验收 | ⏳ |
 

@@ -263,12 +263,25 @@ async function clearPositions(req, res) {
     // 删除所有持仓
     await db.runPromise('DELETE FROM portfolio_position WHERE account_id = ?', [id]);
     
-    // 更新账户的现金和总值
+    // 计算清仓所得总额
+    const totalProceeds = positions.reduce((sum, pos) => sum + (pos.quantity * pos.current_price), 0);
+    
+    // 获取清仓前的现金
+    const accountBefore = await db.getPromise('SELECT current_cash FROM portfolio_account WHERE id = ?', [id]);
+    const cashBefore = accountBefore ? accountBefore.current_cash : 0;
+    
+    // 更新账户的现金和总值，并重新计算损益
+    const newCash = cashBefore + totalProceeds;
+    const accountInfo = await db.getPromise('SELECT initial_cash FROM portfolio_account WHERE id = ?', [id]);
+    const initialCash = accountInfo ? accountInfo.initial_cash : newCash;
+    const totalReturn = newCash - initialCash;
+    const returnRate = initialCash > 0 ? totalReturn / initialCash : 0;
+    
     await db.runPromise(`
       UPDATE portfolio_account 
-      SET current_cash = initial_cash, total_value = initial_cash, total_return = 0, return_rate = 0, updated_at = datetime('now')
+      SET current_cash = ?, total_value = ?, total_return = ?, return_rate = ?, updated_at = datetime('now')
       WHERE id = ?
-    `, [id]);
+    `, [newCash, newCash, totalReturn, returnRate, id]);
     
     res.json({ success: true, message: '已清空所有持仓，资金已退回' });
   } catch (error) {

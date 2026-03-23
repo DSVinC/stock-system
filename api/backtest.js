@@ -754,6 +754,12 @@ class BacktestEngine {
     this.metrics.totalReturn = finalValue - initialCash;
     this.metrics.returnRate = (finalValue - initialCash) / initialCash;
     
+    // 年化收益率
+    const startDate = new Date(this.config.startDate);
+    const endDate = new Date(this.config.endDate);
+    const days = Math.max(1, (endDate - startDate) / (1000 * 60 * 60 * 24));
+    this.metrics.annualizedReturn = Math.pow(1 + this.metrics.returnRate, 365 / days) - 1;
+    
     // 最大回撤
     let maxValue = initialCash;
     let maxDrawdown = 0;
@@ -1159,7 +1165,7 @@ function generateHtmlReport(report) {
               <td class="${trade.action === 'BUY' ? 'positive' : 'negative'}">${trade.action}</td>
               <td>${trade.quantity}</td>
               <td>¥${trade.price.toFixed(2)}</td>
-              <td>¥${(trade.qty * trade.price).toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
+              <td>¥${(trade.quantity * trade.price).toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
             </tr>
           `).join('')}
         </tbody>
@@ -1209,7 +1215,7 @@ function generateMarkdownReport(report) {
 | 日期 | 股票 | 操作 | 数量 | 价格 | 金额 |
 |------|------|------|------|------|------|
 ${(trades || []).slice(0, 20).map(trade => 
-  `| ${trade.date} | ${trade.ts_code} | ${trade.action} | ${trade.quantity} | ¥${trade.price.toFixed(2)} | ¥${(trade.qty * trade.price).toLocaleString(undefined, {maximumFractionDigits: 0})} |`
+  `| ${trade.date} | ${trade.ts_code} | ${trade.action} | ${trade.quantity} | ¥${trade.price.toFixed(2)} | ¥${(trade.quantity * trade.price).toLocaleString(undefined, {maximumFractionDigits: 0})} |`
 ).join('\n')}
 
 ---

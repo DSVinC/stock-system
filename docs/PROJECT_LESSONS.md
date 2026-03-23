@@ -4,6 +4,75 @@
 
 ---
 
+## 2026-03-23 | TASK_CODEX_FIX_001~005 | PR #4 合并后 Codex 审查问题修复
+
+### 问题类型
+**代码质量** - 命名不一致 + 逻辑错误 + API 使用错误 + 功能遗漏
+
+### 背景
+PR #4 "feat: 完成回测系统全部功能" 合并后，Codex 第二次审查发现 5 个遗留问题，导致部分 API 无法正常工作。
+
+### 根因分析
+
+#### 直接原因
+1. **TASK_CODEX_FIX_001**: `analyze.js` 中 `calculateCompositeScore()` 调用使用未定义变量 `stockCode`
+2. **TASK_CODEX_FIX_002**: `portfolio.js` 清仓 API 重置 `current_cash` 为 `initial_cash`，丢弃已实现损益
+3. **TASK_CODEX_FIX_003**: `monitor.js` 使用 `db.all()` callback 方法而非 `db.allPromise()`
+4. **TASK_CODEX_FIX_004**: `backtest.js` 的 `calculateMetrics()` 未计算 `annualizedReturn`
+5. **TASK_CODEX_FIX_005**: `backtest.js` 报告模板使用 `trade.qty` 而非 `trade.quantity`
+
+#### 深层原因
+1. **代码审查不充分**: PR #4 合并前未经过完整验收，Codex 第一次审查后未修复所有问题就合并
+2. **测试覆盖不足**: 缺少端到端 API 测试，未能及时发现字段名不一致和功能遗漏
+3. **命名规范不统一**: 字段名在不同模块不一致（qty vs quantity）
+4. **sqlite3 API 不熟悉**: callback API 与 promise API 混用
+
+### 解决方案
+
+#### 修改文件
+- `api/analyze.js` - 第 144 行附近
+- `api/portfolio.js` - 清仓逻辑部分
+- `api/monitor.js` - getSignals 等函数
+- `api/backtest.js` - calculateMetrics() 和报告模板
+
+#### 关键代码变更
+```javascript
+// analyze.js: 变量名修复
+- const compositeScore = calculateCompositeScore(stockCode, factors);
++ const compositeScore = calculateCompositeScore(basicInfo.ts_code, factors);
+
+// portfolio.js: 清仓损益修复
+- account.current_cash = account.initial_cash;
++ const sellValue = position.quantity * currentPrice;
++ account.current_cash = account.current_cash + sellValue;
+
+// monitor.js: DB 方法修复
+- const signals = await db.all(`SELECT ...`, params);
++ const signals = await db.allPromise(`SELECT ...`, params);
+
+// backtest.js: 年化收益计算
++ const days = Math.max(1, (endDate - startDate) / (1000 * 60 * 60 * 24));
++ this.metrics.annualizedReturn = Math.pow(1 + this.metrics.returnRate, 365 / days) - 1;
+
+// backtest.js: 字段名修复 (HTML 和 Markdown 模板)
+- ¥${(trade.qty * trade.price).toLocaleString()}
++ ¥${(trade.quantity * trade.price).toLocaleString()}
+```
+
+### 预防措施
+
+1. ✅ **PR 审查纪律**: 所有 PR 必须经过 Codex 完整审查并通过后才能合并，不得跳过审查
+2. ✅ **验收流程**: 关键功能必须编写验收文档并执行端到端测试
+3. ✅ **命名规范**: 建立数据模型字段命名规范，统一使用 `quantity` 而非 `qty`
+4. ✅ **API 使用规范**: 统一使用 promise API（`db.allPromise`），避免 callback/promise 混用
+5. ✅ **审查检查清单**: Codex 审查时必须检查：
+   - 变量命名一致性
+   - 数据库 API 使用正确性
+   - 关键指标计算完整性
+   - 模板字段名与数据模型一致性
+
+---
+
 ## 2026-03-22 | TASK_ANALYSIS_FIX_001 | Python 脚本变量作用域错误修复
 
 ### 问题类型
