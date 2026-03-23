@@ -110,6 +110,68 @@
       opacity: 0.9;
       transform: translateY(-1px);
     }
+    /* 三种策略显示样式 */
+    .strategies-panel {
+      margin: 12px 0;
+      padding: 10px;
+      background: rgba(0, 0, 0, 0.15);
+      border-radius: 8px;
+    }
+    .strategy-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 6px;
+    }
+    .strategy-tab {
+      padding: 4px 10px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      border-radius: 4px 4px 0 0;
+      cursor: pointer;
+      opacity: 0.6;
+      transition: all 0.2s ease;
+      color: var(--text-soft);
+    }
+    .strategy-tab:hover {
+      opacity: 0.8;
+    }
+    .strategy-tab.active {
+      opacity: 1;
+      background: rgba(96, 165, 250, 0.2);
+      color: var(--accent);
+    }
+    .strategy-tab.aggressive { color: #f87171; }
+    .strategy-tab.aggressive.active { background: rgba(248, 113, 113, 0.2); color: #f87171; }
+    .strategy-tab.balanced { color: #60a5fa; }
+    .strategy-tab.balanced.active { background: rgba(96, 165, 250, 0.2); color: #60a5fa; }
+    .strategy-tab.conservative { color: #4ade80; }
+    .strategy-tab.conservative.active { background: rgba(74, 222, 128, 0.2); color: #4ade80; }
+    .strategy-content {
+      display: none;
+      font-size: 0.8rem;
+      line-height: 1.5;
+      color: var(--text-soft);
+    }
+    .strategy-content.active {
+      display: block;
+    }
+    .strategy-content .strategy-summary {
+      margin-bottom: 6px;
+    }
+    .strategy-content .strategy-prices {
+      display: flex;
+      gap: 12px;
+      font-size: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .strategy-content .strategy-prices span {
+      color: var(--text);
+    }
+    .strategy-content .strategy-prices .buy { color: var(--good); }
+    .strategy-content .strategy-prices .stop { color: var(--bad); }
+    .strategy-content .strategy-prices .pos { color: var(--accent); }
   </style>
 </head>
 <body>
@@ -159,7 +221,7 @@
     <section class="panel">
       <div class="panel-inner">
         <h2 class="section-title">分析结果</h2>
-        <p class="section-copy">推荐评分范围 1-5，数值越高越值得进入后续跟踪。点击"查看报告"可查看详细分析。</p>
+        <p class="section-copy">推荐评分范围 0-10，数值越高越值得进入后续跟踪。点击"查看报告"可查看详细分析。</p>
         <div id="analysis-results" class="stock-grid"></div>
         <div id="analysis-empty" class="empty-state">点击"分析方向个股"后展示候选股票。</div>
         <div class="footer-bar">
@@ -377,7 +439,7 @@
         meta.append(
           `代码: ${stock.code}`,
           document.createElement("br"),
-          `推荐评分: ${stock.score} / 5`,
+          `推荐评分: ${stock.score.toFixed(1)} / 10`,
           document.createElement("br"),
           "决策建议: "
         );
@@ -523,63 +585,86 @@
       }
     }
 
-    // 使用 v2 数据更新股票卡片
+    // 使用 v2 数据更新股票卡片 - 显示三种策略
     function updateStockCardWithV2Data(stockCode, v2Data) {
       const card = document.querySelector(`[data-stock-code="${stockCode}"]`);
       if (!card) return;
 
-      const strategy = v2Data.strategies?.balanced;
-      const firstAction = strategy?.actions?.[0];
-      const buyPrice = firstAction?.trigger_conditions?.[0]?.value;
-      const stopLoss = firstAction?.stop_loss || v2Data.stop_loss;
-      const position = firstAction?.position_percent || 0;
+      const strategies = v2Data.strategies || {};
+      const nameEl = card.querySelector('.stock-name');
+      const stockName = nameEl ? nameEl.textContent : stockCode;
 
-      // 更新或创建 key-prices 元素
-      let keyPricesEl = card.querySelector('.key-prices');
-      if (!keyPricesEl) {
-        keyPricesEl = document.createElement('div');
-        keyPricesEl.className = 'key-prices';
-        const summaryEl = card.querySelector('.stock-summary');
-        if (summaryEl) {
-          summaryEl.after(keyPricesEl);
-        } else {
-          card.querySelector('label span').appendChild(keyPricesEl);
-        }
-      }
+      // 移除旧的 key-prices 和 stock-summary
+      card.querySelector('.key-prices')?.remove();
+      card.querySelector('.stock-summary')?.remove();
 
-      keyPricesEl.innerHTML = `
-        <span class="price-item buy-price">买入价：¥${buyPrice ? Number(buyPrice).toFixed(2) : 'N/A'}</span>
-        <span class="price-item stop-loss">止损价：¥${stopLoss ? Number(stopLoss).toFixed(2) : 'N/A'}</span>
-        <span class="price-item position">仓位：${position}%</span>
+      // 创建策略面板
+      const strategiesPanel = document.createElement('div');
+      strategiesPanel.className = 'strategies-panel';
+
+      // 构建策略标签
+      const tabsHtml = `
+        <div class="strategy-tabs">
+          <span class="strategy-tab aggressive active" data-strategy="aggressive">激进</span>
+          <span class="strategy-tab balanced" data-strategy="balanced">稳健</span>
+          <span class="strategy-tab conservative" data-strategy="conservative">保守</span>
+        </div>
       `;
 
-      // 更新或创建 summary 元素
-      let summaryEl = card.querySelector('.stock-summary');
-      if (!summaryEl && strategy?.summary_text) {
-        summaryEl = document.createElement('p');
-        summaryEl.className = 'stock-summary';
-        const metaEl = card.querySelector('.stock-meta');
-        if (metaEl) {
-          metaEl.after(summaryEl);
-        }
-      }
-      if (summaryEl && strategy?.summary_text) {
-        // 确保 summary_text 是字符串
-        const summaryText = typeof strategy.summary_text === 'string' ? strategy.summary_text : '';
-        summaryEl.textContent = summaryText.slice(0, 100) + (summaryText.length > 100 ? '...' : '');
+      // 构建各策略内容
+      const strategiesHtml = ['aggressive', 'balanced', 'conservative'].map((type, idx) => {
+        const strategy = strategies[type] || {};
+        const firstAction = strategy?.actions?.[0] || {};
+        const buyPrice = firstAction?.trigger_conditions?.[0]?.value;
+        const stopLoss = firstAction?.stop_loss || v2Data.stop_loss;
+        const position = firstAction?.position_percent || 0;
+        const summaryText = typeof strategy?.summary_text === 'string' ? strategy.summary_text : '';
+
+        return `
+          <div class="strategy-content ${idx === 0 ? 'active' : ''}" data-strategy="${type}">
+            <div class="strategy-summary">${summaryText || '暂无策略'}</div>
+            <div class="strategy-prices">
+              <span>买入：<span class="buy">${buyPrice ? Number(buyPrice).toFixed(2) : 'N/A'}</span></span>
+              <span>止损：<span class="stop">${stopLoss ? Number(stopLoss).toFixed(2) : 'N/A'}</span></span>
+              <span>仓位：<span class="pos">${position}%</span></span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      strategiesPanel.innerHTML = tabsHtml + strategiesHtml;
+
+      // 添加标签切换事件
+      strategiesPanel.querySelectorAll('.strategy-tab').forEach(tab => {
+        tab.addEventListener('click', (e) => {
+          const strategyType = e.target.dataset.strategy;
+          // 切换标签激活状态
+          strategiesPanel.querySelectorAll('.strategy-tab').forEach(t => t.classList.remove('active'));
+          e.target.classList.add('active');
+          // 切换内容显示
+          strategiesPanel.querySelectorAll('.strategy-content').forEach(c => c.classList.remove('active'));
+          strategiesPanel.querySelector(`.strategy-content[data-strategy="${strategyType}"]`)?.classList.add('active');
+        });
+      });
+
+      // 插入到 stock-meta 后面
+      const metaEl = card.querySelector('.stock-meta');
+      if (metaEl) {
+        // 移除旧的策略面板
+        metaEl.parentElement.querySelector('.strategies-panel')?.remove();
+        metaEl.after(strategiesPanel);
       }
 
-      // 添加导入条件单按钮
+      // 更新导入条件单按钮
       let actionsEl = card.querySelector('.stock-actions');
-      if (actionsEl && !actionsEl.querySelector('.btn-import')) {
+      if (actionsEl) {
+        // 移除旧的导入按钮
+        actionsEl.querySelector('.btn-import')?.remove();
         const importBtn = document.createElement('button');
         importBtn.className = 'button-secondary btn-import';
         importBtn.type = 'button';
         importBtn.textContent = '导入条件单';
-        // 从 card 中获取股票名称
-        const nameEl = card.querySelector('.stock-name');
-        const name = nameEl ? nameEl.textContent : stockCode;
-        importBtn.addEventListener('click', () => importToConditional(stockCode, name, 'balanced'));
+        importBtn.addEventListener('click', () => importToConditional(stockCode, stockName, 'balanced'));
         actionsEl.appendChild(importBtn);
       }
     }

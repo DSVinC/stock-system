@@ -511,8 +511,8 @@ async function calculateCompositeScore(params, stockCode = null) {
     sentiment: sentiment.score
   });
 
-  // 映射到 1-5 分
-  const reportScore = Math.min(5, Math.max(1, weightedScore));
+  // 映射到 0-10 分（原 weightedScore 范围 0.6-1.2，映射到 1-5 后 ×2 得 0-10）
+  const reportScore = Math.min(10, Math.max(0, weightedScore * 2));
 
   // 【黑天鹅一票否决】检查黑天鹅事件
   let blackSwanEvent = null;
@@ -531,9 +531,9 @@ async function calculateCompositeScore(params, stockCode = null) {
   let decision = '回避';
   if (blackSwanEvent) {
     decision = '回避'; // 黑天鹅直接否决
-  } else if (reportScore >= 4.2) {
+  } else if (reportScore >= 8.4) {
     decision = '买入';
-  } else if (reportScore >= 3.2) {
+  } else if (reportScore >= 6.4) {
     decision = '观望';
   }
 
