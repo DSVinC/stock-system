@@ -1,0 +1,48 @@
+{
+  "strategies": {
+    "dual_ma": {
+      "name": "双均线策略",
+      "type": "trend_following",
+      "enabled": true,
+      "parameters": {
+        "fast_period": 5,
+        "slow_period": 20,
+        "description": "快线上穿慢线买入，下穿卖出"
+      }
+    },
+    "multi_factor": {
+      "name": "多因子策略",
+      "type": "multi_factor",
+      "enabled": true,
+      "parameters": {
+        "top_n": 10,
+        "factor_weights": [0.4, 0.3, 0.3],
+        "factors": ["value", "momentum", "quality"],
+        "description": "基于价值、动量、质量因子的综合打分选股"
+      }
+    },
+    "mean_reversion": {
+      "name": "均值回归策略",
+      "type": "mean_reversion",
+      "enabled": false,
+      "parameters": {
+        "window": 20,
+        "zscore_entry": -2.0,
+        "zscore_exit": -0.5,
+        "stop_loss": -0.1,
+        "description": "基于 Z-Score 的均值回归策略（待实现）"
+      }
+    }
+  },
+  "backtest_settings": {
+    "initial_cash": 1000000,
+    "commission_rate": 0.0003,
+    "slippage": 0.001,
+    "max_position_pct": 0.3
+  },
+  "risk_control": {
+    "max_drawdown": 0.2,
+    "single_stock_max_pct": 0.2,
+    "sector_max_pct": 0.5
+  }
+}

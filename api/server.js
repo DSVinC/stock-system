@@ -137,7 +137,9 @@ async function bootstrap() {
     router.post('/account', portfolio.createAccount);
     router.get('/account/:id', portfolio.getAccount);
     router.put('/account/:id', portfolio.updateAccount);
+    router.delete('/account/:id', portfolio.deleteAccount);
     router.get('/account/:id/summary', portfolio.getAccountSummary);
+    router.post('/account/:id/clear-positions', portfolio.clearPositions);
     router.get('/account/:id/conditional-orders', portfolio.getAccountConditionalOrders);
     router.get('/position', portfolio.getPositions);
     router.get('/position/:id', portfolio.getPosition);
@@ -205,10 +207,37 @@ async function bootstrap() {
     router.post('/run', backtest.runBacktest);
     router.get('/history', backtest.getBacktestHistory);
     router.get('/:id', backtest.getBacktestDetail);
+    // TASK_BACKTEST_004: 参数扫描
+    router.post('/scan', backtest.scanParameters);
+    // TASK_BACKTEST_003: 报告生成
+    router.post('/:id/report', backtest.generateBacktestReport);
     app.use('/api/backtest', router);
     mounted.push('/api/backtest');
   } catch (e) {
     console.log('[mountApi] backtest模块加载失败:', e.message);
+  }
+
+  // 持仓监控API
+  try {
+    const positionSignals = require('./position-signals');
+    const router = require('express').Router();
+    router.get('/signals', positionSignals.handleGetSignals);
+    router.get('/overview', positionSignals.handleGetOverview);
+    router.post('/signals/:id/read', positionSignals.handleMarkRead);
+    router.post('/run', async (req, res) => {
+      try {
+        const result = await positionSignals.generateSignals();
+        res.json({ success: true, data: result });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+    app.use('/api/monitor', router);
+    mounted.push('/api/monitor/signals');
+    mounted.push('/api/monitor/overview');
+    mounted.push('/api/monitor/run');
+  } catch (e) {
+    console.log('[mountApi] position-signals模块加载失败:', e.message);
   }
 
   // 股票搜索API

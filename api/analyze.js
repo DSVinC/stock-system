@@ -419,7 +419,7 @@ async function buildReportData(basicInfo, realtimeQuote, technical, valuation, i
   const atrData = await getATR(basicInfo.ts_code);
   const peHistory = await getStockPePercentile(basicInfo.ts_code);
 
-  // 使用新的6因子评分系统
+  // 使用新的7因子评分系统（包含舆情因子）
   const scoreResult = await calculateCompositeScore({
     technical,
     valuation: latestDailyBasic,
@@ -430,7 +430,7 @@ async function buildReportData(basicInfo, realtimeQuote, technical, valuation, i
     income: latestIncome,
     atr20: atrData?.atr20,
     peHistory
-  });
+  }, stockCode);
 
   const reportScore = scoreResult.reportScore;
   const decision = scoreResult.decision;

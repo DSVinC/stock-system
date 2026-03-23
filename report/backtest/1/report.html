@@ -1,0 +1,110 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>回测报告 - PE策略</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+           background: #1a1a2e; color: #eee; padding: 20px; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    h1 { color: #00d9ff; margin-bottom: 10px; }
+    h2 { color: #00d9ff; margin: 30px 0 15px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+    .card { background: #16213e; border-radius: 10px; padding: 20px; margin: 15px 0; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+    .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+    .metric { background: #0f3460; padding: 15px; border-radius: 8px; text-align: center; }
+    .metric-value { font-size: 28px; font-weight: bold; color: #00d9ff; }
+    .metric-label { font-size: 14px; color: #888; margin-top: 5px; }
+    .positive { color: #00ff88; }
+    .negative { color: #ff4757; }
+    table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #333; }
+    th { background: #0f3460; color: #00d9ff; }
+    tr:hover { background: #1a1a2e; }
+    .summary { font-size: 18px; line-height: 1.8; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📊 回测报告</h1>
+    <p style="color:#888;margin:10px 0 30px;">策略：PE策略 | 
+       时间：2024-01-01 ~ 2024-03-01 | 
+       初始资金：¥1,000,000</p>
+    
+    <h2>📈 核心指标</h2>
+    <div class="card">
+      <div class="metrics-grid">
+        <div class="metric">
+          <div class="metric-value negative">
+            -6.82%
+          </div>
+          <div class="metric-label">累计收益率</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value negative">
+            NaN%
+          </div>
+          <div class="metric-label">年化收益率</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">-6.33</div>
+          <div class="metric-label">夏普比率</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value negative">6.82%</div>
+          <div class="metric-label">最大回撤</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">0.0%</div>
+          <div class="metric-label">胜率</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">0</div>
+          <div class="metric-label">交易次数</div>
+        </div>
+      </div>
+    </div>
+    
+    <h2>📋 回测概要</h2>
+    <div class="card">
+      <div class="summary">
+        <p>• 初始资金：<strong>¥1,000,000</strong></p>
+        <p>• 最终价值：<strong class="negative">
+            ¥931,830
+          </strong></p>
+        <p>• 绝对收益：<strong class="negative">
+            ¥-68,170
+          </strong></p>
+      </div>
+    </div>
+    
+    <h2>💼 交易记录（前 20 条）</h2>
+    <div class="card">
+      <table>
+        <thead>
+          <tr><th>日期</th><th>股票</th><th>操作</th><th>数量</th><th>价格</th><th>金额</th></tr>
+        </thead>
+        <tbody>
+          
+            <tr>
+              <td>2024-01-01</td>
+              <td>undefined</td>
+              <td class="negative">buy</td>
+              <td>undefined</td>
+              <td>¥168.96</td>
+              <td>¥NaN</td>
+            </tr>
+          
+        </tbody>
+      </table>
+    </div>
+    
+    <p style="text-align:center;color:#666;margin-top:40px;">
+      报告生成时间：2026/3/23 10:48:40
+    </p>
+  </div>
+</body>
+</html>
