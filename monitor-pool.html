@@ -256,7 +256,7 @@
 
       for (const stock of draftStocks) {
         const reportPath = await buildReportPath(stock);
-        const response = await fetch('/api/monitor/add', {
+        const response = await fetch('/api/monitor-pool/add', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -393,7 +393,7 @@
         const removeButton = document.createElement('button');
         removeButton.className = 'button-danger';
         removeButton.type = 'button';
-        removeButton.dataset.removeId = String(stock.id || '');
+        removeButton.dataset.removeId = String(stock.stock_code || '');
         removeButton.textContent = '移除';
         actionWrap.appendChild(removeButton);
 
@@ -420,7 +420,7 @@
           syncSummary = await persistDraftStocks();
         }
 
-        const response = await fetch('/api/monitor/list');
+        const response = await fetch('/api/monitor-pool/list');
         const payload = await response.json();
 
         if (!response.ok || !payload.success) {
@@ -464,22 +464,22 @@
       }
     }
 
-    async function removeStock(id) {
-      if (!id) {
+    async function removeStock(stockCode) {
+      if (!stockCode) {
         return;
       }
 
       setLoadingState(true);
-      statusText.textContent = `正在移除记录 #${id}...`;
+      statusText.textContent = `正在移除 ${stockCode}...`;
       statusText.classList.remove('error');
 
       try {
-        const response = await fetch('/api/monitor/remove', {
-          method: 'POST',
+        const response = await fetch('/api/monitor-pool/remove', {
+          method: 'DELETE',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ id: Number(id) })
+          body: JSON.stringify({ stock_code: stockCode })
         });
         const payload = await response.json();
 

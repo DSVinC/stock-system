@@ -1,0 +1,1586 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A股股票投资系统 - 架构知识图谱</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+            overflow-x: hidden;
+        }
+
+        .header {
+            text-align: center;
+            padding: 30px 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(90deg, #00d4ff, #7c3aed, #f472b6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #888;
+            font-size: 1rem;
+        }
+
+        .nav-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            padding: 20px;
+            flex-wrap: wrap;
+        }
+
+        .nav-tab {
+            padding: 12px 24px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.95rem;
+        }
+
+        .nav-tab:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: #00d4ff;
+        }
+
+        .nav-tab.active {
+            background: linear-gradient(135deg, #00d4ff20, #7c3aed20);
+            border-color: #00d4ff;
+            color: #00d4ff;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Architecture Diagram Styles */
+        .architecture-layer {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .layer-title {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .layer-title .icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+
+        .layer-frontend .layer-title .icon { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
+        .layer-api .layer-title .icon { background: linear-gradient(135deg, #10b981, #059669); }
+        .layer-data .layer-title .icon { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .layer-service .layer-title .icon { background: linear-gradient(135deg, #8b5cf6, #6d28d9); }
+
+        .module-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+        }
+
+        .module-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .module-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #00d4ff, #7c3aed);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .module-card:hover {
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateY(-4px);
+            border-color: rgba(0, 212, 255, 0.3);
+        }
+
+        .module-card:hover::before {
+            opacity: 1;
+        }
+
+        .module-card h3 {
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+            color: #fff;
+        }
+
+        .module-card .route {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.85rem;
+            color: #00d4ff;
+            margin-bottom: 10px;
+        }
+
+        .module-card p {
+            font-size: 0.9rem;
+            color: #888;
+            line-height: 1.5;
+        }
+
+        .module-card .tags {
+            display: flex;
+            gap: 6px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        .tag {
+            padding: 4px 10px;
+            background: rgba(0, 212, 255, 0.1);
+            border-radius: 20px;
+            font-size: 0.75rem;
+            color: #00d4ff;
+        }
+
+        /* Data Flow Diagram */
+        .flow-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .flow-section {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            padding: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .flow-section h3 {
+            margin-bottom: 16px;
+            font-size: 1.2rem;
+        }
+
+        .flow-steps {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .flow-step {
+            background: rgba(0, 212, 255, 0.1);
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            position: relative;
+        }
+
+        .flow-arrow {
+            color: #00d4ff;
+            font-size: 1.5rem;
+        }
+
+        /* Database Schema */
+        .schema-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+
+        .schema-table {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .schema-table .table-header {
+            background: linear-gradient(135deg, #1e3a5f, #1a365d);
+            padding: 16px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .schema-table .table-header .pk {
+            background: #fbbf24;
+            color: #000;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            margin-left: auto;
+        }
+
+        .schema-table .columns {
+            padding: 12px;
+        }
+
+        .schema-table .column {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 0.9rem;
+        }
+
+        .schema-table .column:last-child {
+            border-bottom: none;
+        }
+
+        .schema-table .column .name {
+            font-family: 'Monaco', 'Menlo', monospace;
+            color: #a5f3fc;
+        }
+
+        .schema-table .column .type {
+            margin-left: auto;
+            color: #888;
+            font-size: 0.8rem;
+        }
+
+        .schema-table .column .key {
+            color: #fbbf24;
+            margin-right: 8px;
+        }
+
+        /* Dependencies Graph */
+        .deps-graph {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 30px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.9rem;
+            white-space: pre;
+            overflow-x: auto;
+            line-height: 1.6;
+            color: #888;
+        }
+
+        .deps-graph .highlight { color: #00d4ff; }
+        .deps-graph .module { color: #a5f3fc; }
+        .deps-graph .arrow { color: #7c3aed; }
+
+        /* Tech Stack */
+        .tech-stack {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        .tech-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .tech-item:hover {
+            transform: translateY(-4px);
+            border-color: rgba(0, 212, 255, 0.3);
+        }
+
+        .tech-item .tech-icon {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .tech-item .tech-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .tech-item .tech-version {
+            font-size: 0.8rem;
+            color: #888;
+        }
+
+        /* Interactive Diagram */
+        .diagram-canvas {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 16px;
+            padding: 40px;
+            position: relative;
+            min-height: 600px;
+        }
+
+        .diagram-node {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 16px 24px;
+            cursor: move;
+            user-select: none;
+            transition: box-shadow 0.3s ease, border-color 0.3s ease;
+            min-width: 140px;
+            text-align: center;
+        }
+
+        .diagram-node:hover {
+            border-color: #00d4ff;
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+        }
+
+        .diagram-node.frontend { background: linear-gradient(135deg, #3b82f620, #1d4ed820); border-color: #3b82f6; }
+        .diagram-node.api { background: linear-gradient(135deg, #10b98120, #05966920); border-color: #10b981; }
+        .diagram-node.data { background: linear-gradient(135deg, #f59e0b20, #d9770620); border-color: #f59e0b; }
+        .diagram-node.service { background: linear-gradient(135deg, #8b5cf620, #6d28d920); border-color: #8b5cf6; }
+        .diagram-node.external { background: linear-gradient(135deg, #ef444420, #dc262620); border-color: #ef4444; }
+
+        .diagram-node h4 {
+            font-size: 0.95rem;
+            margin-bottom: 4px;
+        }
+
+        .diagram-node p {
+            font-size: 0.75rem;
+            color: #888;
+        }
+
+        /* Connection Lines SVG */
+        .connections-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .connection-line {
+            stroke: rgba(0, 212, 255, 0.3);
+            stroke-width: 2;
+            fill: none;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #1a1a2e;
+            border-radius: 16px;
+            padding: 30px;
+            max-width: 700px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h2 {
+            font-size: 1.5rem;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 5px;
+        }
+
+        .modal-close:hover {
+            color: #fff;
+        }
+
+        .modal-section {
+            margin-bottom: 20px;
+        }
+
+        .modal-section h4 {
+            color: #00d4ff;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+        }
+
+        .modal-section p, .modal-section ul {
+            color: #ccc;
+            line-height: 1.6;
+        }
+
+        .modal-section ul {
+            margin-left: 20px;
+        }
+
+        .modal-section li {
+            margin-bottom: 6px;
+        }
+
+        .code-block {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 8px;
+            padding: 16px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+            color: #a5f3fc;
+        }
+
+        /* Legend */
+        .legend {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            padding: 20px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+
+        .legend-color.frontend { background: #3b82f6; }
+        .legend-color.api { background: #10b981; }
+        .legend-color.data { background: #f59e0b; }
+        .legend-color.service { background: #8b5cf6; }
+        .legend-color.external { background: #ef4444; }
+
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stat-card .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(90deg, #00d4ff, #7c3aed);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-card .stat-label {
+            font-size: 0.9rem;
+            color: #888;
+            margin-top: 5px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8rem;
+            }
+
+            .module-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .schema-container {
+                grid-template-columns: 1fr;
+            }
+
+            .nav-tabs {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>A股股票投资系统</h1>
+        <p>基于 Tushare + 新浪财经的智能投资分析与交易系统</p>
+    </header>
+
+    <nav class="nav-tabs">
+        <button class="nav-tab active" data-tab="overview">系统概览</button>
+        <button class="nav-tab" data-tab="architecture">架构图</button>
+        <button class="nav-tab" data-tab="modules">模块详情</button>
+        <button class="nav-tab" data-tab="database">数据模型</button>
+        <button class="nav-tab" data-tab="dataflow">数据流程</button>
+        <button class="nav-tab" data-tab="dependencies">依赖关系</button>
+        <button class="nav-tab" data-tab="techstack">技术栈</button>
+    </nav>
+
+    <main class="container">
+        <!-- Overview Tab -->
+        <div class="tab-content active" id="overview">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">12</div>
+                    <div class="stat-label">API 路由模块</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">10</div>
+                    <div class="stat-label">支撑服务模块</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">5</div>
+                    <div class="stat-label">前端页面</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">7</div>
+                    <div class="stat-label">数据表</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">6</div>
+                    <div class="stat-label">核心因子</div>
+                </div>
+            </div>
+
+            <div class="architecture-layer layer-frontend">
+                <h2 class="layer-title">
+                    <span class="icon">🖥️</span>
+                    前端界面层
+                </h2>
+                <div class="module-grid">
+                    <div class="module-card" data-module="index">
+                        <h3>首页</h3>
+                        <div class="route">/</div>
+                        <p>系统入口，展示市场概览和快捷导航</p>
+                        <div class="tags">
+                            <span class="tag">概览</span>
+                            <span class="tag">导航</span>
+                        </div>
+                    </div>
+                    <div class="module-card" data-module="select">
+                        <h3>选股分析</h3>
+                        <div class="route">/analysis.html</div>
+                        <p>多维度选股筛选，估值/技术/资金/成长</p>
+                        <div class="tags">
+                            <span class="tag">筛选</span>
+                            <span class="tag">评分</span>
+                        </div>
+                    </div>
+                    <div class="module-card" data-module="monitor">
+                        <h3>监控池</h3>
+                        <div class="route">/monitor-pool.html</div>
+                        <p>实时监控股票池，条件触发提醒</p>
+                        <div class="tags">
+                            <span class="tag">监控</span>
+                            <span class="tag">预警</span>
+                        </div>
+                    </div>
+                    <div class="module-card" data-module="portfolio">
+                        <h3>账户管理</h3>
+                        <div class="route">/portfolio.html</div>
+                        <p>模拟账户管理，持仓/交易记录</p>
+                        <div class="tags">
+                            <span class="tag">账户</span>
+                            <span class="tag">持仓</span>
+                        </div>
+                    </div>
+                    <div class="module-card" data-module="conditional">
+                        <h3>条件单</h3>
+                        <div class="route">/conditional-order.html</div>
+                        <p>智能条件单引擎，价格/技术/复合条件</p>
+                        <div class="tags">
+                            <span class="tag">自动化</span>
+                            <span class="tag">交易</span>
+                        </div>
+                    </div>
+                    <div class="module-card" data-module="backtest">
+                        <h3>回测系统</h3>
+                        <div class="route">/backtest.html</div>
+                        <p>策略回测，收益/风险指标分析</p>
+                        <div class="tags">
+                            <span class="tag">回测</span>
+                            <span class="tag">策略</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="architecture-layer layer-api">
+                <h2 class="layer-title">
+                    <span class="icon">🔌</span>
+                    API 服务层
+                </h2>
+                <div class="module-grid">
+                    <div class="module-card" data-module="api-server">
+                        <h3>server.js</h3>
+                        <div class="route">主入口</div>
+                        <p>Express 服务入口，路由挂载，CORS/认证中间件</p>
+                    </div>
+                    <div class="module-card" data-module="api-select">
+                        <h3>select.js</h3>
+                        <div class="route">/api/select</div>
+                        <p>选股筛选功能</p>
+                    </div>
+                    <div class="module-card" data-module="api-analyze">
+                        <h3>analyze.js</h3>
+                        <div class="route">/api/analyze</div>
+                        <p>个股分析，六因子评分系统</p>
+                    </div>
+                    <div class="module-card" data-module="api-portfolio">
+                        <h3>portfolio.js</h3>
+                        <div class="route">/api/portfolio</div>
+                        <p>账户/持仓/交易管理</p>
+                    </div>
+                    <div class="module-card" data-module="api-conditional">
+                        <h3>conditional-order.js</h3>
+                        <div class="route">/api/conditional-order</div>
+                        <p>条件单 CRUD + 启停控制</p>
+                    </div>
+                    <div class="module-card" data-module="api-monitor">
+                        <h3>monitor-pool.js</h3>
+                        <div class="route">/api/monitor</div>
+                        <p>监控池管理</p>
+                    </div>
+                    <div class="module-card" data-module="api-backtest">
+                        <h3>backtest.js</h3>
+                        <div class="route">/api/backtest</div>
+                        <p>回测执行/历史/参数扫描</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="architecture-layer layer-service">
+                <h2 class="layer-title">
+                    <span class="icon">⚙️</span>
+                    服务支撑层
+                </h2>
+                <div class="module-grid">
+                    <div class="module-card" data-module="score-factors">
+                        <h3>score-factors.js</h3>
+                        <p>多因子评分计算引擎</p>
+                    </div>
+                    <div class="module-card" data-module="sentiment">
+                        <h3>sentiment-factor.js</h3>
+                        <p>情绪因子（新闻/事件）分析</p>
+                    </div>
+                    <div class="module-card" data-module="time-decay">
+                        <h3>time-decay.js</h3>
+                        <p>时间衰减计算</p>
+                    </div>
+                    <div class="module-card" data-module="llm-sentiment">
+                        <h3>llm-sentiment.js</h3>
+                        <p>LLM 情绪分析</p>
+                    </div>
+                    <div class="module-card" data-module="market-data">
+                        <h3>market-data.js</h3>
+                        <p>市场数据获取（新浪财经）</p>
+                    </div>
+                    <div class="module-card" data-module="black-swan">
+                        <h3>black-swan-check.js</h3>
+                        <p>黑天鹅事件检测</p>
+                    </div>
+                    <div class="module-card" data-module="position-signals">
+                        <h3>position-signals.js</h3>
+                        <p>持仓监控信号</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="architecture-layer layer-data">
+                <h2 class="layer-title">
+                    <span class="icon">🗄️</span>
+                    数据存储层
+                </h2>
+                <div class="module-grid">
+                    <div class="module-card" data-module="db">
+                        <h3>db.js</h3>
+                        <div class="route">SQLite 封装</div>
+                        <p>数据库连接封装，查询执行</p>
+                    </div>
+                    <div class="module-card" data-module="external">
+                        <h3>外部数据源</h3>
+                        <div class="route">Tushare / 新浪财经</div>
+                        <p>实时行情、财务数据、新闻资讯</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Architecture Diagram Tab -->
+        <div class="tab-content" id="architecture">
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color frontend"></div>
+                    <span>前端层</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color api"></div>
+                    <span>API 层</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color service"></div>
+                    <span>服务层</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color data"></div>
+                    <span>数据层</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color external"></div>
+                    <span>外部服务</span>
+                </div>
+            </div>
+
+            <div class="diagram-canvas" id="diagram-canvas">
+                <svg class="connections-svg" id="connections-svg"></svg>
+                <!-- Nodes will be positioned via JS -->
+            </div>
+        </div>
+
+        <!-- Modules Tab -->
+        <div class="tab-content" id="modules">
+            <h2 style="margin-bottom: 20px;">模块详细说明</h2>
+            <div id="modules-list"></div>
+        </div>
+
+        <!-- Database Tab -->
+        <div class="tab-content" id="database">
+            <h2 style="margin-bottom: 20px;">数据库表结构</h2>
+            <div class="schema-container">
+                <div class="schema-table">
+                    <div class="table-header">
+                        📊 accounts <span class="pk">账户表</span>
+                    </div>
+                    <div class="columns">
+                        <div class="column"><span class="key">🔑</span><span class="name">id</span><span class="type">INTEGER PK</span></div>
+                        <div class="column"><span class="name">name</span><span class="type">VARCHAR(100)</span></div>
+                        <div class="column"><span class="name">initial_capital</span><span class="type">DECIMAL(15,4)</span></div>
+                        <div class="column"><span class="name">current_capital</span><span class="type">DECIMAL(15,4)</span></div>
+                        <div class="column"><span class="name">frozen_capital</span><span class="type">DECIMAL(15,4)</span></div>
+                        <div class="column"><span class="name">status</span><span class="type">VARCHAR(20)</span></div>
+                        <div class="column"><span class="name">settings</span><span class="type">JSON</span></div>
+                    </div>
+                </div>
+
+                <div class="schema-table">
+                    <div class="table-header">
+                        📈 positions <span class="pk">持仓表</span>
+                    </div>
+                    <div class="columns">
+                        <div class="column"><span class="key">🔑</span><span class="name">id</span><span class="type">INTEGER PK</span></div>
+                        <div class="column"><span class="key">🔗</span><span class="name">account_id</span><span class="type">INTEGER FK</span></div>
+                        <div class="column"><span class="name">stock_code</span><span class="type">VARCHAR(20)</span></div>
+                        <div class="column"><span class="name">stock_name</span><span class="type">VARCHAR(100)</span></div>
+                        <div class="column"><span class="name">quantity</span><span class="type">INTEGER</span></div>
+                        <div class="column"><span class="name">avg_price</span><span class="type">DECIMAL(12,4)</span></div>
+                        <div class="column"><span class="name">current_price</span><span class="type">DECIMAL(12,4)</span></div>
+                        <div class="column"><span class="name">unrealized_pnl</span><span class="type">DECIMAL(15,4)</span></div>
+                        <div class="column"><span class="name">stop_loss_price</span><span class="type">DECIMAL(12,4)</span></div>
+                        <div class="column"><span class="name">take_profit_price</span><span class="type">DECIMAL(12,4)</span></div>
+                    </div>
+                </div>
+
+                <div class="schema-table">
+                    <div class="table-header">
+                        💱 trades <span class="pk">交易记录表</span>
+                    </div>
+                    <div class="columns">
+                        <div class="column"><span class="key">🔑</span><span class="name">id</span><span class="type">INTEGER PK</span></div>
+                        <div class="column"><span class="key">🔗</span><span class="name">account_id</span><span class="type">INTEGER FK</span></div>
+                        <div class="column"><span class="name">stock_code</span><span class="type">VARCHAR(20)</span></div>
+                        <div class="column"><span class="name">trade_type</span><span class="type">BUY/SELL</span></div>
+                        <div class="column"><span class="name">quantity</span><span class="type">INTEGER</span></div>
+                        <div class="column"><span class="name">price</span><span class="type">DECIMAL(12,4)</span></div>
+                        <div class="column"><span class="name">total_amount</span><span class="type">DECIMAL(15,4)</span></div>
+                        <div class="column"><span class="name">fees</span><span class="type">DECIMAL(12,4)</span></div>
+                        <div class="column"><span class="name">realized_pnl</span><span class="type">DECIMAL(15,4)</span></div>
+                        <div class="column"><span class="name">trade_date</span><span class="type">DATE</span></div>
+                    </div>
+                </div>
+
+                <div class="schema-table">
+                    <div class="table-header">
+                        🎯 monitoring_strategies <span class="pk">监控策略表</span>
+                    </div>
+                    <div class="columns">
+                        <div class="column"><span class="key">🔑</span><span class="name">id</span><span class="type">INTEGER PK</span></div>
+                        <div class="column"><span class="key">🔗</span><span class="name">account_id</span><span class="type">INTEGER FK</span></div>
+                        <div class="column"><span class="name">stock_code</span><span class="type">VARCHAR(20)</span></div>
+                        <div class="column"><span class="name">strategy_type</span><span class="type">VARCHAR(50)</span></div>
+                        <div class="column"><span class="name">strategy_config</span><span class="type">JSON</span></div>
+                        <div class="column"><span class="name">status</span><span class="type">ACTIVE/PAUSED</span></div>
+                        <div class="column"><span class="name">alert_threshold</span><span class="type">DECIMAL(12,4)</span></div>
+                        <div class="column"><span class="name">check_interval</span><span class="type">INTEGER</span></div>
+                    </div>
+                </div>
+
+                <div class="schema-table">
+                    <div class="table-header">
+                        📅 daily_snapshots <span class="pk">每日快照表</span>
+                    </div>
+                    <div class="columns">
+                        <div class="column"><span class="key">🔑</span><span class="name">id</span><span class="type">INTEGER PK</span></div>
+                        <div class="column"><span class="key">🔗</span><span class="name">account_id</span><span class="type">INTEGER FK</span></div>
+                        <div class="column"><span class="name">snapshot_date</span><span class="type">DATE</span></div>
+                        <div class="column"><span class="name">total_capital</span><span class="type">DECIMAL(15,4)</span></div>
+                        <div class="column"><span class="name">available_capital</span><span class="type">DECIMAL(15,4)</span></div>
+                        <div class="column"><span class="name">market_value</span><span class="type">DECIMAL(15,4)</span></div>
+                        <div class="column"><span class="name">total_pnl</span><span class="type">DECIMAL(15,4)</span></div>
+                        <div class="column"><span class="name">position_details</span><span class="type">JSON</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Flow Tab -->
+        <div class="tab-content" id="dataflow">
+            <h2 style="margin-bottom: 20px;">核心数据流程</h2>
+
+            <div class="flow-section">
+                <h3>📊 个股分析流程</h3>
+                <div class="flow-steps">
+                    <div class="flow-step">用户请求</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">/api/analyze</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">score-factors.js</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">sentiment-factor.js</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">time-decay.js</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">结构化策略</div>
+                </div>
+            </div>
+
+            <div class="flow-section">
+                <h3>🔄 条件单执行流程</h3>
+                <div class="flow-steps">
+                    <div class="flow-step">定时任务</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">monitor-conditional.js</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">条件评估</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">conditional-executor.js</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">portfolio.js</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">数据库持久化</div>
+                </div>
+            </div>
+
+            <div class="flow-section">
+                <h3>📈 回测流程</h3>
+                <div class="flow-steps">
+                    <div class="flow-step">POST /api/backtest/run</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">backtest.js</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">历史数据加载</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">模拟交易执行</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">收益/风险计算</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">报告生成</div>
+                </div>
+            </div>
+
+            <div class="flow-section">
+                <h3>🎯 六因子评分流程</h3>
+                <div class="flow-steps">
+                    <div class="flow-step">技术面 (25%)</div>
+                    <span class="flow-arrow">+</span>
+                    <div class="flow-step">基本面 (25%)</div>
+                    <span class="flow-arrow">+</span>
+                    <div class="flow-step">资金面 (20%)</div>
+                    <span class="flow-arrow">+</span>
+                    <div class="flow-step">估值面 (15%)</div>
+                    <span class="flow-arrow">+</span>
+                    <div class="flow-step">市场情绪 (10%)</div>
+                    <span class="flow-arrow">+</span>
+                    <div class="flow-step">风险控制 (5%)</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dependencies Tab -->
+        <div class="tab-content" id="dependencies">
+            <h2 style="margin-bottom: 20px;">模块依赖关系</h2>
+            <div class="deps-graph">
+<span class="highlight">                    ┌─────────────┐</span>
+<span class="highlight">                    │  server.js  │</span>  (入口)
+<span class="highlight">                    └──────┬──────┘</span>
+<span class="highlight">                           │</span>
+<span class="highlight">         ┌─────────────────┼─────────────────┐</span>
+<span class="highlight">         │                 │                 │</span>
+<span class="highlight">         ▼                 ▼                 ▼</span>
+<span class="highlight">   ┌───────────┐    ┌───────────┐    ┌───────────┐</span>
+<span class="module">   │  db.js    │</span>    <span class="module">│ monitor.js│</span>    <span class="module">│portfolio.js│</span>
+<span class="highlight">   │(数据库层)  │    │           │    │           │</span>
+<span class="highlight">   └─────┬─────┘    └─────┬─────┘    └─────┬─────┘</span>
+<span class="highlight">         │                 │                 │</span>
+<span class="highlight">         │                 ▼                 ▼</span>
+<span class="highlight">         │          ┌─────────────┐   ┌─────────────┐</span>
+<span class="highlight">         │          │market-data.js│  │conditional- │</span>
+<span class="highlight">         │          │ (外部数据)   │  │  order.js   │</span>
+<span class="highlight">         │          └─────────────┘   └──────┬──────┘</span>
+<span class="highlight">         │                                    │</span>
+<span class="highlight">         ▼                                    ▼</span>
+<span class="highlight">   ┌───────────────────────────────────────────────┐</span>
+<span class="highlight">   │                   db.js                       │</span>
+<span class="highlight">   │              (SQLite 数据库)                   │</span>
+<span class="highlight">   └───────────────────────────────────────────────┘</span>
+
+   <span class="highlight">业务模块依赖链：</span>
+   <span class="module">analyze.js</span> <span class="arrow">→</span> <span class="module">score-factors.js</span> <span class="arrow">→</span> <span class="module">sentiment-factor.js</span>
+                                  <span class="arrow">→</span> <span class="module">time-decay.js</span>
+                                  <span class="arrow">→</span> <span class="module">llm-sentiment.js</span>
+
+   <span class="highlight">条件单链：</span>
+   <span class="module">conditional-order.js</span> <span class="arrow">←</span> <span class="module">monitor-conditional.js</span>
+                        <span class="arrow">←</span> <span class="module">conditional-executor.js</span>
+            </div>
+        </div>
+
+        <!-- Tech Stack Tab -->
+        <div class="tab-content" id="techstack">
+            <h2 style="margin-bottom: 20px;">技术栈</h2>
+            <div class="tech-stack">
+                <div class="tech-item">
+                    <div class="tech-icon">🟢</div>
+                    <div class="tech-name">Node.js</div>
+                    <div class="tech-version">运行时</div>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-icon">⚡</div>
+                    <div class="tech-name">Express</div>
+                    <div class="tech-version">v4.18.2</div>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-icon">🗄️</div>
+                    <div class="tech-name">SQLite</div>
+                    <div class="tech-version">v5.1.7</div>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-icon">📡</div>
+                    <div class="tech-name">Axios</div>
+                    <div class="tech-version">v1.6.0</div>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-icon">📊</div>
+                    <div class="tech-name">Tushare</div>
+                    <div class="tech-version">数据源</div>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-icon">📰</div>
+                    <div class="tech-name">新浪财经</div>
+                    <div class="tech-version">MCP</div>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-icon">🎭</div>
+                    <div class="tech-name">Playwright</div>
+                    <div class="tech-version">E2E 测试</div>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-icon">🐍</div>
+                    <div class="tech-name">Python</div>
+                    <div class="tech-version">策略分析</div>
+                </div>
+            </div>
+
+            <h2 style="margin: 30px 0 20px;">核心配置</h2>
+            <div class="schema-container">
+                <div class="schema-table">
+                    <div class="table-header">
+                        📦 package.json 依赖
+                    </div>
+                    <div class="columns">
+                        <div class="column"><span class="name">axios</span><span class="type">HTTP 客户端</span></div>
+                        <div class="column"><span class="name">better-sqlite3</span><span class="type">SQLite 绑定</span></div>
+                        <div class="column"><span class="name">dotenv</span><span class="type">环境变量</span></div>
+                        <div class="column"><span class="name">express</span><span class="type">Web 框架</span></div>
+                        <div class="column"><span class="name">sqlite3</span><span class="type">SQLite 驱动</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal -->
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">模块详情</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+    <script>
+        // Module details data
+        const moduleDetails = {
+            'index': {
+                title: '首页',
+                description: '系统入口页面，展示市场概览和快捷导航',
+                features: [
+                    '市场热度概览',
+                    '快捷功能入口',
+                    '系统状态监控',
+                    '最新资讯展示'
+                ],
+                api: null,
+                file: 'index.html'
+            },
+            'select': {
+                title: '选股分析模块',
+                description: '多维度选股筛选功能，支持估值、技术、资金、成长性等指标组合筛选',
+                features: [
+                    '估值指标：PE、PB、ROE',
+                    '技术指标：RSI、MACD',
+                    '资金面：主力资金净流入',
+                    '成长性：营收增长率、净利润增长率'
+                ],
+                api: 'POST /api/select',
+                file: 'select.html'
+            },
+            'monitor': {
+                title: '监控池模块',
+                description: '实时监控股票池，支持条件触发提醒',
+                features: [
+                    '股票池管理（添加/删除/查询）',
+                    '实时行情更新',
+                    '预警条件设置',
+                    '飞书通知集成'
+                ],
+                api: [
+                    'GET /api/monitor',
+                    'POST /api/monitor',
+                    'DELETE /api/monitor/:id'
+                ],
+                file: 'monitor-pool.html'
+            },
+            'portfolio': {
+                title: '账户管理模块',
+                description: '模拟账户管理系统，支持账户、持仓、交易的完整生命周期管理',
+                features: [
+                    '多账户支持',
+                    '初始资金可配置（默认100万）',
+                    '实时持仓查询',
+                    '交易记录追踪',
+                    '收益率统计'
+                ],
+                api: [
+                    'POST /api/portfolio/account - 创建账户',
+                    'GET /api/portfolio/account - 账户列表',
+                    'GET /api/portfolio/account/:id/positions - 持仓查询',
+                    'GET /api/portfolio/account/:id/trades - 交易记录'
+                ],
+                file: 'portfolio.html'
+            },
+            'conditional': {
+                title: '条件单引擎',
+                description: '智能条件单系统，支持多种条件类型和复合条件组合',
+                features: [
+                    '价格条件：股价 ≥/≤ 目标价',
+                    '涨跌幅条件：涨跌幅 ≥/≤ 目标值',
+                    '技术指标：RSI、MACD金叉/死叉',
+                    '估值指标：PE/PB分位数',
+                    '复合条件：AND/OR 组合'
+                ],
+                api: [
+                    'POST /api/conditional-order - 创建条件单',
+                    'GET /api/conditional-order - 条件单列表',
+                    'PUT /api/conditional-order/:id - 更新条件单',
+                    'DELETE /api/conditional-order/:id - 删除条件单'
+                ],
+                file: 'conditional-order.html'
+            },
+            'backtest': {
+                title: '回测系统',
+                description: '策略回测引擎，支持历史数据回放和收益风险分析',
+                features: [
+                    '历史数据回放',
+                    '条件单策略回测',
+                    '收益统计（总收益率、年化收益率）',
+                    '风险指标（最大回撤、夏普比率、胜率）',
+                    '交易明细记录'
+                ],
+                api: [
+                    'POST /api/backtest/run - 运行回测',
+                    'GET /api/backtest/history - 回测历史'
+                ],
+                file: 'backtest.html'
+            },
+            'api-server': {
+                title: 'server.js - 主服务入口',
+                description: 'Express 应用入口，负责路由挂载和中间件配置',
+                features: [
+                    'CORS 白名单校验',
+                    'Bearer Token 认证',
+                    '动态路由加载 (mountApi)',
+                    '错误处理中间件'
+                ],
+                dependencies: ['所有业务模块'],
+                file: 'api/server.js'
+            },
+            'api-select': {
+                title: 'select.js - 选股筛选',
+                description: '选股筛选功能实现',
+                features: [
+                    '多条件组合筛选',
+                    '结果排序和分页',
+                    '数据缓存优化'
+                ],
+                file: 'api/select.js'
+            },
+            'api-analyze': {
+                title: 'analyze.js - 个股分析',
+                description: '个股分析核心逻辑，六因子评分系统',
+                features: [
+                    '技术面分析 (25%)',
+                    '基本面分析 (25%)',
+                    '资金面分析 (20%)',
+                    '估值面分析 (15%)',
+                    '市场情绪 (10%)',
+                    '风险控制 (5%)'
+                ],
+                dependencies: ['score-factors.js', 'sentiment-factor.js', 'time-decay.js'],
+                file: 'api/analyze.js'
+            },
+            'api-portfolio': {
+                title: 'portfolio.js - 账户管理',
+                description: '账户/持仓/交易管理 API',
+                features: [
+                    '账户 CRUD',
+                    '持仓查询',
+                    '交易记录',
+                    '资金管理'
+                ],
+                file: 'api/portfolio.js'
+            },
+            'api-conditional': {
+                title: 'conditional-order.js - 条件单管理',
+                description: '条件单 CRUD + 启停控制',
+                features: [
+                    '条件单创建',
+                    '条件评估',
+                    '启停控制',
+                    '历史查询'
+                ],
+                file: 'api/conditional-order.js'
+            },
+            'api-monitor': {
+                title: 'monitor-pool.js - 监控池',
+                description: '监控池管理 API',
+                features: [
+                    '股票添加/删除',
+                    '监控状态查询',
+                    '预警触发'
+                ],
+                file: 'api/monitor-pool.js'
+            },
+            'api-backtest': {
+                title: 'backtest.js - 回测系统',
+                description: '回测执行/历史/参数扫描/报告生成',
+                features: [
+                    'runBacktest - 执行回测',
+                    'scanParameters - 参数扫描',
+                    'generateBacktestReport - 报告生成'
+                ],
+                file: 'api/backtest.js'
+            },
+            'score-factors': {
+                title: 'score-factors.js - 多因子评分',
+                description: '多因子评分计算引擎',
+                features: [
+                    '技术因子计算',
+                    '基本面因子计算',
+                    '资金因子计算',
+                    '综合评分聚合'
+                ],
+                file: 'api/score-factors.js'
+            },
+            'sentiment': {
+                title: 'sentiment-factor.js - 情绪因子',
+                description: '情绪因子分析，基于新闻和事件',
+                features: [
+                    'calculateSentimentFactor - 情绪因子计算',
+                    'calculateNewsScore - 新闻评分'
+                ],
+                file: 'api/sentiment-factor.js'
+            },
+            'time-decay': {
+                title: 'time-decay.js - 时间衰减',
+                description: '时间衰减计算工具',
+                features: [
+                    'calculateDecayFactor - 衰减因子计算',
+                    'createDecayCurve - 衰减曲线生成'
+                ],
+                file: 'api/time-decay.js'
+            },
+            'llm-sentiment': {
+                title: 'llm-sentiment.js - LLM 情绪分析',
+                description: '基于 LLM 的情绪分析服务',
+                features: [
+                    '新闻情绪分析',
+                    '事件影响评估'
+                ],
+                file: 'api/llm-sentiment.js'
+            },
+            'market-data': {
+                title: 'market-data.js - 市场数据',
+                description: '市场数据获取服务（新浪财经）',
+                features: [
+                    '精确股票搜索',
+                    '模糊股票搜索',
+                    '实时行情获取'
+                ],
+                file: 'api/market-data.js'
+            },
+            'black-swan': {
+                title: 'black-swan-check.js - 黑天鹅检测',
+                description: '黑天鹅事件检测服务',
+                features: [
+                    '异常波动检测',
+                    '重大事件识别'
+                ],
+                file: 'api/black-swan-check.js'
+            },
+            'position-signals': {
+                title: 'position-signals.js - 持仓信号',
+                description: '持仓监控信号服务',
+                features: [
+                    'runFullMonitoring - 全量监控',
+                    'handleGetSignals - 获取信号'
+                ],
+                file: 'api/position-signals.js'
+            },
+            'db': {
+                title: 'db.js - 数据库封装',
+                description: 'SQLite 数据库连接封装',
+                features: [
+                    '连接管理',
+                    '查询执行',
+                    '事务支持'
+                ],
+                file: 'api/db.js'
+            },
+            'external': {
+                title: '外部数据源',
+                description: 'Tushare + 新浪财经 MCP 数据源',
+                features: [
+                    '实时行情数据',
+                    '财务数据',
+                    '新闻资讯'
+                ],
+                config: '需要在 .env 中配置 TUSHARE_TOKEN'
+            }
+        };
+
+        // Tab switching
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.tab).classList.add('active');
+
+                if (tab.dataset.tab === 'architecture') {
+                    initDiagram();
+                }
+            });
+        });
+
+        // Module card click
+        document.querySelectorAll('.module-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const moduleId = card.dataset.module;
+                if (moduleDetails[moduleId]) {
+                    showModal(moduleId);
+                }
+            });
+        });
+
+        // Modal functions
+        function showModal(moduleId) {
+            const data = moduleDetails[moduleId];
+            const modal = document.getElementById('modal');
+            const title = document.getElementById('modal-title');
+            const body = document.getElementById('modal-body');
+
+            title.textContent = data.title;
+
+            let html = `<div class="modal-section">
+                <h4>描述</h4>
+                <p>${data.description}</p>
+            </div>`;
+
+            if (data.features) {
+                html += `<div class="modal-section">
+                    <h4>功能特性</h4>
+                    <ul>${data.features.map(f => `<li>${f}</li>`).join('')}</ul>
+                </div>`;
+            }
+
+            if (data.api) {
+                const apis = Array.isArray(data.api) ? data.api : [data.api];
+                html += `<div class="modal-section">
+                    <h4>API 接口</h4>
+                    <div class="code-block">${apis.join('\n')}</div>
+                </div>`;
+            }
+
+            if (data.dependencies) {
+                html += `<div class="modal-section">
+                    <h4>依赖模块</h4>
+                    <p>${data.dependencies.join(', ')}</p>
+                </div>`;
+            }
+
+            if (data.file) {
+                html += `<div class="modal-section">
+                    <h4>文件位置</h4>
+                    <div class="code-block">${data.file}</div>
+                </div>`;
+            }
+
+            if (data.config) {
+                html += `<div class="modal-section">
+                    <h4>配置要求</h4>
+                    <div class="code-block">${data.config}</div>
+                </div>`;
+            }
+
+            body.innerHTML = html;
+            modal.classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.remove('active');
+        }
+
+        // Close modal on outside click
+        document.getElementById('modal').addEventListener('click', (e) => {
+            if (e.target.id === 'modal') {
+                closeModal();
+            }
+        });
+
+        // Interactive Architecture Diagram
+        function initDiagram() {
+            const canvas = document.getElementById('diagram-canvas');
+            const svg = document.getElementById('connections-svg');
+
+            // Clear existing nodes
+            canvas.querySelectorAll('.diagram-node').forEach(n => n.remove());
+
+            const nodes = [
+                // Frontend Layer
+                { id: 'fe-1', label: '首页', sub: 'index.html', type: 'frontend', x: 50, y: 50 },
+                { id: 'fe-2', label: '选股分析', sub: 'analysis.html', type: 'frontend', x: 220, y: 50 },
+                { id: 'fe-3', label: '监控池', sub: 'monitor-pool.html', type: 'frontend', x: 390, y: 50 },
+                { id: 'fe-4', label: '账户管理', sub: 'portfolio.html', type: 'frontend', x: 560, y: 50 },
+                { id: 'fe-5', label: '条件单', sub: 'conditional-order.html', type: 'frontend', x: 730, y: 50 },
+                { id: 'fe-6', label: '回测系统', sub: 'backtest.html', type: 'frontend', x: 900, y: 50 },
+
+                // API Layer
+                { id: 'api-1', label: 'server.js', sub: '主入口', type: 'api', x: 475, y: 180 },
+                { id: 'api-2', label: 'select.js', sub: '/api/select', type: 'api', x: 100, y: 280 },
+                { id: 'api-3', label: 'analyze.js', sub: '/api/analyze', type: 'api', x: 280, y: 280 },
+                { id: 'api-4', label: 'portfolio.js', sub: '/api/portfolio', type: 'api', x: 460, y: 280 },
+                { id: 'api-5', label: 'conditional.js', sub: '/api/conditional-order', type: 'api', x: 640, y: 280 },
+                { id: 'api-6', label: 'backtest.js', sub: '/api/backtest', type: 'api', x: 820, y: 280 },
+
+                // Service Layer
+                { id: 'svc-1', label: 'score-factors.js', sub: '因子评分', type: 'service', x: 150, y: 420 },
+                { id: 'svc-2', label: 'sentiment-factor.js', sub: '情绪因子', type: 'service', x: 360, y: 420 },
+                { id: 'svc-3', label: 'market-data.js', sub: '市场数据', type: 'service', x: 570, y: 420 },
+                { id: 'svc-4', label: 'position-signals.js', sub: '持仓信号', type: 'service', x: 780, y: 420 },
+
+                // Data Layer
+                { id: 'data-1', label: 'db.js', sub: 'SQLite 封装', type: 'data', x: 360, y: 550 },
+                { id: 'data-2', label: 'stock_system.db', sub: '数据库文件', type: 'data', x: 570, y: 550 },
+
+                // External
+                { id: 'ext-1', label: 'Tushare', sub: '数据源', type: 'external', x: 200, y: 550 },
+                { id: 'ext-2', label: '新浪财经', sub: 'MCP', type: 'external', x: 750, y: 550 }
+            ];
+
+            // Create nodes
+            nodes.forEach(node => {
+                const el = document.createElement('div');
+                el.className = `diagram-node ${node.type}`;
+                el.id = node.id;
+                el.style.left = node.x + 'px';
+                el.style.top = node.y + 'px';
+                el.innerHTML = `<h4>${node.label}</h4><p>${node.sub}</p>`;
+                canvas.appendChild(el);
+
+                // Make draggable
+                makeDraggable(el);
+            });
+
+            // Draw connections
+            const connections = [
+                // Frontend to API
+                ['fe-1', 'api-1'], ['fe-2', 'api-2'], ['fe-3', 'api-4'],
+                ['fe-4', 'api-4'], ['fe-5', 'api-5'], ['fe-6', 'api-6'],
+
+                // API to Service
+                ['api-2', 'svc-3'], ['api-3', 'svc-1'], ['api-5', 'svc-4'],
+
+                // Service to Data
+                ['svc-1', 'data-1'], ['svc-3', 'ext-2'], ['svc-4', 'data-1'],
+
+                // Data connections
+                ['data-1', 'data-2'], ['ext-1', 'data-1']
+            ];
+
+            setTimeout(() => drawConnections(connections), 100);
+        }
+
+        function makeDraggable(el) {
+            let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+
+            el.onmousedown = dragMouseDown;
+
+            function dragMouseDown(e) {
+                e.preventDefault();
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                document.onmouseup = closeDragElement;
+                document.onmousemove = elementDrag;
+            }
+
+            function elementDrag(e) {
+                e.preventDefault();
+                pos1 = pos3 - e.clientX;
+                pos2 = pos4 - e.clientY;
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                el.style.top = (el.offsetTop - pos2) + "px";
+                el.style.left = (el.offsetLeft - pos1) + "px";
+            }
+
+            function closeDragElement() {
+                document.onmouseup = null;
+                document.onmousemove = null;
+            }
+        }
+
+        function drawConnections(connections) {
+            const svg = document.getElementById('connections-svg');
+            svg.innerHTML = '';
+
+            connections.forEach(([from, to]) => {
+                const fromEl = document.getElementById(from);
+                const toEl = document.getElementById(to);
+
+                if (fromEl && toEl) {
+                    const fromRect = fromEl.getBoundingClientRect();
+                    const toRect = toEl.getBoundingClientRect();
+                    const canvasRect = svg.parentElement.getBoundingClientRect();
+
+                    const x1 = fromRect.left + fromRect.width / 2 - canvasRect.left;
+                    const y1 = fromRect.top + fromRect.height - canvasRect.top;
+                    const x2 = toRect.left + toRect.width / 2 - canvasRect.left;
+                    const y2 = toRect.top - canvasRect.top;
+
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    const midY = (y1 + y2) / 2;
+                    path.setAttribute('d', `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`);
+                    path.setAttribute('class', 'connection-line');
+                    svg.appendChild(path);
+                }
+            });
+        }
+
+        // Initialize on load
+        window.addEventListener('load', () => {
+            // Auto-resize canvas based on content
+        });
+    </script>
+</body>
+</html>
