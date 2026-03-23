@@ -973,7 +973,12 @@ def build_structured_payload(ts_code, basic_info, technical, fundamental, capita
     ]
 
     return {
-        'generated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'stock_code': ts_code,
+        'stock_name': stock_name,
+        'industry': industry,
+        'report_score': report_score,
+        'decision': decision,
+        'generated_at': datetime.now().isoformat(),
         'stock': {
             'name': stock_name,
             'ts_code': ts_code,
