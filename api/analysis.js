@@ -29,6 +29,7 @@ const router = express.Router();
 const PYTHON_SCRIPT = path.join(__dirname, '..', '..', 'skills', 'a股个股分析', 'scripts', 'stock_analyzer.py');
 const HTML_REPORT_DIR = path.join(__dirname, '..', '..', 'report', 'analysis');
 const { getMarginDetailRows, toNumber: marketToNumber } = require('./market-data');
+const { identifyMarketPhase } = require('./score-factors');
 
 function getAnalyzeRouter() {
   return require('./analyze');
@@ -44,14 +45,49 @@ function isV2Format(data) {
 
 // v2 格式降级为 v1 格式
 function downgradeToV1(data) {
-  if (!isV2Format(data)) return data;
+  // 添加行情阶段识别（TASK_BACKTEST_005）- 无论 v1/v2 格式都添加
+  const tech = data.technical || {};
+  const latest = tech.latest || {};
+  let marketPhase = null;
+  
+  // v2 格式有 latest 嵌套对象，v1 格式是扁平的
+  const ma5 = latest.ma5 !== undefined ? Number(latest.ma5) : (tech.ma5 !== undefined ? Number(tech.ma5) : 0);
+  const ma10 = latest.ma10 !== undefined ? Number(latest.ma10) : (tech.ma10 !== undefined ? Number(tech.ma10) : 0);
+  const ma20 = latest.ma20 !== undefined ? Number(latest.ma20) : (tech.ma20 !== undefined ? Number(tech.ma20) : 0);
+  const ma60 = latest.ma60 !== undefined ? Number(latest.ma60) : (tech.ma60 !== undefined ? Number(tech.ma60) : 0);
+  const price = Number(tech.price) || 0;
+  
+  if (ma5 && ma10 && ma20 && ma60 && price) {
+    const { identifyMarketPhase } = require('./score-factors');
+    marketPhase = identifyMarketPhase({
+      latest: { ma5, ma10, ma20, ma60 },
+      price
+    });
+  }
+  
+  // v2 格式转换
+  if (isV2Format(data)) {
+    return {
+      ...data,
+      technical: {
+        ...tech,
+        market_phase: marketPhase
+      },
+      strategies: {
+        aggressive: data.strategies.aggressive.summary_text || '',
+        balanced: data.strategies.balanced.summary_text || '',
+        conservative: data.strategies.conservative.summary_text || '',
+      },
+    };
+  }
+  
+  // v1 格式直接添加 market_phase
   return {
     ...data,
-    strategies: {
-      aggressive: data.strategies.aggressive.summary_text || '',
-      balanced: data.strategies.balanced.summary_text || '',
-      conservative: data.strategies.conservative.summary_text || '',
-    },
+    technical: {
+      ...tech,
+      market_phase: marketPhase
+    }
   };
 }
 
@@ -428,6 +464,19 @@ async function buildFallbackPayload(query) {
         { indicator: '布林中轨', value: toNumber(payload.technical.latest.bb_middle).toFixed(2), judgment: payload.technical.bollSignal },
         { indicator: '布林下轨', value: toNumber(payload.technical.latest.bb_lower).toFixed(2), judgment: '支撑位' },
       ],
+      // 行情阶段识别（TASK_BACKTEST_005）
+      market_phase: (() => {
+        const phaseResult = identifyMarketPhase({
+          latest: {
+            ma5: toNumber(payload.technical.latest.ma5),
+            ma10: toNumber(payload.technical.latest.ma10),
+            ma20: toNumber(payload.technical.latest.ma20),
+            ma60: toNumber(payload.technical.latest.ma60)
+          },
+          price: toNumber(payload.technical.price)
+        });
+        return phaseResult;
+      })(),
     },
     valuation: {
       ...payload.valuation,

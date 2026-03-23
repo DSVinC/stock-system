@@ -139,6 +139,49 @@ async function updateAccount(req, res) {
 }
 
 /**
+ * 删除账户
+ * DELETE /api/portfolio/account/:id
+ */
+async function deleteAccount(req, res) {
+  try {
+    const { id } = req.params;
+    const db = await getDatabase();
+    
+    // 先检查账户是否存在
+    const account = await db.getPromise('SELECT id FROM portfolio_account WHERE id = ?', [id]);
+    if (!account) {
+      return res.status(404).json({ success: false, error: '账户不存在' });
+    }
+    
+    // 检查是否有持仓
+    const positions = await db.getPromise('SELECT COUNT(*) as count FROM portfolio_position WHERE account_id = ?', [id]);
+    if (positions.count > 0) {
+      return res.status(400).json({ success: false, error: '账户仍有持仓，请先清空持仓再删除账户' });
+    }
+    
+    // 检查是否有条件单
+    const orders = await db.getPromise('SELECT COUNT(*) as count FROM conditional_order WHERE account_id = ?', [id]);
+    if (orders.count > 0) {
+      return res.status(400).json({ success: false, error: '账户仍有条件单，请先删除条件单再删除账户' });
+    }
+    
+    // 检查是否有交易记录
+    const trades = await db.getPromise('SELECT COUNT(*) as count FROM portfolio_trade WHERE account_id = ?', [id]);
+    if (trades.count > 0) {
+      return res.status(400).json({ success: false, error: '账户仍有交易记录，无法删除' });
+    }
+    
+    // 删除账户
+    await db.runPromise('DELETE FROM portfolio_account WHERE id = ?', [id]);
+    
+    res.json({ success: true, message: '账户删除成功' });
+  } catch (error) {
+    console.error('删除账户失败:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+/**
  * 获取账户总览（含持仓）
  * GET /api/portfolio/account/:id/summary
  */
@@ -166,6 +209,70 @@ async function getAccountSummary(req, res) {
     });
   } catch (error) {
     console.error('获取账户总览失败:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+/**
+ * 清空账户所有持仓
+ * POST /api/portfolio/account/:id/clear-positions
+ */
+async function clearPositions(req, res) {
+  try {
+    const { id } = req.params;
+    const db = await getDatabase();
+    
+    // 先检查账户是否存在
+    const account = await db.getPromise('SELECT id FROM portfolio_account WHERE id = ?', [id]);
+    if (!account) {
+      return res.status(404).json({ success: false, error: '账户不存在' });
+    }
+    
+    // 获取所有持仓
+    const positions = await db.allPromise('SELECT * FROM portfolio_position WHERE account_id = ?', [id]);
+    
+    if (positions.length === 0) {
+      return res.status(400).json({ success: false, error: '账户没有持仓' });
+    }
+    
+    // 将所有持仓清零，并记录交易记录
+    const tradeDate = new Date().toISOString().slice(0, 10);
+    const timestamp = new Date().toISOString();
+    
+    for (const position of positions) {
+      if (position.quantity > 0) {
+        // 记录卖出交易（清仓）
+        await db.runPromise(`
+          INSERT INTO portfolio_trade (
+            account_id, ts_code, stock_name, action, quantity, price, amount, trade_date, created_at, remark
+          ) VALUES (?, ?, ?, 'sell', ?, ?, ?, ?, ?, ?)
+        `, [
+          id,
+          position.ts_code,
+          position.stock_name,
+          position.quantity,
+          position.current_price,
+          position.quantity * position.current_price,
+          tradeDate,
+          timestamp,
+          '清空持仓'
+        ]);
+      }
+    }
+    
+    // 删除所有持仓
+    await db.runPromise('DELETE FROM portfolio_position WHERE account_id = ?', [id]);
+    
+    // 更新账户的现金和总值
+    await db.runPromise(`
+      UPDATE portfolio_account 
+      SET current_cash = initial_cash, total_value = initial_cash, total_return = 0, return_rate = 0, updated_at = datetime('now')
+      WHERE id = ?
+    `, [id]);
+    
+    res.json({ success: true, message: '已清空所有持仓，资金已退回' });
+  } catch (error) {
+    console.error('清空持仓失败:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 }
@@ -409,7 +516,9 @@ module.exports = {
   createAccount,
   getAccount,
   updateAccount,
+  deleteAccount,
   getAccountSummary,
+  clearPositions,
   getAccountConditionalOrders,
   getPositions,
   getPosition,

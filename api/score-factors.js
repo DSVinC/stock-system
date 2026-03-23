@@ -555,6 +555,86 @@ async function calculateCompositeScore(params, stockCode = null) {
   };
 }
 
+/**
+ * 行情阶段识别
+ * @param {Object} technical - 技术分析数据
+ * @returns {Object} { phase, phaseName, description }
+ */
+function identifyMarketPhase(technical) {
+  const { ma5, ma10, ma20, ma60 } = technical.latest;
+  const price = technical.price;
+
+  const ma5Val = toNumber(ma5, price);
+  const ma10Val = toNumber(ma10, price);
+  const ma20Val = toNumber(ma20, price);
+  const ma60Val = toNumber(ma60, price);
+
+  // 加载配置
+  const PHASE_FILE = path.join(CONFIG_DIR, 'market-phase.json');
+  let config = { phases: {}, thresholds: {} };
+  if (fs.existsSync(PHASE_FILE)) {
+    config = JSON.parse(fs.readFileSync(PHASE_FILE, 'utf8'));
+  }
+
+  const { near_ma20_percent = 0.02 } = config.thresholds;
+
+  // 判断均线排列
+  const isBullishAlignment = ma5Val > ma10Val && ma10Val > ma20Val && ma20Val > ma60Val;
+  const isBearishAlignment = ma5Val < ma10Val && ma10Val < ma20Val && ma20Val < ma60Val;
+  const priceAboveAllMa = price > ma5Val && price > ma10Val && price > ma20Val && price > ma60Val;
+  const ma60AboveMa20 = ma60Val > ma20Val;
+  const priceNearMa20 = Math.abs(price - ma20Val) / ma20Val <= near_ma20_percent;
+
+  // 行情阶段判断
+  if (ma60AboveMa20 && priceAboveAllMa && !isBullishAlignment) {
+    // 底部反弹：MA60>MA20，股价突破所有均线，但均线未完全多头排列
+    return {
+      phase: 'bottom_rebound',
+      phaseName: '底部反弹',
+      description: 'MA60>MA20，股价突破所有均线，反弹初期',
+      confidence: 0.8
+    };
+  }
+
+  if (isBullishAlignment && price > ma20Val) {
+    // 趋势确立：MA5>MA10>MA20>MA60，多头排列
+    return {
+      phase: 'trend_established',
+      phaseName: '趋势确立',
+      description: 'MA5>MA10>MA20>MA60，多头排列，趋势成熟',
+      confidence: 0.9
+    };
+  }
+
+  if (priceNearMa20 && price > ma60Val && !isBullishAlignment) {
+    // 高位震荡：股价在 MA20 附近反复穿越
+    return {
+      phase: 'high_consolidation',
+      phaseName: '高位震荡',
+      description: '股价在 MA20 附近震荡，方向未明',
+      confidence: 0.7
+    };
+  }
+
+  if (price < ma60Val || isBearishAlignment) {
+    // 趋势反转：跌破 MA60，均线空头排列
+    return {
+      phase: 'trend_reversal',
+      phaseName: '趋势反转',
+      description: '跌破 MA60，均线空头排列，趋势转弱',
+      confidence: 0.85
+    };
+  }
+
+  // 默认：震荡
+  return {
+    phase: 'unknown',
+    phaseName: '未知',
+    description: '无法明确识别行情阶段',
+    confidence: 0.5
+  };
+}
+
 module.exports = {
   calculateTrendFactor,
   calculateMomentumFactor,
@@ -567,5 +647,6 @@ module.exports = {
   loadFactorWeights,
   FACTOR_WEIGHTS,
   SCORE_MIN,
-  SCORE_MAX
+  SCORE_MAX,
+  identifyMarketPhase
 };

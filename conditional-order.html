@@ -615,13 +615,12 @@
   <main class="page-shell">
     <!-- 顶部导航 -->
     <nav class="top-nav">
-      <a href="./index.html">首页</a>
       <a href="./select.html">选股分析</a>
       <a href="./analysis.html">个股分析</a>
       <a href="./monitor-pool.html">监控池</a>
-      <a href="./portfolio.html">账户管理</a>
       <a href="./conditional-order.html" class="active">条件单</a>
       <a href="./backtest.html">回测系统</a>
+      <a href="./portfolio.html">账户管理</a>
     </nav>
 
     <!-- 页面标题 -->
@@ -1118,8 +1117,9 @@
                             <span class="switch-slider"></span>
                           </label>
                         `}
+                        <button class="action-btn primary" type="button" onclick="importToBacktest(${order.id})">导入回测</button>
                         <button class="action-btn" type="button" onclick="editOrder(${order.id})">编辑</button>
-                        <button class="action-btn primary" type="button" onclick="showHistory(${order.id})">查看历史</button>
+                        <button class="action-btn" type="button" onclick="showHistory(${order.id})">查看历史</button>
                         <button class="action-btn danger" type="button" onclick="deleteOrder(${order.id})">删除</button>
                       </div>
                     </td>
@@ -2061,6 +2061,33 @@
         showToast(result.data?.status === 'enabled' ? '条件单已启用' : '条件单已禁用', 'success');
       } catch (error) {
         showToast('切换失败: ' + error.message, 'error');
+      }
+    }
+
+    async function importToBacktest(id) {
+      try {
+        // 先获取条件单详情
+        const result = await api(`/api/conditional-order/${id}`);
+        if (!result.success) {
+          showToast('获取条件单失败：' + (result.error || '未知错误'), 'error');
+          return;
+        }
+
+        const order = result.data;
+        
+        // 检查条件单是否有效
+        if (!order.ts_code) {
+          showToast('该条件单没有关联股票代码，无法导入回测', 'error');
+          return;
+        }
+
+        // 跳转到回测页面并传递条件单 ID
+        showToast('已准备导入回测系统，正在跳转...', 'success');
+        setTimeout(() => {
+          window.location.href = 'backtest.html?import=conditional&id=' + id;
+        }, 800);
+      } catch (error) {
+        showToast('导入失败：' + error.message, 'error');
       }
     }
 

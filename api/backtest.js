@@ -967,10 +967,314 @@ async function saveBacktestReport(report) {
   }
 }
 
+// ========== TASK_BACKTEST_004: 参数扫描功能 ==========
+
+/**
+ * 参数扫描回测
+ * 对双均线策略进行网格搜索，找出最优参数
+ */
+async function scanParameters(req, res) {
+  try {
+    const { startDate, endDate, initialCash, stocks, strategyType } = req.body;
+    
+    if (!startDate || !endDate || !stocks || stocks.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: '缺少必要参数：startDate, endDate, stocks'
+      });
+    }
+    
+    // 定义参数网格（双均线策略）
+    const fastParams = [5, 10, 20];
+    const slowParams = [20, 30, 60];
+    
+    const results = [];
+    
+    console.log(`🔬 开始参数扫描 - ${fastParams.length} x ${slowParams.length} = ${fastParams.length * slowParams.length} 组参数`);
+    
+    for (const fast of fastParams) {
+      for (const slow of slowParams) {
+        if (fast >= slow) continue; // 快线必须小于慢线
+        
+        try {
+          const db = await getDatabase();
+          const engine = new BacktestEngine({
+            startDate,
+            endDate,
+            initialCash: initialCash || 1000000,
+            strategy: {
+              type: 'double_ma',
+              name: `双均线 (快${fast}/慢${slow})`,
+              params: { fast_period: fast, slow_period: slow }
+            },
+            stocks
+          });
+          
+          const report = await engine.run();
+          
+          results.push({
+            params: { fast, slow },
+            metrics: {
+              returnRate: report.metrics.returnRate,
+              sharpeRatio: report.metrics.sharpeRatio,
+              maxDrawdown: report.metrics.maxDrawdown,
+              winRate: report.metrics.winRate,
+              tradeCount: report.metrics.tradeCount
+            },
+            summary: {
+              finalValue: report.summary.finalValue,
+              totalReturn: report.metrics.totalReturn
+            }
+          });
+        } catch (error) {
+          console.error(`参数 (${fast},${slow}) 回测失败:`, error.message);
+        }
+      }
+    }
+    
+    // 按收益率排序，找出最优参数
+    results.sort((a, b) => b.metrics.returnRate - a.metrics.returnRate);
+    
+    const bestParams = results.length > 0 ? results[0] : null;
+    
+    res.json({
+      success: true,
+      data: {
+        all: results,
+        best: bestParams,
+        total: results.length
+      }
+    });
+  } catch (error) {
+    console.error('[参数扫描] 失败:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+// ========== TASK_BACKTEST_003: HTML 报告生成 ==========
+
+/**
+ * 生成 HTML 回测报告
+ */
+function generateHtmlReport(report) {
+  const { config, summary, metrics, trades } = report;
+  
+  return `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>回测报告 - ${config.strategy.name}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+           background: #1a1a2e; color: #eee; padding: 20px; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    h1 { color: #00d9ff; margin-bottom: 10px; }
+    h2 { color: #00d9ff; margin: 30px 0 15px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+    .card { background: #16213e; border-radius: 10px; padding: 20px; margin: 15px 0; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+    .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+    .metric { background: #0f3460; padding: 15px; border-radius: 8px; text-align: center; }
+    .metric-value { font-size: 28px; font-weight: bold; color: #00d9ff; }
+    .metric-label { font-size: 14px; color: #888; margin-top: 5px; }
+    .positive { color: #00ff88; }
+    .negative { color: #ff4757; }
+    table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #333; }
+    th { background: #0f3460; color: #00d9ff; }
+    tr:hover { background: #1a1a2e; }
+    .summary { font-size: 18px; line-height: 1.8; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📊 回测报告</h1>
+    <p style="color:#888;margin:10px 0 30px;">策略：${config.strategy.name} | 
+       时间：${config.startDate} ~ ${config.endDate} | 
+       初始资金：¥${config.initialCash.toLocaleString()}</p>
+    
+    <h2>📈 核心指标</h2>
+    <div class="card">
+      <div class="metrics-grid">
+        <div class="metric">
+          <div class="metric-value ${metrics.returnRate >= 0 ? 'positive' : 'negative'}">
+            ${(metrics.returnRate * 100).toFixed(2)}%
+          </div>
+          <div class="metric-label">累计收益率</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value ${metrics.annualizedReturn >= 0 ? 'positive' : 'negative'}">
+            ${(metrics.annualizedReturn * 100).toFixed(2)}%
+          </div>
+          <div class="metric-label">年化收益率</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">${metrics.sharpeRatio.toFixed(2)}</div>
+          <div class="metric-label">夏普比率</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value negative">${(metrics.maxDrawdown * 100).toFixed(2)}%</div>
+          <div class="metric-label">最大回撤</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">${(metrics.winRate * 100).toFixed(1)}%</div>
+          <div class="metric-label">胜率</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">${metrics.tradeCount}</div>
+          <div class="metric-label">交易次数</div>
+        </div>
+      </div>
+    </div>
+    
+    <h2>📋 回测概要</h2>
+    <div class="card">
+      <div class="summary">
+        <p>• 初始资金：<strong>¥${config.initialCash.toLocaleString()}</strong></p>
+        <p>• 最终价值：<strong class="${summary.finalValue >= config.initialCash ? 'positive' : 'negative'}">
+            ¥${summary.finalValue.toLocaleString(undefined, {maximumFractionDigits: 0})}
+          </strong></p>
+        <p>• 绝对收益：<strong class="${metrics.totalReturn >= 0 ? 'positive' : 'negative'}">
+            ¥${metrics.totalReturn.toLocaleString(undefined, {maximumFractionDigits: 0})}
+          </strong></p>
+      </div>
+    </div>
+    
+    <h2>💼 交易记录（前 20 条）</h2>
+    <div class="card">
+      <table>
+        <thead>
+          <tr><th>日期</th><th>股票</th><th>操作</th><th>数量</th><th>价格</th><th>金额</th></tr>
+        </thead>
+        <tbody>
+          ${(trades || []).slice(0, 20).map(trade => `
+            <tr>
+              <td>${trade.date}</td>
+              <td>${trade.ts_code}</td>
+              <td class="${trade.action === 'BUY' ? 'positive' : 'negative'}">${trade.action}</td>
+              <td>${trade.quantity}</td>
+              <td>¥${trade.price.toFixed(2)}</td>
+              <td>¥${(trade.qty * trade.price).toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+    
+    <p style="text-align:center;color:#666;margin-top:40px;">
+      报告生成时间：${new Date().toLocaleString('zh-CN')}
+    </p>
+  </div>
+</body>
+</html>`;
+}
+
+/**
+ * 生成 Markdown 回测报告
+ */
+function generateMarkdownReport(report) {
+  const { config, summary, metrics, trades } = report;
+  
+  return `# 📊 回测报告
+
+## 策略信息
+- **策略名称**: ${config.strategy.name}
+- **回测时间**: ${config.startDate} ~ ${config.endDate}
+- **初始资金**: ¥${config.initialCash.toLocaleString()}
+
+## 📈 核心指标
+
+| 指标 | 数值 |
+|------|------|
+| 累计收益率 | ${(metrics.returnRate * 100).toFixed(2)}% |
+| 年化收益率 | ${(metrics.annualizedReturn * 100).toFixed(2)}% |
+| 夏普比率 | ${metrics.sharpeRatio.toFixed(2)} |
+| 最大回撤 | ${(metrics.maxDrawdown * 100).toFixed(2)}% |
+| 胜率 | ${(metrics.winRate * 100).toFixed(1)}% |
+| 交易次数 | ${metrics.tradeCount} |
+
+## 📋 回测概要
+
+- **初始资金**: ¥${config.initialCash.toLocaleString()}
+- **最终价值**: ¥${summary.finalValue.toLocaleString(undefined, {maximumFractionDigits: 0})}
+- **绝对收益**: ¥${metrics.totalReturn.toLocaleString(undefined, {maximumFractionDigits: 0})}
+
+## 💼 交易记录（前 20 条）
+
+| 日期 | 股票 | 操作 | 数量 | 价格 | 金额 |
+|------|------|------|------|------|------|
+${(trades || []).slice(0, 20).map(trade => 
+  `| ${trade.date} | ${trade.ts_code} | ${trade.action} | ${trade.quantity} | ¥${trade.price.toFixed(2)} | ¥${(trade.qty * trade.price).toLocaleString(undefined, {maximumFractionDigits: 0})} |`
+).join('\n')}
+
+---
+*报告生成时间：${new Date().toLocaleString('zh-CN')}*
+`;
+}
+
+/**
+ * 生成回测报告文件（TASK_BACKTEST_003）
+ */
+async function generateBacktestReport(req, res) {
+  try {
+    const { id } = req.params;
+    const db = await getDatabase();
+    
+    const row = await db.getPromise('SELECT * FROM backtest_report WHERE id = ?', [id]);
+    
+    if (!row) {
+      return res.status(404).json({
+        success: false,
+        error: '回测记录不存在'
+      });
+    }
+    
+    const report = JSON.parse(row.report_data || '{}');
+    
+    // 生成 HTML 报告
+    const htmlContent = generateHtmlReport(report);
+    const htmlPath = `report/backtest/${id}/report.html`;
+    
+    // 生成 Markdown 报告
+    const mdContent = generateMarkdownReport(report);
+    const mdPath = `report/backtest/${id}/report.md`;
+    
+    // 确保目录存在
+    const fs = require('fs');
+    const path = require('path');
+    fs.mkdirSync(path.dirname(htmlPath), { recursive: true });
+    
+    // 保存文件
+    fs.writeFileSync(htmlPath, htmlContent, 'utf8');
+    fs.writeFileSync(mdPath, mdContent, 'utf8');
+    
+    res.json({
+      success: true,
+      data: {
+        html_path: htmlPath,
+        md_path: mdPath
+      }
+    });
+  } catch (error) {
+    console.error('[报告生成] 失败:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
 module.exports = {
   BacktestEngine,
   runBacktest,
   getBacktestHistory,
   getBacktestDetail,
-  saveBacktestReport
+  saveBacktestReport,
+  scanParameters,
+  generateBacktestReport
 };

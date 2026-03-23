@@ -328,4 +328,77 @@ router.get('/strategy/:tsCode/:riskType', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/v2/analyze/batch/strategies
+ * 批量获取多只股票的策略数据
+ * 请求体: { ts_codes: string[], risk_type: 'aggressive' | 'balanced' | 'conservative' }
+ */
+router.post('/batch/strategies', async (req, res) => {
+  const { ts_codes, risk_type = 'balanced' } = req.body;
+
+  if (!Array.isArray(ts_codes) || ts_codes.length === 0) {
+    return res.status(400).json({
+      success: false,
+      error: 'ts_codes must be a non-empty array'
+    });
+  }
+
+  if (!['aggressive', 'balanced', 'conservative'].includes(risk_type)) {
+    return res.status(400).json({
+      success: false,
+      error: 'risk_type must be one of: aggressive, balanced, conservative'
+    });
+  }
+
+  const results = [];
+  const errors = [];
+
+  for (const tsCode of ts_codes) {
+    try {
+      let payload;
+      try {
+        payload = await analysisRouter.runAnalysis(tsCode);
+      } catch (error) {
+        payload = await analyzeRouter.buildReportPayload(tsCode);
+      }
+
+      const v2Data = convertToV2Format(payload);
+      const strategy = v2Data.strategies[risk_type];
+
+      results.push({
+        ts_code: tsCode,
+        stock_name: v2Data.stock_name,
+        success: true,
+        data: {
+          stock_code: v2Data.stock_code,
+          stock_name: v2Data.stock_name,
+          risk_type: risk_type,
+          strategy: strategy,
+          buy_zone: v2Data.buy_zone,
+          stop_loss: v2Data.stop_loss,
+          target_price: v2Data.target_price,
+          decision: v2Data.decision,
+          report_score: v2Data.report_score
+        }
+      });
+    } catch (error) {
+      errors.push({
+        ts_code: tsCode,
+        error: error.message
+      });
+    }
+  }
+
+  return res.json({
+    success: true,
+    data: {
+      results,
+      errors,
+      total: ts_codes.length,
+      success_count: results.length,
+      error_count: errors.length
+    }
+  });
+});
+
 module.exports = router;

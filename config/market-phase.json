@@ -1,0 +1,36 @@
+{
+  "phases": {
+    "bottom_rebound": {
+      "name": "底部反弹",
+      "name_en": "bottom_rebound",
+      "description": "MA60>MA20，股价突破所有均线",
+      "conditions": {"ma60_above_ma20": true, "price_above_all_ma": true, "ma_order_bullish": false},
+      "priority": 1
+    },
+    "trend_established": {
+      "name": "趋势确立",
+      "name_en": "trend_established",
+      "description": "MA5>MA10>MA20>MA60，多头排列",
+      "conditions": {"ma_order_bullish": true, "price_above_ma20": true},
+      "priority": 2
+    },
+    "high_consolidation": {
+      "name": "高位震荡",
+      "name_en": "high_consolidation",
+      "description": "股价在 MA20 附近反复穿越",
+      "conditions": {"price_near_ma20": true, "price_above_ma60": true, "not_bullish_alignment": true},
+      "priority": 3
+    },
+    "trend_reversal": {
+      "name": "趋势反转",
+      "name_en": "trend_reversal",
+      "description": "跌破 MA60，均线空头排列",
+      "conditions": {"price_below_ma60": true, "ma_order_bearish": true},
+      "priority": 4
+    }
+  },
+  "thresholds": {
+    "near_ma20_percent": 0.02,
+    "breakout_confirm_days": 3
+  }
+}

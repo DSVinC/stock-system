@@ -384,13 +384,12 @@
   <main class="page-shell">
     <!-- 顶部导航 -->
     <nav class="top-nav">
-      <a href="./index.html">首页</a>
       <a href="./select.html">选股分析</a>
       <a href="./analysis.html">个股分析</a>
       <a href="./monitor-pool.html">监控池</a>
-      <a href="./portfolio.html" class="active">账户管理</a>
       <a href="./conditional-order.html">条件单</a>
       <a href="./backtest.html">回测系统</a>
+      <a href="./portfolio.html" class="active">账户管理</a>
     </nav>
 
     <!-- 页面标题 -->
@@ -455,18 +454,63 @@
       <div class="panel-inner">
         <div class="detail-tabs">
           <button class="tab-button active" type="button" data-tab="positions" onclick="switchDetailTab('positions')">持仓概览</button>
+          <button class="tab-button" type="button" data-tab="monitor" onclick="switchDetailTab('monitor')">持仓监控</button>
           <button class="tab-button" type="button" data-tab="conditionals" onclick="switchDetailTab('conditionals')">条件单</button>
         </div>
 
         <div id="positions-panel" class="tab-panel active">
           <div class="status-row">
             <h2 class="section-title">当前持仓</h2>
-            <span class="stat-hint">显示当前账户的持仓摘要</span>
+            <button class="button" onclick="clearAllPositions()" style="background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">清空持仓</button>
           </div>
           <div id="positions-list" class="detail-grid">
             <div class="empty-state-guide">
               <div class="title">请选择账户</div>
               <div class="desc">选择左侧账户后，这里会显示当前持仓与成本概览。</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="monitor-panel" class="tab-panel">
+          <div class="status-row">
+            <h2 class="section-title">持仓监控</h2>
+            <button class="button" onclick="runMonitorNow()" style="background:rgba(56,189,248,0.15);color:var(--accent);border:1px solid rgba(56,189,248,0.3);">立即检查</button>
+          </div>
+
+          <!-- 监控概览 -->
+          <div class="monitor-overview" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
+            <div class="stat-item" style="padding:16px;">
+              <div class="stat-label">持仓股票</div>
+              <div class="stat-value" id="monitor-position-count" style="font-size:24px;">-</div>
+            </div>
+            <div class="stat-item" style="padding:16px;">
+              <div class="stat-label">今日信号</div>
+              <div class="stat-value" id="monitor-today-signals" style="font-size:24px;">-</div>
+            </div>
+            <div class="stat-item" style="padding:16px;">
+              <div class="stat-label">高风险</div>
+              <div class="stat-value negative" id="monitor-high-risk" style="font-size:24px;">-</div>
+            </div>
+            <div class="stat-item" style="padding:16px;">
+              <div class="stat-label">需关注</div>
+              <div class="stat-value" id="monitor-warning-count" style="font-size:24px;">-</div>
+            </div>
+          </div>
+
+          <!-- 筛选器 -->
+          <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+            <button class="tab-button active" onclick="filterSignals('all')" data-filter="all">全部</button>
+            <button class="tab-button" onclick="filterSignals('SELL')" data-filter="SELL">卖出信号</button>
+            <button class="tab-button" onclick="filterSignals('WARNING')" data-filter="WARNING">预警</button>
+            <button class="tab-button" onclick="filterSignals('BUY')" data-filter="BUY">买入信号</button>
+          </div>
+
+          <!-- 信号列表 -->
+          <div id="monitor-signals-list" class="detail-grid">
+            <div class="empty-state-guide">
+              <div class="icon">📊</div>
+              <div class="title">暂无监控信号</div>
+              <div class="desc">持仓监控会自动检测7因子变化、黑天鹅事件、负面新闻等，<br>出现异常时会生成信号并推送飞书告警。</div>
             </div>
           </div>
         </div>
@@ -514,6 +558,7 @@
   <script>
     let currentAccountId = null;
     let currentDetailTab = 'positions';
+    let currentSignalFilter = 'all';
 
     // 重置账户总览显示为空状态提示
     function resetSummaryDisplay() {
@@ -529,12 +574,119 @@
 
     function switchDetailTab(tab) {
       currentDetailTab = tab;
-      document.querySelectorAll('.tab-button').forEach((button) => {
-        button.classList.toggle('active', button.dataset.tab === tab);
+      document.querySelectorAll('.detail-tabs .tab-button').forEach((button) => {
+        if (button.dataset.tab) {
+          button.classList.toggle('active', button.dataset.tab === tab);
+        }
       });
       document.querySelectorAll('.tab-panel').forEach((panel) => {
         panel.classList.toggle('active', panel.id === `${tab}-panel`);
       });
+
+      // 加载对应数据
+      if (tab === 'monitor') {
+        loadMonitorOverview();
+        loadMonitorSignals();
+      }
+    }
+
+    // ========== 持仓监控功能 ==========
+
+    async function loadMonitorOverview() {
+      try {
+        const result = await api('/api/monitor/overview');
+        if (result.success) {
+          const data = result.data;
+          document.getElementById('monitor-position-count').textContent = data.positionCount || 0;
+          document.getElementById('monitor-today-signals').textContent = data.todaySignals || 0;
+          document.getElementById('monitor-high-risk').textContent = data.highRiskCount || 0;
+          document.getElementById('monitor-warning-count').textContent = data.warningSignals || 0;
+        }
+      } catch (error) {
+        console.error('加载监控概览失败:', error);
+      }
+    }
+
+    async function loadMonitorSignals(filter = 'all') {
+      try {
+        const params = new URLSearchParams({ limit: 50 });
+        if (filter && filter !== 'all') {
+          params.append('signal_type', filter);
+        }
+
+        const result = await api(`/api/monitor/signals?${params.toString()}`);
+        const listEl = document.getElementById('monitor-signals-list');
+
+        if (!result.success || !result.data || result.data.length === 0) {
+          listEl.innerHTML = `
+            <div class="empty-state-guide">
+              <div class="icon">📊</div>
+              <div class="title">暂无监控信号</div>
+              <div class="desc">持仓监控会自动检测7因子变化、黑天鹅事件、负面新闻等，<br>出现异常时会生成信号并推送飞书告警。</div>
+            </div>
+          `;
+          return;
+        }
+
+        listEl.innerHTML = result.data.map(signal => {
+          const levelEmoji = signal.signal_level === 'HIGH' ? '🔴' : signal.signal_level === 'MEDIUM' ? '🟡' : '🟢';
+          const typeLabel = signal.signal_type === 'SELL' ? '卖出' : signal.signal_type === 'WARNING' ? '预警' : '买入';
+          const time = new Date(signal.created_at).toLocaleString('zh-CN');
+
+          return `
+            <div class="detail-card">
+              <div class="detail-card-head">
+                <div>
+                  <div class="detail-title">${levelEmoji} ${signal.stock_name || signal.ts_code}</div>
+                  <div class="detail-meta">${signal.ts_code} · ${time}</div>
+                </div>
+                <span class="badge-pill ${signal.signal_type === 'SELL' ? 'badge-sell' : signal.signal_type === 'WARNING' ? 'badge-enabled' : 'badge-buy'}">${typeLabel}</span>
+              </div>
+              <div class="detail-meta" style="margin-top:12px;">${signal.reason}</div>
+              ${signal.score_drop_rate ? `<div class="detail-meta" style="margin-top:8px;">评分变化: ${signal.factor_score_before?.toFixed(2) || '-'} → ${signal.factor_score_after?.toFixed(2) || '-'} (${(signal.score_drop_rate * 100).toFixed(1)}%)</div>` : ''}
+              <div class="detail-actions">
+                <a class="inline-link" href="./analysis.html?code=${signal.ts_code}">查看分析</a>
+                <a class="inline-link" href="./conditional-order.html?code=${signal.ts_code}">设置条件单</a>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (error) {
+        console.error('加载监控信号失败:', error);
+      }
+    }
+
+    function filterSignals(filter) {
+      currentSignalFilter = filter;
+      document.querySelectorAll('[data-filter]').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === filter);
+      });
+      loadMonitorSignals(filter);
+    }
+
+    async function runMonitorNow() {
+      if (!currentAccountId) {
+        alert('请先选择账户');
+        return;
+      }
+
+      if (!confirm('确定要立即运行持仓监控吗？\n\n这将检查所有持仓股票的：\n- 7因子评分变化\n- 黑天鹅事件\n- 负面新闻\n\n结果将推送飞书。')) {
+        return;
+      }
+
+      try {
+        const result = await api('/api/monitor/run', { method: 'POST' });
+        if (result.success) {
+          alert(`监控完成！\n\n生成信号: ${result.data?.signals?.length || 0} 个`);
+          loadMonitorOverview();
+          loadMonitorSignals();
+        } else {
+          alert('监控失败: ' + (result.error || '未知错误'));
+        }
+      } catch (error) {
+        console.error('运行监控失败:', error);
+        alert('运行失败: ' + error.message);
+      }
     }
 
     function formatCurrency(value) {
@@ -687,7 +839,7 @@
       listEl.innerHTML = result.data.map(acc => `
         <div class="account-card ${acc.id === currentAccountId ? 'selected' : ''}" onclick="selectAccount(${acc.id})">
           <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div>
+            <div style="flex:1;">
               <h3 style="margin:0;color:var(--text);">${acc.account_name}</h3>
               <p style="margin:4px 0 0;color:var(--text-soft);font-size:14px;">初始资金: ¥${acc.initial_cash.toLocaleString()}</p>
             </div>
@@ -697,6 +849,8 @@
               </div>
               <p style="margin:4px 0 0;color:var(--text-soft);font-size:14px;">¥${acc.total_return.toLocaleString()}</p>
             </div>
+          </div>
+            <button class="btn-delete" onclick="event.stopPropagation(); deleteAccount(${acc.id}, \'${acc.account_name}\')" title="删除账户" style="width:32px;height:32px;border:none;border-radius:8px;background:rgba(239,68,68,0.15);color:#ef4444;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;margin-left:8px;">🗑️</button>
           </div>
         </div>
       `).join('');
@@ -772,6 +926,74 @@
       if (modal) {
         modal.classList.remove('show');
       }
+    }
+    
+    async function deleteAccount(id, name) {
+      if (!confirm(`确定要删除账户"${name}"吗？\n\n注意：删除前需要确保：\n1. 账户没有持仓\n2. 账户没有条件单\n3. 账户没有交易记录`)) {
+        return;
+      }
+      
+      try {
+        const result = await api(`/api/portfolio/account/${id}`, {
+          method: 'DELETE'
+        });
+        
+        if (result.success) {
+          alert('账户删除成功');
+          // 如果删除的是当前选中的账户，重置状态
+          if (id === currentAccountId) {
+            currentAccountId = null;
+            localStorage.removeItem('current_account_id');
+            resetSummaryDisplay();
+          }
+          loadAccounts();
+        } else {
+          alert('删除失败：' + (result.error || '未知错误'));
+        }
+      } catch (err) {
+        console.error('删除账户出错:', err);
+        alert('删除失败：' + err.message);
+      }
+    }
+    
+    async function clearAllPositions() {
+      if (!currentAccountId) {
+        alert('请先选择一个账户');
+        return;
+      }
+      
+      if (!confirm(`确定要清空当前账户的所有持仓吗？\n\n清空后将：\n1. 按当前价格卖出所有持仓\n2. 资金退回账户\n3. 生成交易记录\n\n此操作不可恢复！`)) {
+        return;
+      }
+      
+      try {
+        const result = await api(`/api/portfolio/account/${currentAccountId}/clear-positions`, {
+          method: 'POST'
+        });
+        
+        if (result.success) {
+          alert('持仓已清空，资金已退回账户');
+          loadAccountSummary(currentAccountId);
+        } else {
+          alert('清空失败：' + (result.error || '未知错误'));
+        }
+      } catch (err) {
+        console.error('清空持仓出错:', err);
+        alert('清空失败：' + err.message);
+      }
+    }
+    
+    function resetSummaryDisplay() {
+      document.getElementById('initial-cash').textContent = '-';
+      document.getElementById('current-cash').textContent = '-';
+      document.getElementById('position-value').textContent = '-';
+      document.getElementById('total-value').textContent = '-';
+      document.getElementById('total-return').textContent = '-';
+      document.getElementById('total-return').className = 'stat-value';
+      document.getElementById('return-rate').textContent = '-';
+      document.getElementById('return-rate').className = 'stat-value';
+      document.getElementById('positions-list').innerHTML = '<div class="empty-state-guide"><div class="title">暂无持仓</div></div>';
+      document.getElementById('conditional-orders-list').innerHTML = '<div class="empty-state-guide"><div class="title">无条件单</div></div>';
     }
     
     async function createAccount(e) {
