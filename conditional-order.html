@@ -813,6 +813,7 @@
     </div>
   </div>
 
+  <script src="./public/js/factor-panel.js"></script>
   <script>
     const TRIGGER_TYPE_DEFS = {
       price_above: {
@@ -951,6 +952,19 @@
           { key: 'amount', label: '净流出阈值', type: 'number', step: '0.01', placeholder: '如 5000000' }
         ],
         preview: (params) => `主力净流出高于 ${formatNumber(params.amount)}`
+      },
+      factor_score: {
+        label: '多因子综合评分',
+        category: 'composite',
+        orderType: 'composite',
+        params: [
+          { key: 'score_threshold', label: '评分阈值', type: 'number', min: '0', max: '5', step: '0.1', placeholder: '如 3.5' },
+          { key: 'comparison', label: '比较方式', type: 'select', options: [{value: 'above', label: '高于阈值'}, {value: 'below', label: '低于阈值'}] }
+        ],
+        preview: (params) => {
+          const comparison = params.comparison === 'below' ? '低于' : '高于';
+          return `多因子评分${comparison} ${formatNumber(params.score_threshold)} 分`;
+        }
       }
     };
     const IMPORT_PARAM_KEY = 'import';
@@ -1282,6 +1296,15 @@
           return { ...base, type: 'fundamental', field: 'main_force_net', operator: '>=', value: normalized.amount };
         case 'main_force_net_outflow':
           return { ...base, type: 'fundamental', field: 'main_force_net', operator: '<=', value: normalized.amount ? -Math.abs(normalized.amount) : normalized.amount };
+        case 'factor_score':
+          return {
+            ...base,
+            type: 'composite',
+            field: 'factor_score',
+            operator: params.comparison === 'below' ? '<=' : '>=',
+            value: normalized.score_threshold,
+            factor_weights: params.factor_weights || {}
+          };
         default:
           return base;
       }
@@ -1362,22 +1385,94 @@
     function renderConditionParams(row, triggerType, params = {}) {
       const def = TRIGGER_TYPE_DEFS[triggerType] || TRIGGER_TYPE_DEFS[getDefaultTriggerType()];
       const paramsEl = row.querySelector('.condition-params');
-      paramsEl.innerHTML = def.params.map((param) => `
-        <div>
-          <label class="form-label">${escapeHtml(param.label)}</label>
-          <input
-            type="${param.type}"
-            class="cond-param-input"
-            data-param-key="${escapeHtml(param.key)}"
-            placeholder="${escapeHtml(param.placeholder || '')}"
-            ${param.min !== undefined ? `min="${param.min}"` : ''}
-            ${param.max !== undefined ? `max="${param.max}"` : ''}
-            ${param.step !== undefined ? `step="${param.step}"` : ''}
-            value="${escapeHtml(params[param.key] ?? '')}"
-            oninput="updateConditionPreview(this.closest('.condition-item'))"
-          >
-        </div>
-      `).join('');
+
+      // 特殊处理：多因子评分条件
+      if (triggerType === 'factor_score') {
+        const scoreThreshold = params.score_threshold ?? 3.5;
+        const comparison = params.comparison ?? 'above';
+
+        paramsEl.innerHTML = `
+          <div>
+            <label class="form-label">评分阈值 (0-5分)</label>
+            <input
+              type="number"
+              class="cond-param-input"
+              data-param-key="score_threshold"
+              placeholder="如 3.5"
+              min="0"
+              max="5"
+              step="0.1"
+              value="${scoreThreshold}"
+              oninput="updateConditionPreview(this.closest('.condition-item'))"
+            >
+          </div>
+          <div>
+            <label class="form-label">触发条件</label>
+            <select
+              class="cond-param-input"
+              data-param-key="comparison"
+              onchange="updateConditionPreview(this.closest('.condition-item'))"
+            >
+              <option value="above" ${comparison === 'below' ? '' : 'selected'}>评分高于阈值</option>
+              <option value="below" ${comparison === 'below' ? 'selected' : ''}>评分低于阈值</option>
+            </select>
+          </div>
+        `;
+
+        // 添加因子配置面板
+        const existingPanel = row.querySelector('.factor-panel-wrapper');
+        if (!existingPanel && window.FactorPanel) {
+          const panelWrapper = document.createElement('div');
+          panelWrapper.className = 'factor-panel-wrapper';
+          panelWrapper.style.gridColumn = '1 / -1';
+          panelWrapper.style.marginTop = '10px';
+          row.querySelector('.condition-main').appendChild(panelWrapper);
+
+          const stockCode = document.querySelector('[name="ts_code"]')?.value;
+          window.FactorPanel.init(panelWrapper, {
+            stockCode,
+            initialFactors: params.factor_weights
+          });
+        }
+        return;
+      }
+
+      paramsEl.innerHTML = def.params.map((param) => {
+        // 支持下拉选择类型
+        if (param.type === 'select' && param.options) {
+          return `
+            <div>
+              <label class="form-label">${escapeHtml(param.label)}</label>
+              <select
+                class="cond-param-input"
+                data-param-key="${escapeHtml(param.key)}"
+                onchange="updateConditionPreview(this.closest('.condition-item'))"
+              >
+                ${param.options.map(opt => `
+                  <option value="${opt.value}" ${params[param.key] === opt.value ? 'selected' : ''}>${opt.label}</option>
+                `).join('')}
+              </select>
+            </div>
+          `;
+        }
+
+        return `
+          <div>
+            <label class="form-label">${escapeHtml(param.label)}</label>
+            <input
+              type="${param.type}"
+              class="cond-param-input"
+              data-param-key="${escapeHtml(param.key)}"
+              placeholder="${escapeHtml(param.placeholder || '')}"
+              ${param.min !== undefined ? `min="${param.min}"` : ''}
+              ${param.max !== undefined ? `max="${param.max}"` : ''}
+              ${param.step !== undefined ? `step="${param.step}"` : ''}
+              value="${escapeHtml(params[param.key] ?? '')}"
+              oninput="updateConditionPreview(this.closest('.condition-item'))"
+            >
+          </div>
+        `;
+      }).join('');
     }
 
     function handleConditionTypeChange(selectEl) {
@@ -1391,8 +1486,25 @@
       const triggerType = row.querySelector('.cond-trigger-type').value;
       const params = {};
       row.querySelectorAll('.cond-param-input').forEach((input) => {
-        params[input.dataset.paramKey] = normalizeNumericParam(input.value);
+        if (input.type === 'number') {
+          params[input.dataset.paramKey] = normalizeNumericParam(input.value);
+        } else {
+          params[input.dataset.paramKey] = input.value;
+        }
       });
+
+      // 特殊处理：多因子评分条件 - 收集因子权重
+      if (triggerType === 'factor_score' && window.FactorPanel) {
+        const factorConfig = window.FactorPanel.getFactorConfig();
+        params.factor_weights = factorConfig.factors;
+        params.total_weight = factorConfig.totalWeight;
+
+        const condition = createLegacyCompatibleCondition(triggerType, params);
+        condition.params = params;
+        condition.factorConfig = factorConfig;
+        return condition;
+      }
+
       return createLegacyCompatibleCondition(triggerType, params);
     }
 
@@ -1693,6 +1805,14 @@
         return createLegacyCompatibleCondition('ma_golden_cross', {
           ma_short: params.ma_short ?? shortValue,
           ma_long: params.ma_long ?? longValue
+        });
+      }
+
+      if (field === 'factor_score' || condition?.type === 'composite') {
+        return createLegacyCompatibleCondition('factor_score', {
+          score_threshold: condition.value || condition.params?.score_threshold || 3.5,
+          comparison: (operator === '<=' || operator === '<') ? 'below' : 'above',
+          factor_weights: condition.factor_weights || condition.params?.factor_weights || {}
         });
       }
 
@@ -2622,6 +2742,13 @@
     }
 
     // 初始化
+    // 初始化因子面板回调
+    if (window.FactorPanel) {
+      window.FactorPanel.setChangeCallback((state) => {
+        updateConditionsPreview();
+      });
+    }
+
     initListControls();
     resetCreateForm();
     updateBatchSummary(0);
