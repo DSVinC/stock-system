@@ -430,7 +430,7 @@ async function buildReportData(basicInfo, realtimeQuote, technical, valuation, i
     income: latestIncome,
     atr20: atrData?.atr20,
     peHistory
-  }, stockCode);
+  }, basicInfo.ts_code);
 
   const reportScore = scoreResult.reportScore;
   const decision = scoreResult.decision;

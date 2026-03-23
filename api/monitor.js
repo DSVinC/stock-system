@@ -18,7 +18,7 @@ async function getOverview(req, res) {
   try {
     const db = getDatabase();
     // Get position count
-    const positionResult = await db.all(`
+    const positionResult = await db.allPromise(`
       SELECT COUNT(DISTINCT ts_code) as count 
       FROM portfolio_position 
       WHERE quantity > 0
@@ -26,7 +26,7 @@ async function getOverview(req, res) {
     
     // Get today's signals
     const today = new Date().toISOString().split('T')[0];
-    const signalResult = await db.all(`
+    const signalResult = await db.allPromise(`
       SELECT 
         COUNT(*) as total,
         SUM(CASE WHEN signal_level = 'HIGH' THEN 1 ELSE 0 END) as high_risk,
@@ -71,7 +71,7 @@ async function getSignals(req, res) {
       params.push(account_id);
     }
     
-    const signals = await db.all(`
+    const signals = await db.allPromise(`
       SELECT * FROM position_signals 
       WHERE ${whereClause}
       ORDER BY created_at DESC 
