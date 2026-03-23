@@ -296,7 +296,7 @@ export function parseAnalysisReport(reportPath) {
     }
 
     // 解析报告评分 - 更加健壮的匹配方式，确保匹配到正确的summary-item
-    let scoreMatch = html.match(/<div[^>]*class="summary-item"[^>]*>[\s\S]*?<div[^>]*class="summary-label"[^>]*>研究评级<\/div>[\s\S]*?<div[^>]*class="summary-value"[^>]*>[\s\S]*?([0-9.]+)\s*\/\s*5/);
+    let scoreMatch = html.match(/<div[^>]*class="summary-item"[^>]*>[\s\S]*?<div[^>]*class="summary-label"[^>]*>推荐评分<\/div>[\s\S]*?<div[^>]*class="summary-value"[^>]*>[\s\S]*?([0-9.]+)\s*\/\s*5/);
     if (scoreMatch) {
       result.report_score = parseFloat(scoreMatch[1]);
     }

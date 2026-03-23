@@ -436,6 +436,15 @@
         });
         actions.appendChild(reportButton);
 
+        const regenerateButton = document.createElement("button");
+        regenerateButton.className = "button-secondary regenerate-report-btn";
+        regenerateButton.type = "button";
+        regenerateButton.textContent = "再次生成报告";
+        regenerateButton.addEventListener("click", () => {
+          viewStockReport(stock.name, stock.code, { force: true });
+        });
+        actions.appendChild(regenerateButton);
+
         // 添加导入条件单按钮
         if (v2Data) {
           const importButton = document.createElement("button");
@@ -456,10 +465,27 @@
       updateSelectedCount();
     }
 
-    async function viewStockReport(stockName, stockCode) {
-      analyzeStatus.textContent = `正在生成 ${stockName} 的分析报告...`;
+    async function viewStockReport(stockName, stockCode, options = {}) {
+      const force = options.force === true;
+      analyzeStatus.textContent = force ? `正在重新生成 ${stockName} 的深度分析报告...` : `正在获取 ${stockName} 的分析报告...`;
 
       try {
+        // 如果不是强制重新生成，先检查今天是否已生成报告
+        if (!force) {
+          const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
+          const checkResponse = await fetch(`/api/analysis/reports/${stockCode}`);
+          const checkData = await checkResponse.json();
+          
+          if (checkData.success && checkData.reports && checkData.reports.length > 0) {
+            const todayReport = checkData.reports.find(r => r.date === today);
+            if (todayReport) {
+              analyzeStatus.textContent = `发现今日已生成的报告，正在打开...`;
+              openSafeUrl(todayReport.url);
+              return;
+            }
+          }
+        }
+
         // 并行调用 v2 API 和报告生成
         const [v2Response, reportResponse] = await Promise.all([
           fetch(`/api/v2/analyze/report?ts_code=${encodeURIComponent(stockCode)}`),

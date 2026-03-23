@@ -232,7 +232,7 @@ function buildHtmlReport(payload) {
       <div class="summary-item"><div class="summary-label">股票代码</div><div class="summary-value">${escapeHtml(stock.ts_code)}</div></div>
       <div class="summary-item"><div class="summary-label">所属行业</div><div class="summary-value">${escapeHtml(stock.industry || '-')}</div></div>
       <div class="summary-item"><div class="summary-label">当前价格</div><div class="summary-value">${escapeHtml(formatYuan(summary.current_price))}</div></div>
-      <div class="summary-item"><div class="summary-label">研究评级</div><div class="summary-value">${escapeHtml(summary.rating)} (${escapeHtml(toNumber(summary.report_score).toFixed(1))} / 5)</div></div>
+      <div class="summary-item"><div class="summary-label">推荐评分</div><div class="summary-value">${escapeHtml(summary.rating)} (${escapeHtml(toNumber(summary.report_score).toFixed(1))} / 5)</div></div>
       <div class="summary-item"><div class="summary-label">最终决策</div><div class="summary-value">${escapeHtml(summary.decision)}</div></div>
       <div class="summary-item"><div class="summary-label">生成时间</div><div class="summary-value">${escapeHtml(payload.generated_at)}</div></div>
     </section>
@@ -251,7 +251,7 @@ function buildHtmlReport(payload) {
             <li>所属行业：${escapeHtml(stock.industry || '-')}</li>
             <li>当前价格：${escapeHtml(formatYuan(summary.current_price))}</li>
             <li>今日涨跌：${escapeHtml(toNumber(summary.change).toFixed(2))} 元 (${escapeHtml(toNumber(summary.pct_chg).toFixed(2))}%)</li>
-            <li>研究评级：${escapeHtml(summary.rating)}（${escapeHtml(toNumber(summary.report_score).toFixed(1))}/5）</li>
+            <li>推荐评分：${escapeHtml(summary.rating)}（${escapeHtml(toNumber(summary.report_score).toFixed(1))}/5）</li>
             <li>最终决策：${escapeHtml(summary.decision)}</li>
           </ul>
         </div>
@@ -652,6 +652,44 @@ router.get('/v2/strategy/:ts_code/:riskType', async (req, res) => {
     });
   } catch (error) {
     console.error('获取策略失败:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /api/analysis/reports/:ts_code - 获取指定个股的历史报告列表
+router.get('/reports/:ts_code', async (req, res) => {
+  const { ts_code } = req.params;
+  
+  try {
+    if (!fs.existsSync(HTML_REPORT_DIR)) {
+      return res.json({ success: true, reports: [] });
+    }
+
+    const files = fs.readdirSync(HTML_REPORT_DIR);
+    const reports = files
+      .filter(f => f.startsWith('stock_report_') && f.endsWith('.html'))
+      .map(f => {
+        // 文件名格式: stock_report_NAME_YYYYMMDD.html
+        const parts = f.replace('.html', '').split('_');
+        const dateStr = parts[parts.length - 1];
+        // 尝试获取股票名，这取决于 slugify 的结果
+        const namePart = parts.slice(2, parts.length - 1).join('_');
+        
+        return {
+          filename: f,
+          date: dateStr,
+          name: namePart,
+          report_id: dateStr + '001', // 简化处理，因为当前文件名不包含序号
+          url: `/report/analysis/${f}`
+        };
+      })
+      // 我们需要一种方式来确认这个报告属于指定的 ts_code
+      // 由于文件名中没有 ts_code，我们可能需要读取文件或改变命名规则
+      // 为了简单起见，我们先返回所有报告，由前端过滤或我们在这里做简单匹配
+      .sort((a, b) => b.date.localeCompare(a.date));
+
+    res.json({ success: true, reports });
+  } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });

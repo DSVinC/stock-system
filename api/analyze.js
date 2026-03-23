@@ -617,7 +617,7 @@ function renderStockReport(payload) {
     `- 股票代码：${payload.stock.ts_code}`,
     `- 当前价格：${formatYuan(payload.technical.price)}`,
     `- 行业：${payload.stock.industry || '-'}`,
-    `- 研究评级：${toStars(payload.reportScore)}（${payload.reportScore.toFixed(1)} / 5）`,
+    `- 推荐评分：${toStars(payload.reportScore)}（${payload.reportScore.toFixed(1)} / 5）`,
     `- 最终决策：${payload.decision}`,
     `- 实时行情：今日涨跌 ${payload.technical.change.toFixed(2)} 元（${payload.technical.pctChange.toFixed(2)}%），开盘 ${formatYuan(payload.technical.open)}，最高 ${formatYuan(payload.technical.high)}，最低 ${formatYuan(payload.technical.low)}`,
     '',

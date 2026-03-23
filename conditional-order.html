@@ -737,8 +737,29 @@
         <div class="form-field">
           <label class="form-label">触发条件</label>
           <div class="import-panel">
-            <h4>导入分析报告映射</h4>
-            <p>粘贴 analysis report / strategy JSON，可自动映射为触发条件，导入后仍可继续修改。</p>
+            <h4>从分析报告导入</h4>
+            <div class="form-row" style="margin-bottom: 10px;">
+              <div class="form-field" style="margin-bottom: 0;">
+                <label class="form-label">选择报告</label>
+                <select id="report-selector" class="form-select" onchange="onReportSelected()">
+                  <option value="">请先选择股票...</option>
+                </select>
+              </div>
+              <div class="form-field" style="margin-bottom: 0;">
+                <label class="form-label">风格建议</label>
+                <select id="style-selector" class="form-select" onchange="onStyleSelected()">
+                  <option value="balanced">稳健型 (Balanced)</option>
+                  <option value="aggressive">激进型 (Aggressive)</option>
+                  <option value="conservative">保守型 (Conservative)</option>
+                </select>
+              </div>
+            </div>
+            <div class="import-actions">
+              <button type="button" class="button button-secondary" id="btn-import-report" onclick="importFromSelectedReport()" disabled>导入选定报告策略</button>
+            </div>
+            <hr style="margin: 15px 0; border: 0; border-top: 1px solid rgba(255,255,255,0.1);">
+            <h4>手动粘贴 JSON 导入</h4>
+            <p>粘贴 analysis report / strategy JSON，可自动映射为触发条件。</p>
             <textarea id="import-report-input" placeholder='{"stock_code":"300750.SZ","stock_name":"宁德时代","strategies":{"balanced":{"actions":[...]}}}'></textarea>
             <div class="import-actions">
               <button type="button" class="button button-secondary" onclick="importTriggersFromTextarea()">导入触发建议</button>
@@ -2469,6 +2490,93 @@
       }
     }
 
+    // 加载选定股票的报告列表
+    async function loadReports(tsCode) {
+      const reportSelector = document.getElementById('report-selector');
+      const importBtn = document.getElementById('btn-import-report');
+      
+      if (!tsCode) {
+        reportSelector.innerHTML = '<option value="">请先选择股票...</option>';
+        importBtn.disabled = true;
+        return;
+      }
+      
+      reportSelector.innerHTML = '<option value="">正在加载报告...</option>';
+      
+      try {
+        const response = await fetch(`/api/analysis/reports/${tsCode}`);
+        const result = await response.json();
+        
+        if (result.success && result.reports && result.reports.length > 0) {
+          reportSelector.innerHTML = result.reports.map(r => 
+            `<option value="${r.filename}" data-id="${r.report_id}">${r.date} - ${r.report_id}</option>`
+          ).join('');
+          importBtn.disabled = false;
+        } else {
+          reportSelector.innerHTML = '<option value="">未找到该股票报告</option>';
+          importBtn.disabled = true;
+        }
+      } catch (error) {
+        console.error('加载报告失败:', error);
+        reportSelector.innerHTML = '<option value="">加载失败</option>';
+        importBtn.disabled = true;
+      }
+    }
+
+    function onReportSelected() {
+      // 可以在这里添加预处理逻辑
+    }
+
+    function onStyleSelected() {
+      // 可以在这里添加预处理逻辑
+    }
+
+    async function importFromSelectedReport() {
+      const reportSelector = document.getElementById('report-selector');
+      const styleSelector = document.getElementById('style-selector');
+      const tsCodeInput = document.getElementById('create-form').ts_code;
+      
+      const tsCode = tsCodeInput.value;
+      const riskType = styleSelector.value;
+      const reportFilename = reportSelector.value;
+      
+      if (!tsCode || !riskType) {
+        showToast('缺少股票代码或策略风格', 'error');
+        return;
+      }
+      
+      showToast('正在获取策略建议...', 'info');
+      
+      try {
+        const response = await fetch(`/api/analysis/v2/strategy/${tsCode}/${riskType}`);
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+          const strategy = result.data;
+          const action = pickImportAction(strategy);
+          const conditions = normalizeImportedConditions(action.trigger_conditions);
+          
+          const form = getCreateForm();
+          resetConditions(conditions);
+          form.condition_logic.value = action.trigger_logic || 'AND';
+          if (action.position_percent !== undefined) {
+            form.position_pct.value = action.position_percent;
+          }
+          if (action.stop_loss !== undefined) {
+            form.stop_loss_price.value = action.stop_loss;
+          }
+          form.order_type.value = inferOrderTypeFromConditions(conditions);
+          form.action.value = action.action_type || 'buy';
+          
+          showToast(`已成功导入 ${tsCode} 的${riskType === 'balanced' ? '稳健型' : riskType === 'aggressive' ? '激进型' : '保守型'}策略`, 'success');
+        } else {
+          showToast('获取策略失败：' + (result.error || '未知错误'), 'error');
+        }
+      } catch (error) {
+        showToast('导入异常：' + error.message, 'error');
+      }
+    }
+
     // 股票选择器变更处理
     function onStockSelected() {
       const selector = document.getElementById('stock-selector');
@@ -2485,6 +2593,9 @@
             nameInput.value = stock.stock_name;
           }
           showToast(`已选择 ${stock.stock_name}`, 'success');
+          
+          // 加载报告
+          loadReports(stock.ts_code);
         } catch (error) {
           console.error('解析股票数据失败:', error);
         }
