@@ -2144,6 +2144,18 @@
         return;
       }
 
+      // 提取因子权重配置（如果存在 factor_score 条件）
+      let factorWeights = null;
+      for (const condition of conditions) {
+        if (condition.trigger_type === 'factor_score' && condition.params?.factor_weights) {
+          factorWeights = {
+            factors: condition.params.factor_weights,
+            totalWeight: condition.params.total_weight || 100
+          };
+          break;
+        }
+      }
+
       const positionPct = form.position_pct.value === ''
         ? null
         : Number(form.position_pct.value);
@@ -2170,7 +2182,8 @@
         condition_logic: form.condition_logic.value,
         start_date: form.start_date.value,
         end_date: form.end_date.value,
-        max_trigger_count: parseInt(form.max_trigger_count.value)
+        max_trigger_count: parseInt(form.max_trigger_count.value),
+        factor_weights: factorWeights
       };
 
       const isEditing = Boolean(editingOrderId);
