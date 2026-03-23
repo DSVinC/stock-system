@@ -2602,13 +2602,13 @@
         // 从已加载的条件单数据中提取监控池股票（临时方案）
         // TODO: 修改 API 返回完整数据
         if (result.success && result.stocks && result.stocks.length > 0) {
-          result.stocks.forEach(code => {
+          result.stocks.forEach(stock => {
             const option = document.createElement('option');
             option.value = JSON.stringify({
-              ts_code: code,
-              stock_name: code
+              ts_code: stock.stock_code,
+              stock_name: stock.stock_name
             });
-            option.textContent = `${code} (${code})`;
+            option.textContent = `${stock.stock_name} (${stock.stock_code})`;
             selector.appendChild(option);
           });
         } else {

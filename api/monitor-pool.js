@@ -276,7 +276,7 @@ async function getStockList(req, res) {
     
     res.json({
       success: true,
-      stocks: stocks ? stocks.map(s => s.stock_code) : []
+      stocks: stocks || []
     });
   } catch (error) {
     console.error('Get monitor pool stock list error:', error);
