@@ -272,8 +272,8 @@ async function clearPositions(req, res) {
     
     // 更新账户的现金和总值，并重新计算损益
     const newCash = cashBefore + totalProceeds;
-    const account = await db.getPromise('SELECT initial_cash FROM portfolio_account WHERE id = ?', [id]);
-    const initialCash = account ? account.initial_cash : newCash;
+    const accountInfo = await db.getPromise('SELECT initial_cash FROM portfolio_account WHERE id = ?', [id]);
+    const initialCash = accountInfo ? accountInfo.initial_cash : newCash;
     const totalReturn = newCash - initialCash;
     const returnRate = initialCash > 0 ? totalReturn / initialCash : 0;
     
