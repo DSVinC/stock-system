@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>回测面板 - A股投资系统</title>
+  <link rel="stylesheet" href="./pages/style.css">
+  <link rel="stylesheet" href="./backtest-panel.css">
+</head>
+<body>
+  <main class="page-shell">
+    <!-- 顶部导航 -->
+    <nav class="top-nav">
+      <a href="./select.html">选股分析</a>
+      <a href="./analysis.html">个股分析</a>
+      <a href="./monitor-pool.html">监控池</a>
+      <a href="./conditional-order.html">条件单</a>
+      <a href="./backtest.html">回测系统</a>
+      <a href="./backtest-panel.html" class="active">回测面板</a>
+      <a href="./portfolio.html">账户管理</a>
+    </nav>
+
+    <!-- 页面标题 -->
+    <section class="hero">
+      <p class="eyebrow">Backtest Panel</p>
+      <h1>回测结果面板</h1>
+      <p class="subtitle">查看联合优化结果、导出条件单、推荐到监控池</p>
+    </section>
+
+    <!-- 优化结果摘要 -->
+    <section class="panel" id="summaryPanel">
+      <div class="panel-inner">
+        <h2 class="section-title">优化结果摘要</h2>
+
+        <!-- 加载状态 -->
+        <div id="loadingState" class="loading-state">
+          <div class="spinner"></div>
+          <p>正在加载回测结果...</p>
+        </div>
+
+        <!-- 无数据状态 -->
+        <div id="emptyState" class="empty-state" style="display: none;">
+          <div class="empty-icon">📊</div>
+          <p>暂无回测优化结果</p>
+          <a href="./backtest.html" class="button">前往回测系统</a>
+        </div>
+
+        <!-- 结果展示 -->
+        <div id="resultContent" style="display: none;">
+          <!-- 状态标签 -->
+          <div class="status-badge-container">
+            <span id="statusBadge" class="status-badge status-completed">已完成</span>
+            <span id="timestampBadge" class="timestamp-badge"></span>
+          </div>
+
+          <!-- 最优配置 -->
+          <div class="allocation-section">
+            <h3 class="subsection-title">最优仓位配置</h3>
+            <div class="allocation-cards">
+              <div class="allocation-card core">
+                <div class="allocation-icon">🏢</div>
+                <div class="allocation-label">核心仓</div>
+                <div class="allocation-value" id="coreWeight">--</div>
+                <div class="allocation-desc">趋势跟踪策略</div>
+              </div>
+              <div class="allocation-card satellite">
+                <div class="allocation-icon">🛰️</div>
+                <div class="allocation-label">卫星仓</div>
+                <div class="allocation-value" id="satelliteWeight">--</div>
+                <div class="allocation-desc">网格交易策略</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 绩效指标 -->
+          <div class="metrics-section">
+            <h3 class="subsection-title">绩效指标</h3>
+            <div class="metrics-grid">
+              <div class="metric-card">
+                <div class="metric-icon">📈</div>
+                <div class="metric-value" id="sharpeRatio">--</div>
+                <div class="metric-label">夏普比率</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-icon">📉</div>
+                <div class="metric-value" id="maxDrawdown">--</div>
+                <div class="metric-label">最大回撤</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-icon">💰</div>
+                <div class="metric-value" id="annualizedReturn">--</div>
+                <div class="metric-label">年化收益</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-icon">🎯</div>
+                <div class="metric-value" id="calmarRatio">--</div>
+                <div class="metric-label">卡玛比率</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-icon">📊</div>
+                <div class="metric-value" id="totalReturn">--</div>
+                <div class="metric-label">总收益</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-icon">🔢</div>
+                <div class="metric-value" id="validCombinations">--</div>
+                <div class="metric-label">有效组合</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 操作按钮 -->
+          <div class="action-section">
+            <h3 class="subsection-title">快速操作</h3>
+            <div class="action-buttons">
+              <button class="action-btn primary" onclick="openExportModal()">
+                <span class="btn-icon">📋</span>
+                导出条件单
+              </button>
+              <button class="action-btn secondary" onclick="openMonitorModal()">
+                <span class="btn-icon">👁️</span>
+                推荐到监控池
+              </button>
+              <button class="action-btn" onclick="refreshData()">
+                <span class="btn-icon">🔄</span>
+                刷新数据
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 所有组合结果 -->
+    <section class="panel" id="combinationsPanel" style="display: none;">
+      <div class="panel-inner">
+        <h2 class="section-title">所有组合结果</h2>
+        <p class="section-copy">查看所有仓位比例组合的绩效表现</p>
+
+        <div class="table-container">
+          <table class="combinations-table">
+            <thead>
+              <tr>
+                <th>核心仓</th>
+                <th>卫星仓</th>
+                <th>夏普比率</th>
+                <th>最大回撤</th>
+                <th>年化收益</th>
+                <th>卡玛比率</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody id="combinationsBody">
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 网格配置 -->
+    <section class="panel" id="gridConfigPanel" style="display: none;">
+      <div class="panel-inner">
+        <h2 class="section-title">网格交易配置</h2>
+        <div class="grid-config-cards">
+          <div class="config-item">
+            <span class="config-label">网格步长</span>
+            <span class="config-value" id="gridStep">--</span>
+          </div>
+          <div class="config-item">
+            <span class="config-label">单次金额</span>
+            <span class="config-value" id="singleAmount">--</span>
+          </div>
+          <div class="config-item">
+            <span class="config-label">趋势过滤</span>
+            <span class="config-value" id="trendFilter">--</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 导出条件单弹窗 -->
+  <div id="exportModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>导出条件单</h3>
+        <button class="modal-close" onclick="closeModal('exportModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>股票代码</label>
+          <input type="text" id="exportStockCode" placeholder="如: 600519.SH" class="form-input">
+        </div>
+        <div class="form-group">
+          <label>股票名称</label>
+          <input type="text" id="exportStockName" placeholder="如: 贵州茅台" class="form-input">
+        </div>
+        <div class="form-group">
+          <label>账户ID</label>
+          <input type="number" id="exportAccountId" value="1" class="form-input">
+        </div>
+        <div class="form-group">
+          <label>条件单类型</label>
+          <div class="checkbox-group">
+            <label class="checkbox-item">
+              <input type="checkbox" name="orderTypes" value="core_entry" checked>
+              <span>核心仓入场</span>
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" name="orderTypes" value="satellite_entry" checked>
+              <span>卫星仓入场</span>
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" name="orderTypes" value="stop_loss" checked>
+              <span>止损单</span>
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" name="orderTypes" value="take_profit" checked>
+              <span>止盈单</span>
+            </label>
+          </div>
+        </div>
+        <div id="exportPreview" class="preview-section" style="display: none;">
+          <h4>预览条件单</h4>
+          <div id="exportPreviewContent"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="button" onclick="previewExport()">预览</button>
+        <button class="button button-primary" onclick="executeExport()">确认导出</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 推荐到监控池弹窗 -->
+  <div id="monitorModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>推荐到监控池</h3>
+        <button class="modal-close" onclick="closeModal('monitorModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="recommendation-score">
+          <span class="score-label">推荐评分</span>
+          <span class="score-value" id="recommendScore">--</span>
+          <span class="score-max">/100</span>
+        </div>
+        <div id="recommendReasons" class="recommend-reasons"></div>
+
+        <div class="form-group">
+          <label>添加股票（可多选）</label>
+          <div id="monitorStockList" class="stock-select-list">
+            <!-- 动态填充 -->
+          </div>
+          <button class="button button-small" onclick="addMonitorStock()">+ 添加股票</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="button" onclick="closeModal('monitorModal')">取消</button>
+        <button class="button button-primary" onclick="executeMonitorRecommend()">确认推荐</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 提示消息 -->
+  <div id="toast" class="toast"></div>
+
+  <script src="./backtest-panel.js"></script>
+</body>
+</html>

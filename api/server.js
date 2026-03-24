@@ -485,6 +485,52 @@ async function bootstrap() {
     console.log('[mountApi] optimizer模块加载失败:', e.message);
   }
 
+  // TASK_V3_301~303: 联合优化器 API
+  try {
+    const jointOptimizer = require('./joint-optimizer');
+    const router = jointOptimizer.createRouter(express);
+
+    app.use('/api/joint-optimizer', router);
+    mounted.push('/api/joint-optimizer/run');
+    mounted.push('/api/joint-optimizer/weights');
+
+    console.log('[mountApi] 联合优化器API已加载');
+  } catch (e) {
+    console.log('[mountApi] joint-optimizer模块加载失败:', e.message);
+  }
+
+  // TASK_V3_401: 回测转条件单 API
+  try {
+    const backtestToConditional = require('./backtest-to-conditional');
+    const router = backtestToConditional.createRouter(express);
+
+    app.use('/api/backtest-to-conditional', router);
+    mounted.push('/api/backtest-to-conditional/summary');
+    mounted.push('/api/backtest-to-conditional/preview');
+    mounted.push('/api/backtest-to-conditional/import');
+    mounted.push('/api/backtest-to-conditional/batch-import');
+
+    console.log('[mountApi] 回测转条件单API已加载');
+  } catch (e) {
+    console.log('[mountApi] backtest-to-conditional模块加载失败:', e.message);
+  }
+
+  // TASK_V3_402: 回测转监控池 API
+  try {
+    const backtestToMonitor = require('./backtest-to-monitor');
+    const router = backtestToMonitor.createRouter(express);
+
+    app.use('/api/backtest-to-monitor', router);
+    mounted.push('/api/backtest-to-monitor/evaluate');
+    mounted.push('/api/backtest-to-monitor/preview');
+    mounted.push('/api/backtest-to-monitor/recommend');
+    mounted.push('/api/backtest-to-monitor/recommended');
+
+    console.log('[mountApi] 回测转监控池API已加载');
+  } catch (e) {
+    console.log('[mountApi] backtest-to-monitor模块加载失败:', e.message);
+  }
+
   app.get('/api', (req, res) => {
     res.json({
       success: true,
