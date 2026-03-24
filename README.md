@@ -275,25 +275,36 @@ Codex 会自动检查：
 
 ## 开发状态
 
-### V3.0 开发进度（2026-03-24 更新）
+### V3.0 开发进度（2026-03-24 14:30 更新）
 
-| 阶段 | 任务 | 状态 | 完成日期 |
-|------|------|------|----------|
-| **阶段 0** | 选股自动化改造 | ✅ 完成 | 2026-03-23 |
-| - | 4 维度行业自动评分 | ✅ 完成 | - |
-| - | 行业 Top3 自动筛选 | ✅ 完成 | - |
-| - | 个股 7 因子评分 | ✅ 完成 | - |
-| - | 个股 Top10 自动筛选 | ✅ 完成 | - |
-| - | 选股 UI 改造 | ✅ 完成 | - |
-| - | 选股→分钟线获取触发 | ✅ 完成 | - |
-| **阶段 1** | 回测系统核心框架 | ✅ 完成 | 2026-03-24 |
-| - | 日线回测引擎 | ✅ 完成 | - |
-| - | 选股参数优化模块 | ✅ 完成 | - |
-| - | 回测结果缓存机制 | ✅ 完成 | - |
-| - | 7 指标计算模块 | ✅ 完成 | - |
-| **阶段 2** | 分钟线回测策略 | ⏳ 进行中 | - |
-| **阶段 3** | 条件单重构 | ⏳ 进行中 | - |
-| **阶段 4** | 实盘对接准备 | ⏳ 待启动 | - |
+| 阶段 | 任务数 | 状态 | 完成日期 | 交付物 |
+|------|--------|------|----------|--------|
+| **阶段 0** | 7 个 | ✅ 完成 | 2026-03-24 | 5 个 API + UI 改造 |
+| **阶段 1** | 4 个 | ✅ 完成 | 2026-03-24 | 12 个文件 + 50 测试 |
+| **阶段 2** | 4 个 | ⚪ 待开始 | - | 分钟线网格回测 |
+| **阶段 3** | 3 个 | ⚪ 待开始 | - | 联合优化器 |
+| **阶段 4** | 3 个 | ⚪ 待开始 | - | 系统集成 |
+
+**总体进度**: 11/21 完成（52%），提前约 8 天
+
+**阶段 0 交付物**:
+- `api/industry-score.js` - 4 维度行业评分
+- `api/industry-top-stocks.js` - 行业 Top3 筛选
+- `api/industry/:industry/top-stocks` - 行业内个股 7 因子评分
+- `api/stock-select.js` - 个股 Top10 筛选
+- `select.html` - 选股 UI 改造
+- `api/minute-fetch.js` - 分钟线获取
+
+**阶段 1 交付物**:
+- `api/backtest-engine.js` - 日线回测引擎（21KB）
+- `api/backtest-report.js` - 7 个绩效指标（14KB）
+- `api/backtest-cache.js` - 缓存机制（11KB）
+- `api/optimizer.js` - 贝叶斯优化（19KB）
+- `scripts/run_backtest.mjs` - 回测命令行工具
+- `scripts/run_optimizer.mjs` - 优化命令行工具
+- `test/backtest-report.test.js` - 50 个测试用例
+- `db/migrations/006_*.sql` - 回测表迁移
+- `db/migrations/007_*.sql` - 缓存表迁移
 
 ### 历史版本（V1-V2）
 
@@ -307,10 +318,20 @@ Codex 会自动检查：
 
 ## 相关文档
 
-- `docs/system_architecture.md` - 系统架构设计
-- `docs/conditional_order_design.md` - 条件单设计文档
+### 核心文档
+- `docs/README.md` - 项目进度总览
+- `docs/V3_DEVELOPMENT_PLAN.md` - V3 开发计划
+- `docs/VERSIONS.md` - 版本历史
+- `docs/DESIGN_CONSENSUS.md` - 设计共识（69KB，v2.0）
+
+### API 文档
+- `docs/api-reference.md` - API 参考
+- `docs/minute-api-guide.md` - 分钟线 API 指南
 - `docs/monitor-guide.md` - 监控服务使用指南
-- `docs/backtest_integration_plan.md` - 回测集成方案
+
+### 验收与测试
+- `docs/acceptance/` - 验收报告目录
+- `docs/test-report-2026-03-22.md` - 测试报告
 
 ## 部署
 
