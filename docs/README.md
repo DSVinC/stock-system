@@ -343,15 +343,108 @@ claude -p "你是程序员，请修复测试脚本..." &
 
 ## 📋 相关文档
 
+### 📚 项目规范（必读）
+
+| 文档 | 说明 | 读取时机 |
+|------|------|----------|
+| `PROJECT_ROLES.md` | 三角色分工与职责规范 | 新会话启动、任务分配时 |
+| `WORK_LOG_POLICY.md` | 六类日志登记制度 | 每次关键节点后 |
+| `FIX_SUMMARY_TEMPLATE.md` | 修复总结文档模板 | 验收不通过需要修复时 |
+| `PROJECT_LESSONS_TEMPLATE.md` | 项目经验模板 | 修复完成后记录经验时 |
+| `TASK_STATUS_TEMPLATE.md` | 实时状态模板 | 创建新任务状态文件时 |
+| `CLAUDE_TASK_DISPATCH_TEMPLATE.md` | Claude 小任务派发模板 | 派发 Claude 任务时 |
+| `CLI_ACCEPTANCE_GUIDE.md` | CLI 验收操作指南 | 执行验收任务时 |
+| `ACCEPTANCE_WORKFLOW.md` | 验收流程规范 | 验收不通过需要复验时 |
+
+### 📊 项目进度与计划
+
+| 文档 | 说明 | 读取时机 |
+|------|------|----------|
+| `PROJECT_PROGRESS.md` | 项目进度总览 | 每日检查进度时 |
+| `V3_DEVELOPMENT_PLAN.md` | V3 版开发计划 | 规划新阶段任务时 |
+| `VERSIONS.md` | 版本历史 | 发布新版本时 |
+| `DESIGN_CONSENSUS.md` | 设计共识（v2.0，69KB） | 需要理解系统设计时 |
+
+### 🔧 技术与 API
+
+| 文档 | 说明 | 读取时机 |
+|------|------|----------|
+| `api-reference.md` | API 接口参考 | 开发/调试 API 时 |
+| `minute-api-guide.md` | 分钟线 API 指南 | 使用分钟线数据时 |
+| `monitor-guide.md` | 监控服务使用指南 | 配置/调试监控时 |
+
+### 📝 历史报告
+
 | 文档 | 说明 |
 |------|------|
-| `PROJECT_ROLES.md` | 三角色分工与职责规范 |
-| `WORK_LOG_POLICY.md` | 六类日志登记制度 |
-| `FIX_SUMMARY_TEMPLATE.md` | 修复总结文档模板 |
-| `CLAUDE_TASK_DISPATCH_TEMPLATE.md` | Claude Code 小任务派发与验收模板 |
-| `api-reference.md` | API接口参考 |
-| `monitor-guide.md` | 监控服务使用指南 |
 | `security-fixes-2026-03-18.md` | 安全修复记录 |
+| `test-report-2026-03-22.md` | 测试报告 |
+| `test-simulation-guide.md` | 测试模拟指南 |
+| `优化报告 - 空状态 -2026-03-22.md` | 空状态优化报告 |
+| `文档更新报告 -2026-03-22.md` | 文档更新报告 |
+| `验收报告 -2026-03-22.md` | 验收报告 |
+
+---
+
+## 🧠 项目经验积累与复用
+
+### 经验记录位置
+
+| 位置 | 用途 | 更新频率 |
+|------|------|----------|
+| `docs/PROJECT_LESSONS.md` | 项目内经验记录 | 每次修复完成后 |
+| `docs/fixes/*.md` | 修复文档详情 | 每次验收不通过时 |
+| `memory/knowledge/project_lessons.md` | 跨项目经验库 | 每日自动汇总 |
+
+### 经验读取时机（防止遗忘）
+
+| 时机 | 读取内容 | 目的 |
+|------|----------|------|
+| **新任务启动** | `docs/PROJECT_LESSONS.md` 问题分类索引 | 避免重复踩坑 |
+| **修复开始前** | `docs/fixes/` 中类似问题修复文档 | 参考修复方案 |
+| **验收遇到阻塞** | `docs/PROJECT_LESSONS.md` 高频问题 TOP10 | 快速定位根因 |
+| **新会话启动** | `docs/PROJECT_LESSONS.md` 最新 5 条经验 | 快速了解项目痛点 |
+| **月度复盘** | `memory/knowledge/project_lessons.md` | 跨项目经验复用 |
+
+### 经验复用流程
+
+```
+1. 遇到问题 → 2. 搜索 PROJECT_LESSONS.md → 3. 找到类似问题 → 4. 应用已有方案 → 5. 更新经验记录
+```
+
+**搜索命令**:
+```bash
+# 搜索关键词
+rg "关键词" docs/PROJECT_LESSONS.md
+
+# 查看问题分类
+rg "^### 问题类型" docs/PROJECT_LESSONS.md
+```
+
+---
+
+## ⚠️ 文档维护规则
+
+### 必须路由的文档
+
+以下文档**必须**在本文档中路由（否则视为垃圾文件）：
+1. 所有规范类文档（PROJECT_*.md、FIX_*.md、TASK_*.md）
+2. 所有流程类文档（ACCEPTANCE_*.md、CLI_*.md）
+3. 所有模板类文档（*_TEMPLATE.md）
+4. 所有计划类文档（V3_*.md、VERSIONS.md）
+5. 所有经验类文档（PROJECT_LESSONS*.md）
+
+### 文档清理规则
+
+以下文档**可以删除**：
+- 临时报告（超过 30 天且无复用价值）
+- 重复文档（内容已被其他文档覆盖）
+- 过时文档（已被新版本替代）
+
+**清理前必须**:
+1. 确认内容已归档到其他文档
+2. 更新本文档的引用
+3. 在 CHANGELOG.md 中记录
 
 ---
 
