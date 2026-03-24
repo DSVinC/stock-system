@@ -539,13 +539,91 @@ async function runMonitorJob(options = {}) {
   }
 }
 
+// ========== 报告关联功能 ==========
+
+/**
+ * 获取条件单关联的分析报告
+ * @param {number} orderId - 条件单 ID
+ * @returns {Promise<Object|null>} 分析报告
+ */
+async function getAssociatedReport(orderId) {
+  const db = require('./db');
+  const order = await db.getPromise('SELECT report_id FROM conditional_order WHERE id = ?', [orderId]);
+  
+  if (!order || !order.report_id) {
+    return null;
+  }
+  
+  const report = await db.getPromise(
+    'SELECT * FROM stock_analysis_reports WHERE report_id = ?',
+    [order.report_id]
+  );
+  
+  return report;
+}
+
+/**
+ * 检查报告决策是否与触发条件一致
+ * @param {Object} order - 条件单
+ * @param {Object} report - 分析报告
+ * @returns {boolean} 是否一致
+ */
+function checkReportDecision(order, report) {
+  if (!report || !report.report_json) {
+    return true; // 没有报告时默认通过
+  }
+  
+  try {
+    const decisions = JSON.parse(report.report_json).decisions || {};
+    
+    // 检查止损单是否与报告止损价一致
+    if (order.order_type === 'stop_loss' && decisions.stop_loss) {
+      const conditions = JSON.parse(order.conditions);
+      const reportStopLoss = decisions.stop_loss;
+      const orderStopLoss = conditions.find(c => c.field === 'price')?.value;
+      return Math.abs(reportStopLoss - orderStopLoss) < 0.01;
+    }
+    
+    // 检查止盈单是否与报告止盈价一致
+    if (order.order_type === 'take_profit' && decisions.stop_profit) {
+      const conditions = JSON.parse(order.conditions);
+      const reportStopProfits = Array.isArray(decisions.stop_profit) 
+        ? decisions.stop_profit 
+        : [decisions.stop_profit];
+      const orderStopProfit = conditions.find(c => c.field === 'price')?.value;
+      return reportStopProfits.some(p => Math.abs(p - orderStopProfit) < 0.01);
+    }
+    
+    return true;
+  } catch (e) {
+    console.error('[checkReportDecision] 解析报告失败:', e.message);
+    return true;
+  }
+}
+
+/**
+ * 更新报告状态
+ * @param {string} reportId - 报告 ID
+ * @param {string} status - 状态 (triggered/cancelled/expired)
+ */
+async function updateReportStatus(reportId, status) {
+  const db = require('./db');
+  await db.runPromise(
+    'UPDATE stock_analysis_reports SET report_status = ?, updated_at = CURRENT_TIMESTAMP WHERE report_id = ?',
+    [status, reportId]
+  );
+}
+
 module.exports = {
   buildOrderContext,
   checkAllConditionalOrders,
   executeConditionalTrade,
   formatDate,
+  getAssociatedReport,
   getOrderConditions,
   normalizeRealtimeQuote,
   runMonitorJob,
   sendFeishuNotification,
+  checkReportDecision,
+  updateReportStatus,
 };

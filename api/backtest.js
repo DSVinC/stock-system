@@ -1430,6 +1430,387 @@ async function runBatchBacktest(req, res) {
   }
 }
 
+// ============================
+// 因子快照回测功能 (TASK_V3_101)
+// ============================
+
+const FactorSnapshotBacktest = require('./backtest-engine');
+
+/**
+ * 运行基于因子快照的回测
+ * POST /api/backtest/factor-snapshot/run
+ */
+async function runFactorSnapshotBacktest(req, res) {
+  try {
+    const {
+      startDate,
+      endDate,
+      initialCapital = 1000000,
+      commissionRate = 0.00025,
+      minCommission = 5,
+      positionLimit = 10,
+      stampDutyRate = 0.001,
+      slippageRate = 0,
+      strategy = {}
+    } = req.body;
+
+    // 参数验证
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        error: '必须提供 startDate 和 endDate 参数'
+      });
+    }
+
+    // 验证日期格式
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
+      return res.status(400).json({
+        success: false,
+        error: '日期格式必须为 YYYY-MM-DD'
+      });
+    }
+
+    console.log(`[因子快照回测] 开始运行: ${startDate} 到 ${endDate}`);
+    console.log(`[因子快照回测] 初始资金: ${initialCapital}, 手续费率: ${commissionRate}`);
+    console.log(`[因子快照回测] 策略配置:`, JSON.stringify(strategy, null, 2));
+
+    // 创建回测引擎
+    const backtest = new FactorSnapshotBacktest({
+      initialCapital,
+      commissionRate,
+      minCommission,
+      positionLimit,
+      stampDutyRate,
+      slippageRate
+    });
+
+    // 运行回测
+    const result = await backtest.run({
+      startDate,
+      endDate,
+      strategyConfig: strategy
+    });
+
+    // 保存回测结果到数据库
+    const saveResult = await backtest.saveToDatabase();
+    const backtestId = saveResult.backtestId;
+
+    // 返回结果
+    res.json({
+      success: true,
+      data: {
+        backtestId,
+        ...result
+      }
+    });
+
+  } catch (error) {
+    console.error('[因子快照回测] 运行失败:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+/**
+ * 获取因子快照回测历史
+ * GET /api/backtest/factor-snapshot/history
+ */
+async function getFactorSnapshotBacktestHistory(req, res) {
+  try {
+    const db = require('./db').getDatabase();
+    const { limit = 50, offset = 0 } = req.query;
+
+    const rows = await db.allPromise(`
+      SELECT
+        id,
+        name,
+        start_date,
+        end_date,
+        initial_capital,
+        final_capital,
+        total_return,
+        annualized_return,
+        sharpe_ratio,
+        max_drawdown,
+        win_rate,
+        trade_count,
+        volatility,
+        strategy_config,
+        result_summary,
+        created_at
+      FROM backtest_history
+      WHERE name LIKE '%因子快照%'
+      ORDER BY created_at DESC
+      LIMIT ? OFFSET ?
+    `, [parseInt(limit), parseInt(offset)]);
+
+    const totalRow = await db.getPromise(`
+      SELECT COUNT(*) as count
+      FROM backtest_history
+      WHERE name LIKE '%因子快照%'
+    `);
+
+    const total = totalRow ? totalRow.count : 0;
+
+    const history = rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      startDate: row.start_date,
+      endDate: row.end_date,
+      initialCapital: row.initial_capital,
+      finalCapital: row.final_capital,
+      strategyConfig: row.strategy_config ? JSON.parse(row.strategy_config) : {},
+      resultSummary: row.result_summary ? JSON.parse(row.result_summary) : {},
+      sevenMetrics: {
+        sharpe_ratio: row.sharpe_ratio,
+        max_drawdown: row.max_drawdown,
+        annualized_return: row.annualized_return,
+        total_return: row.total_return,
+        win_rate: row.win_rate,
+        trade_count: row.trade_count,
+        volatility: row.volatility
+      },
+      createdAt: row.created_at
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        history,
+        pagination: {
+          total,
+          limit: parseInt(limit),
+          offset: parseInt(offset)
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('[获取回测历史] 失败:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+/**
+ * 获取回测详情
+ * GET /api/backtest/factor-snapshot/:id
+ */
+async function getFactorSnapshotBacktestDetail(req, res) {
+  try {
+    const { id } = req.params;
+    const db = require('./db').getDatabase();
+
+    // 获取回测基本信息
+    const row = await db.getPromise(`
+      SELECT
+        id,
+        name,
+        start_date,
+        end_date,
+        initial_capital,
+        final_capital,
+        total_return,
+        annualized_return,
+        sharpe_ratio,
+        max_drawdown,
+        win_rate,
+        trade_count,
+        volatility,
+        strategy_config,
+        result_summary,
+        created_at
+      FROM backtest_history
+      WHERE id = ?
+    `, [id]);
+
+    if (!row) {
+      return res.status(404).json({
+        success: false,
+        error: '回测记录不存在'
+      });
+    }
+
+    // 获取交易明细
+    const trades = await db.allPromise(`
+      SELECT
+        id,
+        trade_date,
+        ts_code,
+        stock_name,
+        action,
+        quantity,
+        price,
+        amount,
+        commission,
+        profit,
+        profit_rate
+      FROM backtest_trades
+      WHERE backtest_id = ?
+      ORDER BY trade_date ASC, id ASC
+    `, [id]);
+
+    // 获取权益曲线
+    const equityCurve = await db.allPromise(`
+      SELECT
+        trade_date,
+        cash,
+        position_value,
+        total_value,
+        daily_return,
+        cumulative_return
+      FROM backtest_equity_curve
+      WHERE backtest_id = ?
+      ORDER BY trade_date ASC
+    `, [id]);
+
+    res.json({
+      success: true,
+      data: {
+        id: row.id,
+        name: row.name,
+        startDate: row.start_date,
+        endDate: row.end_date,
+        initialCapital: row.initial_capital,
+        finalCapital: row.final_capital,
+        strategyConfig: row.strategy_config ? JSON.parse(row.strategy_config) : {},
+        resultSummary: row.result_summary ? JSON.parse(row.result_summary) : {},
+        sevenMetrics: {
+          sharpe_ratio: row.sharpe_ratio,
+          max_drawdown: row.max_drawdown,
+          annualized_return: row.annualized_return,
+          total_return: row.total_return,
+          win_rate: row.win_rate,
+          trade_count: row.trade_count,
+          volatility: row.volatility
+        },
+        trades: trades.map(t => ({
+          date: t.trade_date,
+          tsCode: t.ts_code,
+          stockName: t.stock_name,
+          action: t.action,
+          quantity: t.quantity,
+          price: t.price,
+          amount: t.amount,
+          commission: t.commission,
+          profit: t.profit,
+          profitRate: t.profit_rate
+        })),
+        equityCurve: equityCurve.map(e => ({
+          date: e.trade_date,
+          cash: e.cash,
+          positionValue: e.position_value,
+          totalValue: e.total_value,
+          dailyReturn: e.daily_return,
+          cumulativeReturn: e.cumulative_return
+        })),
+        createdAt: row.created_at
+      }
+    });
+
+  } catch (error) {
+    console.error('[获取回测详情] 失败:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+/**
+ * 参数扫描（批量回测）
+ * POST /api/backtest/factor-snapshot/scan
+ */
+async function scanFactorSnapshotParameters(req, res) {
+  try {
+    const {
+      startDate,
+      endDate,
+      initialCapital = 1000000,
+      commissionRate = 0.00025,
+      minCommission = 5,
+      positionLimit = 10,
+      baseStrategy = {},
+      paramRanges = {}
+    } = req.body;
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        error: '必须提供 startDate 和 endDate 参数'
+      });
+    }
+
+    if (!paramRanges || Object.keys(paramRanges).length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: '必须提供 paramRanges 参数进行参数扫描'
+      });
+    }
+
+    console.log(`[因子快照参数扫描] 开始: ${startDate} 到 ${endDate}`);
+    console.log(`[因子快照参数扫描] 参数范围:`, JSON.stringify(paramRanges, null, 2));
+
+    // 创建回测引擎
+    const backtest = new FactorSnapshotBacktest({
+      initialCapital,
+      commissionRate,
+      minCommission,
+      positionLimit
+    });
+
+    // 运行批量回测
+    const results = await backtest.runBatch(
+      { startDate, endDate, strategyConfig: baseStrategy },
+      paramRanges
+    );
+
+    // 统计结果
+    const validResults = results.filter(r => r.success);
+    const failedResults = results.filter(r => !r.success);
+
+    // 按年化收益率排序
+    const sortedResults = [...validResults].sort((a, b) =>
+      (b.summary?.annualizedReturn || 0) - (a.summary?.annualizedReturn || 0)
+    );
+
+    const bestResult = sortedResults[0];
+
+    res.json({
+      success: true,
+      data: {
+        totalScenarios: results.length,
+        validScenarios: validResults.length,
+        failedScenarios: failedResults.length,
+        bestStrategy: bestResult ? {
+          params: bestResult.params,
+          summary: bestResult.summary,
+          sevenMetrics: bestResult.sevenMetrics
+        } : null,
+        allResults: results.map(r => ({
+          params: r.params,
+          summary: r.summary,
+          sevenMetrics: r.sevenMetrics,
+          success: r.success,
+          error: r.error
+        }))
+      }
+    });
+
+  } catch (error) {
+    console.error('[因子快照参数扫描] 失败:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
 module.exports = {
   BacktestEngine,
   runBacktest,
@@ -1438,5 +1819,9 @@ module.exports = {
   getBacktestDetail,
   saveBacktestReport,
   scanParameters,
-  generateBacktestReport
+  generateBacktestReport,
+  runFactorSnapshotBacktest,
+  getFactorSnapshotBacktestHistory,
+  getFactorSnapshotBacktestDetail,
+  scanFactorSnapshotParameters
 };

@@ -4,6 +4,45 @@
 
 ---
 
+## 2026-03-24 | TASK_V3_001 & TASK_V3_DB_FIX_001 | V3 版行业评分与数据库修复
+
+### 问题类型
+**功能开发** - 新功能实现 + 数据库表补充
+
+### 背景
+V3 版开发启动，需要实现 4 维度行业自动评分功能。同时发现监控功能缺少 `company_events` 和 `stocks` 表。
+
+### 任务完成情况
+
+#### TASK_V3_001 - 4 维度行业自动评分
+- **状态**: completed
+- **交付物**: `api/industry-score.js`, 路由配置
+- **验收**: 387 个行业评分，耗时 967ms < 5 秒要求
+- **API 接口**:
+  - `GET /api/industry/score` - 获取排行榜
+  - `POST /api/industry/score` - 自定义权重评分
+  - `GET /api/industry/score/top3` - 快速获取 Top3
+
+#### TASK_V3_DB_FIX_001 - 补充缺失数据库表
+- **状态**: completed
+- **交付物**: `database/migrations/005_add_company_tables.sql`
+- **新增表**: `company_events`, `stocks`
+- **验收**: 表结构正确，查询正常
+
+### 经验总结
+
+1. **先检查再开发**: TASK_V3_001 的 API 在之前的开发中已实现，启动任务前应先检查代码是否已存在
+2. **数据库表依赖**: 开发 `black-swan-check.js` 和 `sentiment-factor.js` 时依赖的表当时未创建，应在功能开发后立即补充相关表结构
+3. **迁移脚本编号**: 使用递增编号（005）避免冲突，符合迁移规范
+
+### 预防措施
+
+1. ✅ **功能检查清单**: 开发前先搜索相关文件，避免重复开发
+2. ✅ **数据库表同步**: 新功能依赖的表应在功能开发时一并创建
+3. ✅ **迁移脚本管理**: 每个迁移使用独立文件，编号递增
+
+---
+
 ## 2026-03-23 | TASK_CODEX_FIX_001~005 | PR #4 合并后 Codex 审查问题修复
 
 ### 问题类型
@@ -329,6 +368,81 @@ async function executeConditionalOrder(orderId, marketData, technicalData, optio
 
 ---
 
+## 2026-03-24 | TASK_V3_DB_FIX_001 | 数据库表结构缺失（监控功能反馈）
+
+### 问题类型
+**功能缺失** - 数据库表未创建 + 模块间依赖未验证
+
+### 背景
+2026-03-24 08:34 三木反馈：监控功能运行时，数据库缺少 `company_events` 和 `stocks` 表，导致事件监控和特殊处理状态检查未能执行。不影响当前盘前简报功能，但黑天鹅检测和舆情因子计算功能无法完整工作。
+
+### 根因分析
+
+#### 直接原因
+1. `api/black-swan-check.js` 第 172 行和 222 行分别查询 `company_events` 和 `stocks` 表，但表未创建
+2. `api/sentiment-factor.js` 第 238 行查询 `company_events` 表，但表未创建
+3. 数据库初始化脚本未包含这两个表的创建语句
+
+#### 深层原因
+1. **模块间依赖未验证**：黑天鹅检测模块依赖 `company_events` 和 `stocks` 表，但开发时未检查表是否存在
+2. **数据库迁移不完整**：V2 版本开发时可能计划了这两个表，但未实际创建
+3. **测试覆盖不足**：缺少端到端测试验证黑天鹅检测功能的完整执行路径
+4. **防御性编程不足**：查询前未检查表是否存在，导致静默失败
+
+### 解决方案
+
+#### 修改文件
+- `database/migrations/v3.0_add_company_tables.sql` (新建) - 数据库迁移脚本
+- `docs/fixes/TASK_V3_DB_FIX_001.md` (新建) - 修复文档
+- `docs/runtime/TASK_V3_DB_FIX_001_STATUS.md` (新建) - 运行时状态
+
+#### 表结构设计
+```sql
+-- company_events 表：公司公告事件
+CREATE TABLE IF NOT EXISTS company_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts_code TEXT NOT NULL,
+  stock_name TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  event_time DATETIME NOT NULL,
+  title TEXT NOT NULL,
+  content TEXT,
+  source TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- stocks 表：股票基本信息
+CREATE TABLE IF NOT EXISTS stocks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts_code TEXT NOT NULL UNIQUE,
+  stock_name TEXT NOT NULL,
+  list_status TEXT,
+  special_treatment TEXT,
+  industry_code_l1 TEXT,
+  industry_name_l1 TEXT,
+  industry_code_l2 TEXT,
+  industry_name_l2 TEXT,
+  industry_code_l3 TEXT,
+  industry_name_l3 TEXT,
+  list_date DATE,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### 预防措施
+
+1. [ ] **数据库依赖检查**：模块启动时检查依赖的表是否存在，不存在时抛出明确错误
+2. [ ] **迁移脚本管理**：所有数据库表变更必须通过迁移脚本，不得手动创建
+3. [ ] **端到端测试**：黑天鹅检测等关键功能必须编写端到端测试，验证完整执行路径
+4. [ ] **防御性编程**：查询前检查表/字段是否存在，提供友好的错误提示
+5. [ ] **PR 审查清单**：涉及数据库查询的代码，审查时必须验证表结构已创建
+
+### 验证结果
+⏳ 待修复完成后验证
+
+---
+
 ## 通用经验（跨任务）
 
 ### 1. 验收驱动开发
@@ -346,3 +460,7 @@ async function executeConditionalOrder(orderId, marketData, technicalData, optio
 ### 4. 状态文件的重要性
 - **问题**：任务执行过程中状态不透明
 - **改进**：使用 `docs/runtime/TASK_{ID}_STATUS.md` 实时记录进展，便于交接和复盘
+
+### 5. 数据库表依赖管理（2026-03-24 新增）
+- **问题**：代码查询某表，但表未创建，导致功能静默失败
+- **改进**：模块启动时检查依赖表是否存在，迁移脚本必须完整

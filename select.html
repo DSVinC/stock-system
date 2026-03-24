@@ -60,6 +60,41 @@
       color: var(--text-soft);
       font-size: 0.875rem;
     }
+    .control-bar {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .refresh-btn, .config-btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .refresh-btn {
+      background: var(--accent);
+      color: white;
+    }
+    .refresh-btn:hover {
+      background: var(--accent-strong);
+      transform: translateY(-1px);
+    }
+    .config-btn {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-soft);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    .config-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: var(--text);
+    }
     .panel {
       background: var(--panel);
       border: 1px solid var(--line);
@@ -70,299 +105,124 @@
     .panel-inner {
       max-width: 100%;
     }
-    .methodology-card {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      padding: 1.25rem;
+    .section-header {
       margin-bottom: 1.5rem;
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(18px);
     }
-    .methodology-title {
-      font-size: 0.875rem;
-      font-weight: 600;
-      color: var(--accent);
-      margin-bottom: 0.75rem;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-    .methodology-dimensions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      font-size: 0.8125rem;
-      color: var(--text-soft);
-    }
-    .dimension-tag {
-      padding: 0.25rem 0.75rem;
-      border-radius: 999px;
-      background: rgba(96, 165, 250, 0.1);
-      border: 1px solid rgba(96, 165, 250, 0.16);
+    .section-header h2 {
+      font-size: 1.25rem;
+      font-weight: 700;
       color: var(--text);
-      font-weight: 500;
+      margin-bottom: 0.5rem;
     }
-    .directions-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-      gap: 1.5rem;
-      margin-bottom: 2rem;
-    }
-    .action-bar {
-      display: flex;
-      justify-content: center;
-      gap: 1rem;
-      margin: 3rem 0;
-    }
-    .start-btn {
-      padding: 1rem 3rem;
-      background: linear-gradient(135deg, var(--accent-hot), var(--accent-strong) 52%, var(--accent));
-      color: white;
-      border: none;
-      border-radius: 16px;
-      font-size: 1.125rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      box-shadow: 0 18px 40px rgba(37, 99, 235, 0.28);
-    }
-    .start-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 22px 48px rgba(56, 189, 248, 0.32);
-    }
-    .start-btn:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-      transform: none;
-    }
-    .confirm-btn {
-      padding: 1rem 3rem;
-      background: linear-gradient(135deg, var(--accent-hot), var(--accent-strong) 52%, var(--accent));
-      color: white;
-      border: none;
-      border-radius: 16px;
-      font-size: 1.125rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      box-shadow: 0 18px 40px rgba(37, 99, 235, 0.28);
-    }
-    .confirm-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 22px 48px rgba(56, 189, 248, 0.32);
-    }
-    .confirm-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-    .selection-hint {
-      text-align: center;
+    .section-subtitle {
       color: var(--text-soft);
       font-size: 0.875rem;
-      margin-bottom: 1rem;
     }
-    .direction-card {
+    .section-card {
       background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: var(--radius);
-      padding: 1.25rem;
-      transition: all 0.2s ease;
-      cursor: pointer;
-      min-width: 0;
-      display: flex;
-      flex-direction: column;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
       box-shadow: var(--shadow);
       backdrop-filter: blur(18px);
     }
-    .direction-card:hover {
-      border-color: var(--accent);
+    .industries-grid, .stocks-grid {
+      display: grid;
+      gap: 1rem;
     }
-    .direction-card.selected {
-      border-color: var(--good);
-      background: rgba(74, 222, 128, 0.08);
+    .industries-grid {
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     }
-    .direction-card.expanded {
-      border-color: var(--accent);
+    .stocks-grid {
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     }
-    .card-header {
+    .industry-card, .stock-card {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 1rem;
+      transition: all 0.2s ease;
       display: flex;
-      justify-content: space-between;
       align-items: center;
       gap: 1rem;
     }
-    .card-left {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
+    .industry-card:hover, .stock-card:hover {
+      border-color: var(--accent);
+      background: rgba(56, 189, 248, 0.08);
+      transform: translateY(-2px);
     }
-    .checkbox-custom {
-      width: 22px;
-      height: 22px;
-      border: 2px solid var(--line);
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      transition: all 0.2s ease;
-    }
-    .checkbox-custom.checked {
-      background: var(--good);
-      border-color: var(--good);
-    }
-    .checkbox-custom.checked::after {
-      content: '✓';
-      color: white;
-      font-size: 14px;
-      font-weight: 700;
-    }
-    .direction-name {
-      font-size: 1.125rem;
-      font-weight: 700;
-      color: var(--text);
-      line-height: 1.3;
-    }
-    .score-badge {
-      padding: 0.25rem 0.75rem;
-      border-radius: 999px;
-      font-size: 0.875rem;
-      font-weight: 700;
-      background: linear-gradient(180deg, rgba(96, 165, 250, 0.12), rgba(255, 255, 255, 0.03));
-      border: 1px solid rgba(96, 165, 250, 0.16);
-      color: var(--good);
-    }
-    .card-details {
-      max-height: 0;
-      overflow: hidden;
-      transition: max-height 0.3s ease;
-    }
-    .direction-card.expanded .card-details {
-      max-height: 500px;
-      margin-top: 1rem;
-    }
-    .dimensions-bar {
-      display: flex;
-      justify-content: space-between;
-      gap: 0.75rem;
-      margin: 1rem 0;
-      padding: 1rem;
-      background: rgba(0, 0, 0, 0.2);
-      border-radius: 12px;
-    }
-    .dimension-item {
-      flex: 1;
-      text-align: center;
-      padding: 0.5rem;
-      background: rgba(255, 255, 255, 0.03);
-      border-radius: 8px;
-      min-width: 0;
-    }
-    .dimension-value {
+    .industry-rank, .stock-rank {
       font-size: 1.5rem;
       font-weight: 700;
-      color: var(--text);
-      margin-bottom: 0.25rem;
-      line-height: 1.2;
+      width: 40px;
+      text-align: center;
+      flex-shrink: 0;
     }
-    .dimension-label {
-      font-size: 0.625rem;
-      color: var(--text-faint);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      white-space: nowrap;
-    }
-    .metrics-list {
-      margin-top: 1rem;
-      margin-bottom: 1rem;
-      padding: 0.75rem;
-      background: rgba(0, 0, 0, 0.15);
-      border-radius: 12px;
-    }
-    .metric-row {
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.8125rem;
-      padding: 0.25rem 0;
-      color: var(--text-soft);
-      gap: 1rem;
-      line-height: 1.4;
-    }
-    .metric-row strong {
-      color: var(--text);
-      white-space: nowrap;
-    }
-    .metric-row .positive { color: var(--good); }
-    .metric-row .negative { color: var(--bad); }
-    .picks-section {
-      margin-top: 1rem;
-      padding-top: 1rem;
-      border-top: 1px solid rgba(255, 255, 255, 0.06);
-    }
-    .picks-title {
-      font-size: 0.8125rem;
-      font-weight: 600;
-      color: var(--text-faint);
-      margin-bottom: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    .picks-list {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-    .pick-item {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 1rem;
-      align-items: center;
-      padding: 0.625rem 0.875rem;
-      background: rgba(255, 255, 255, 0.03);
-      border-radius: 10px;
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
-    .pick-item:hover {
-      background: rgba(56, 189, 248, 0.1);
-    }
-    .pick-left {
-      display: flex;
-      flex-direction: column;
-      gap: 0.125rem;
+    .industry-info, .stock-info {
+      flex: 1;
       min-width: 0;
     }
-    .pick-name {
+    .industry-name, .stock-name {
+      font-size: 1.125rem;
       font-weight: 600;
       color: var(--text);
-      font-size: 0.875rem;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      margin-bottom: 0.25rem;
     }
-    .pick-code {
+    .stock-code {
       font-size: 0.75rem;
       color: var(--info);
+      font-family: monospace;
     }
-    .pick-metrics {
-      text-align: right;
-      font-size: 0.75rem;
-      color: var(--text-soft);
+    .industry-score, .stock-score {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--accent);
       white-space: nowrap;
     }
-    .pick-metrics .mv {
+    .stock-decision {
+      font-size: 0.875rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+    .stock-decision.buy {
+      background: rgba(74, 222, 128, 0.15);
+      color: var(--good);
+      border: 1px solid rgba(74, 222, 128, 0.3);
+    }
+    .stock-decision.watch {
+      background: rgba(251, 191, 36, 0.15);
+      color: var(--warn);
+      border: 1px solid rgba(251, 191, 36, 0.3);
+    }
+    .stock-decision.avoid {
+      background: rgba(251, 113, 133, 0.15);
+      color: var(--bad);
+      border: 1px solid rgba(251, 113, 133, 0.3);
+    }
+    .industry-dimensions {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin-top: 0.75rem;
+    }
+    .dimension {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+    }
+    .dimension-label {
+      color: var(--text-faint);
+    }
+    .dimension-value {
       color: var(--text);
       font-weight: 600;
-    }
-    .reason-box {
-      margin-top: 1rem;
-      padding: 0.875rem;
-      background: rgba(56, 189, 248, 0.08);
-      border-left: 3px solid var(--accent);
-      border-radius: 8px;
-      font-size: 0.8125rem;
-      color: var(--text-soft);
-      line-height: 1.6;
     }
     .loading-state, .error-state, .empty-state {
       text-align: center;
@@ -404,21 +264,6 @@
       max-width: 400px;
       margin: 0 auto;
     }
-    .refresh-btn {
-      margin-top: 1rem;
-      padding: 0.625rem 1.5rem;
-      background: var(--accent);
-      color: white;
-      border: none;
-      border-radius: 10px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-    .refresh-btn:hover {
-      opacity: 0.9;
-      transform: translateY(-1px);
-    }
     .generated-info {
       text-align: center;
       font-size: 0.75rem;
@@ -426,6 +271,165 @@
       margin-top: 2rem;
       padding-top: 1rem;
       border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    /* 配置面板样式 */
+    .config-panel {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 1000;
+      backdrop-filter: blur(4px);
+    }
+    .config-panel.active {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .config-modal {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 1.5rem;
+      width: 90%;
+      max-width: 480px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+    .config-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .config-header h3 {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .config-close {
+      background: none;
+      border: none;
+      color: var(--text-soft);
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 4px;
+      line-height: 1;
+    }
+    .config-close:hover {
+      color: var(--text);
+    }
+    .config-group {
+      margin-bottom: 1.25rem;
+    }
+    .config-label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+    }
+    .config-hint {
+      font-size: 0.75rem;
+      color: var(--text-faint);
+      margin-left: 0.5rem;
+    }
+    .config-input, .config-select {
+      width: 100%;
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.875rem;
+      transition: all 0.2s;
+    }
+    .config-input:focus, .config-select:focus {
+      outline: none;
+      border-color: var(--accent);
+      background: rgba(56, 189, 248, 0.08);
+    }
+    .config-select {
+      cursor: pointer;
+    }
+    .config-select option {
+      background: #1a1a2e;
+      color: var(--text);
+    }
+    .config-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 1.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .config-actions button {
+      flex: 1;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .config-cancel {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-soft);
+    }
+    .config-cancel:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: var(--text);
+    }
+    .config-apply {
+      background: var(--accent);
+      color: white;
+    }
+    .config-apply:hover {
+      background: var(--accent-strong);
+    }
+
+    /* 响应式设计 */
+    @media (max-width: 768px) {
+      .control-bar {
+        flex-direction: column;
+      }
+      .refresh-btn, .config-btn {
+        width: 100%;
+        justify-content: center;
+      }
+      .industries-grid, .stocks-grid {
+        grid-template-columns: 1fr;
+      }
+      .industry-card, .stock-card {
+        flex-direction: column;
+        align-items: stretch;
+        text-align: center;
+      }
+      .industry-rank, .stock-rank {
+        width: 100%;
+        margin-bottom: 0.5rem;
+      }
+      .industry-dimensions {
+        justify-content: center;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .page-shell {
+        padding: 10px;
+      }
+      .panel {
+        padding: 1rem;
+      }
+      .section-card {
+        padding: 1rem;
+      }
     }
   </style>
 </head>
@@ -446,190 +450,245 @@
       <p>基于四维度评估模型，筛选当前市场最具投资价值的行业方向</p>
     </section>
 
+    <!-- 控制栏 -->
+    <div class="control-bar">
+      <button class="refresh-btn" onclick="refreshSelection()">
+        🔄 刷新选股结果
+      </button>
+      <button class="config-btn" onclick="showConfigPanel()">
+        ⚙️ 参数配置
+      </button>
+    </div>
+
     <section class="panel">
       <div class="panel-inner">
-        <!-- 方法论说明 -->
-        <div class="methodology-card">
-          <div class="methodology-title">
-            <span>📊</span>
-            筛选方法论
-          </div>
-          <div class="methodology-dimensions">
-            <span class="dimension-tag">社会经济趋势</span>
-            <span class="dimension-tag">政策方向</span>
-            <span class="dimension-tag">舆论热度</span>
-            <span class="dimension-tag">商业变现</span>
-          </div>
+        <!-- Top3 行业展示区域 -->
+        <div class="section-header">
+          <h2>🏆 Top3 行业推荐</h2>
+          <div class="section-subtitle">基于四维度综合评分系统自动筛选</div>
         </div>
 
-        <!-- 开始选股按钮 -->
-        <div class="action-bar" id="actionBar">
-          <button class="start-btn" onclick="startSelection()">
-            🚀 开始选股
-          </button>
+        <div class="section-card" id="top3Section" style="display: none;">
+          <div class="industries-grid" id="top3Grid"></div>
         </div>
 
-        <!-- 选择提示和确定按钮 -->
-        <div style="display: none;" id="selectionControls">
-          <div class="selection-hint">
-            💡 点击卡片左侧复选框选择方向（可多选），点击卡片右侧展开详情
-          </div>
-          <div class="action-bar">
-            <button class="confirm-btn" id="confirmBtn" onclick="confirmSelection()" disabled>
-          ✅ 确定所选方向 (<span id="selectedCount">0</span>)
-        </button>
-      </div>
-    </div>
+        <!-- Top10 股票池展示区域 -->
+        <div class="section-header">
+          <h2>📈 Top10 核心股票池</h2>
+          <div class="section-subtitle">基于综合评分模型筛选出的优质个股</div>
+        </div>
 
-    <!-- 加载状态 -->
-    <div class="loading-state" id="loadingState" style="display: none;">
-      <div class="loading-spinner"></div>
-      <p>正在分析市场数据，筛选优质行业方向...</p>
-    </div>
+        <div class="section-card" id="top10Section" style="display: none;">
+          <div class="stocks-grid" id="top10Grid"></div>
+        </div>
 
-    <!-- 错误状态 -->
-    <div class="error-state" id="errorState" style="display: none;">
-      <p>⚠️ 数据加载失败</p>
-      <p id="errorMessage" style="margin-top: 0.5rem; font-size: 0.875rem;"></p>
-      <button class="refresh-btn" onclick="startSelection()">重新选股</button>
-    </div>
+        <!-- 加载状态 -->
+        <div class="loading-state" id="loadingState">
+          <div class="loading-spinner"></div>
+          <p>正在加载选股数据...</p>
+        </div>
 
-    <!-- 空状态 -->
-    <div class="empty-state" id="emptyState" style="display: none;">
-      <div class="empty-icon">📭</div>
-      <h3 class="empty-title">暂无行业推荐数据</h3>
-      <p class="empty-copy">当前没有可用的行业选股建议。可能是数据源暂未更新，请稍后重试。</p>
-      <button class="refresh-btn" onclick="startSelection()" style="margin-top: 1rem;">重新选股</button>
-    </div>
+        <!-- 错误状态 -->
+        <div class="error-state" id="errorState" style="display: none;">
+          <p>⚠️ 数据加载失败</p>
+          <p id="errorMessage" style="margin-top: 0.5rem; font-size: 0.875rem;"></p>
+          <button class="refresh-btn" onclick="refreshSelection()">重试</button>
+        </div>
 
-    <!-- 行业方向列表 -->
-    <div class="directions-grid" id="directionsGrid" style="display: none;"></div>
+        <!-- 空状态 -->
+        <div class="empty-state" id="emptyState" style="display: none;">
+          <div class="empty-icon">📭</div>
+          <h3 class="empty-title">暂无选股数据</h3>
+          <p class="empty-copy">当前没有可用的选股数据。可能是数据源暂未更新，请稍后重试。</p>
+          <button class="refresh-btn" onclick="refreshSelection()" style="margin-top: 1rem;">刷新数据</button>
+        </div>
 
-    <!-- 生成信息 -->
-    <div class="generated-info" id="generatedInfo" style="display: none;"></div>
+        <!-- 生成信息 -->
+        <div class="generated-info" id="generatedInfo" style="display: none;"></div>
       </div>
     </section>
+
+    <!-- 参数配置面板 -->
+    <div class="config-panel" id="configPanel">
+      <div class="config-modal">
+        <div class="config-header">
+          <h3>⚙️ 选股参数配置</h3>
+          <button class="config-close" onclick="hideConfigPanel()">&times;</button>
+        </div>
+        <div class="config-group">
+          <label class="config-label">
+            股票数量
+            <span class="config-hint">1-20只</span>
+          </label>
+          <input type="number" class="config-input" id="configLimit" min="1" max="20" value="10">
+        </div>
+        <div class="config-group">
+          <label class="config-label">
+            最低评分
+            <span class="config-hint">过滤低评分股票</span>
+          </label>
+          <input type="number" class="config-input" id="configMinScore" min="0" max="100" value="0" step="5">
+        </div>
+        <div class="config-group">
+          <label class="config-label">
+            决策过滤
+            <span class="config-hint">按投资建议筛选</span>
+          </label>
+          <select class="config-select" id="configDecision">
+            <option value="">全部</option>
+            <option value="buy">买入</option>
+            <option value="watch">观察</option>
+            <option value="avoid">回避</option>
+          </select>
+        </div>
+        <div class="config-actions">
+          <button class="config-cancel" onclick="hideConfigPanel()">取消</button>
+          <button class="config-apply" onclick="applyConfig()">应用并刷新</button>
+        </div>
+      </div>
+    </div>
   </main>
 
   <script>
-    // 选中的方向
-    let selectedDirections = new Set();
+    // 全局数据
+    let top3Industries = [];
+    let top10Stocks = [];
 
-    // 开始选股
-    function startSelection() {
+    // 配置参数（持久化到 localStorage）
+    const DEFAULT_CONFIG = {
+      limit: 10,
+      minScore: 0,
+      decision: ''
+    };
+
+    function getConfig() {
+      try {
+        const saved = localStorage.getItem('stockSelectConfig');
+        return saved ? { ...DEFAULT_CONFIG, ...JSON.parse(saved) } : { ...DEFAULT_CONFIG };
+      } catch {
+        return { ...DEFAULT_CONFIG };
+      }
+    }
+
+    function saveConfig(config) {
+      try {
+        localStorage.setItem('stockSelectConfig', JSON.stringify(config));
+      } catch (e) {
+        console.warn('保存配置失败:', e);
+      }
+    }
+
+    // 初始化页面
+    async function initPage() {
+      // 恢复配置
+      const config = getConfig();
+      document.getElementById('configLimit').value = config.limit;
+      document.getElementById('configMinScore').value = config.minScore;
+      document.getElementById('configDecision').value = config.decision;
+
       loadSelectionData();
     }
 
-    // 切换选择状态
-    function toggleSelection(tsCode, name) {
-      if (selectedDirections.has(tsCode)) {
-        selectedDirections.delete(tsCode);
-      } else {
-        selectedDirections.add(tsCode);
-      }
-      updateSelectedCount();
-      
-      // 更新卡片样式
-      const card = document.querySelector(`[data-ts-code="${tsCode}"]`);
-      if (card) {
-        card.classList.toggle('selected', selectedDirections.has(tsCode));
-      }
-      
-      // 同步更新自定义复选框状态
-      const checkboxCustom = card?.querySelector('.checkbox-custom');
-      if (checkboxCustom) {
-        checkboxCustom.classList.toggle('checked', selectedDirections.has(tsCode));
+    // 刷新选股结果
+    async function refreshSelection() {
+      const btn = document.querySelector('.refresh-btn');
+      btn.disabled = true;
+      btn.innerHTML = '⏳ 加载中...';
+
+      try {
+        await loadSelectionData();
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '🔄 刷新选股结果';
       }
     }
 
-    // 切换展开状态
-    function toggleExpand(card) {
-      card.classList.toggle('expanded');
+    // 显示配置面板
+    function showConfigPanel() {
+      document.getElementById('configPanel').classList.add('active');
     }
 
-    // 更新选中计数
-    function updateSelectedCount() {
-      document.getElementById('selectedCount').textContent = selectedDirections.size;
-      document.getElementById('confirmBtn').disabled = selectedDirections.size === 0;
+    // 隐藏配置面板
+    function hideConfigPanel() {
+      document.getElementById('configPanel').classList.remove('active');
     }
 
-    // 确认选择
-    function confirmSelection() {
-      if (selectedDirections.size === 0) return;
-      
-      // 将选中的方向信息存储到 localStorage（与 analysis.html 统一）
-      const selectedData = Array.from(selectedDirections).map(code => {
-        return window.directionData.find(d => d.ts_code === code);
-      });
-      localStorage.setItem('selectedDirections', JSON.stringify(selectedData));
-      
-      // 保存选股报告到 localStorage（与 report.html 统一）
-      const selectionReport = {
-        generatedAt: new Date().toLocaleString('zh-CN'),
-        directions: selectedData,
-        stocks: [],  // 选股阶段只选方向，股票在 analysis.html 生成
-        reportText: null
+    // 应用配置并刷新
+    function applyConfig() {
+      const config = {
+        limit: parseInt(document.getElementById('configLimit').value) || 10,
+        minScore: parseFloat(document.getElementById('configMinScore').value) || 0,
+        decision: document.getElementById('configDecision').value || ''
       };
-      localStorage.setItem('selectionReport', JSON.stringify(selectionReport));
-      
-      // 跳转到选股分析页面 - 传递行业名称（与 analysis.html 统一）
-      const names = Array.from(selectedDirections).map(code => {
-        const d = window.directionData.find(x => x.ts_code === code);
-        return d ? d.name : code;
-      });
-      const params = names.map(n => `direction=${encodeURIComponent(n)}`).join('&');
-      window.location.href = `./analysis.html?${params}`;
+
+      saveConfig(config);
+      hideConfigPanel();
+      refreshSelection();
     }
 
-    // 加载行业选股数据
+    // 加载选股数据
     async function loadSelectionData() {
-      const actionBar = document.getElementById('actionBar');
       const loadingState = document.getElementById('loadingState');
       const errorState = document.getElementById('errorState');
-      const directionsGrid = document.getElementById('directionsGrid');
+      const emptyState = document.getElementById('emptyState');
+      const top3Section = document.getElementById('top3Section');
+      const top10Section = document.getElementById('top10Section');
       const generatedInfo = document.getElementById('generatedInfo');
       const errorMessage = document.getElementById('errorMessage');
 
-      actionBar.style.display = 'none';
       loadingState.style.display = 'block';
       errorState.style.display = 'none';
-      directionsGrid.style.display = 'none';
+      emptyState.style.display = 'none';
+      top3Section.style.display = 'none';
+      top10Section.style.display = 'none';
       generatedInfo.style.display = 'none';
 
+      const config = getConfig();
+      const stockParams = new URLSearchParams();
+      stockParams.set('limit', config.limit);
+      if (config.minScore > 0) stockParams.set('minScore', config.minScore);
+      if (config.decision) stockParams.set('decision', config.decision);
+
       try {
-        const response = await fetch('/api/select');
-        
-        if (!response.ok) {
-          throw new Error(`API 响应失败：${response.status}`);
+        // 并行加载 Top3 行业和 Top N 股票
+        const [industriesRes, stocksRes] = await Promise.all([
+          fetch('/api/industry/score/top3'),
+          fetch(`/api/stock/top?${stockParams.toString()}`)
+        ]);
+
+        if (!industriesRes.ok || !stocksRes.ok) {
+          throw new Error(`API 响应失败：${industriesRes.status} / ${stocksRes.status}`);
         }
 
-        const data = await response.json();
+        const industriesData = await industriesRes.json();
+        const stocksData = await stocksRes.json();
 
-        const directions = data.directions || data;
-        
+        top3Industries = industriesData.top3 || [];
+        top10Stocks = stocksData.top10 || [];
+
         // 检查空数据
-        if (!directions || !Array.isArray(directions) || directions.length === 0) {
-          throw new Error(data.message || '暂无行业推荐数据');
+        if (top3Industries.length === 0 && top10Stocks.length === 0) {
+          throw new Error('暂无选股数据');
         }
 
-        // 渲染行业方向
-        renderDirections(directions);
-        
+        // 渲染结果
+        renderTop3Industries();
+        renderTop10Stocks();
+
         // 显示生成信息
-        const generatedAt = new Date(data.generatedAt);
+        const now = new Date();
         generatedInfo.innerHTML = `
-          报告生成时间：${generatedAt.toLocaleString('zh-CN', { hour12: false })} 
-          ${data.tradeDate ? `| 交易日：${data.tradeDate}` : ''}
-          ${data.risks ? `<br><span style="color: var(--bad)">⚠️ 风险提示：${data.risks[0]}</span>` : ''}
+          数据更新时间：${now.toLocaleString('zh-CN', { hour12: false })}
+          ${stocksData.tradeDate ? `| 交易日：${stocksData.tradeDate}` : ''}
+          | 筛选条件：${config.limit}只${config.minScore > 0 ? `, 评分≥${config.minScore}` : ''}${config.decision ? `, ${getDecisionText(config.decision)}` : ''}
         `;
         generatedInfo.style.display = 'block';
 
       } catch (error) {
         console.error('加载失败:', error);
         loadingState.style.display = 'none';
-        
-        // 判断是空数据还是真正的错误
-        if (error.message && error.message.includes('暂无行业推荐数据')) {
+
+        if (error.message && error.message.includes('暂无选股数据')) {
           emptyState.style.display = 'block';
           errorState.style.display = 'none';
         } else {
@@ -637,104 +696,147 @@
           emptyState.style.display = 'none';
           errorMessage.textContent = error.message;
         }
-        
-        directionsGrid.style.display = 'none';
+
+        top3Section.style.display = 'none';
+        top10Section.style.display = 'none';
         generatedInfo.style.display = 'none';
       }
     }
 
-    // 渲染行业方向卡片
-    function renderDirections(directions) {
-      const grid = document.getElementById('directionsGrid');
-      const selectionControls = document.getElementById('selectionControls');
+    // 渲染 Top3 行业
+    function renderTop3Industries() {
+      const grid = document.getElementById('top3Grid');
+      const section = document.getElementById('top3Section');
       grid.innerHTML = '';
 
-      // 保存数据供 confirmSelection 使用
-      window.directionData = directions;
+      if (top3Industries.length === 0) {
+        section.style.display = 'none';
+        return;
+      }
 
-      directions.forEach((direction, index) => {
+      top3Industries.forEach((industry, index) => {
         const card = document.createElement('div');
-        card.className = 'direction-card';
-        card.setAttribute('data-ts-code', direction.ts_code);
+        card.className = 'industry-card';
         
-        const isTop3 = index < 3;
-        const scoreColor = direction.score >= 80 ? 'var(--good)' : direction.score >= 60 ? 'var(--accent)' : 'var(--warning)';
+        const rankEmoji = ['🥇', '🥈', '🥉'][index] || `${index + 1}.`;
+        const scoreColor = getScoreColor(industry.finalScore);
         
         card.innerHTML = `
-          <div class="card-header" onclick="event.stopPropagation()">
-            <div class="card-left" onclick="toggleSelection('${direction.ts_code}', '${direction.name.replace(/'/g, "\\'")}')">
-              <div class="checkbox-custom" id="checkbox-${direction.ts_code}"></div>
-              <div class="direction-name">${isTop3 ? '🏆 ' : ''}${direction.name}</div>
-            </div>
-            <div class="score-badge" style="background: ${scoreColor}22; color: ${scoreColor}" onclick="toggleExpand(this.closest('.direction-card'))">
-              ${direction.score}
-              <span style="margin-left: 4px; opacity: 0.6;">▼</span>
-            </div>
+          <div class="industry-rank">${rankEmoji}</div>
+          <div class="industry-info">
+            <div class="industry-name">${industry.name}</div>
+            <div class="industry-score">${industry.finalScore.toFixed(1)} 分</div>
           </div>
-
-          <div class="card-details">
-            <div class="dimensions-bar">
-              <div class="dimension-item">
-                <div class="dimension-value">${direction.dimensions.social}</div>
-                <div class="dimension-label">社会</div>
-              </div>
-              <div class="dimension-item">
-                <div class="dimension-value">${direction.dimensions.policy}</div>
-                <div class="dimension-label">政策</div>
-              </div>
-              <div class="dimension-item">
-                <div class="dimension-value">${direction.dimensions.public}</div>
-                <div class="dimension-label">舆论</div>
-              </div>
-              <div class="dimension-item">
-                <div class="dimension-value">${direction.dimensions.business}</div>
-                <div class="dimension-label">商业</div>
-              </div>
+          <div class="industry-dimensions">
+            <div class="dimension">
+              <span class="dimension-label">政策</span>
+              <span class="dimension-value">${industry.policyScore.toFixed(1)}</span>
             </div>
-
-            <div class="metrics-list">
-              <div class="metric-row">
-                <span>板块资金</span>
-                <span class="${direction.metrics.netAmount >= 0 ? 'positive' : 'negative'}">
-                  ${direction.metrics.netAmount >= 0 ? '+' : ''}${direction.metrics.netAmount.toFixed(2)} 亿元
-                </span>
-              </div>
-              <div class="metric-row">
-                <span>热度排名</span>
-                <span>${direction.metrics.hotRank ? `第 ${direction.metrics.hotRank} 名` : '暂无'}</span>
-              </div>
-              <div class="metric-row">
-                <span>板块成分</span>
-                <strong>${direction.metrics.companyCount} 家</strong>
-              </div>
-              <div class="metric-row">
-                <span>近一年 IPO</span>
-                <strong>${direction.metrics.ipoMatches} 家</strong>
-              </div>
+            <div class="dimension">
+              <span class="dimension-label">商业</span>
+              <span class="dimension-value">${industry.commercialScore.toFixed(1)}</span>
             </div>
-
-            <div class="reason-box">
-              ${direction.reason}
+            <div class="dimension">
+              <span class="dimension-label">舆论</span>
+              <span class="dimension-value">${industry.publicScore.toFixed(1)}</span>
+            </div>
+            <div class="dimension">
+              <span class="dimension-label">资本</span>
+              <span class="dimension-value">${industry.capitalScore.toFixed(1)}</span>
             </div>
           </div>
         `;
 
-        // 点击卡片背景展开/折叠
-        card.addEventListener('click', (e) => {
-          if (!e.target.closest('.checkbox-custom') && !e.target.closest('.card-left')) {
-            toggleExpand(card);
-          }
-        });
+        grid.appendChild(card);
+      });
+
+      section.style.display = 'block';
+      document.getElementById('loadingState').style.display = 'none';
+    }
+
+    // 渲染 Top10 股票
+    function renderTop10Stocks() {
+      const grid = document.getElementById('top10Grid');
+      const section = document.getElementById('top10Section');
+      grid.innerHTML = '';
+
+      if (top10Stocks.length === 0) {
+        section.style.display = 'none';
+        return;
+      }
+
+      top10Stocks.forEach((stock, index) => {
+        const card = document.createElement('div');
+        card.className = 'stock-card';
+
+        // 动态生成 rank emoji，支持任意数量
+        let rankEmoji;
+        if (index < 3) {
+          rankEmoji = ['🥇', '🥈', '🥉'][index];
+        } else {
+          rankEmoji = `${index + 1}.`;
+        }
+
+        card.innerHTML = `
+          <div class="stock-rank">${rankEmoji}</div>
+          <div class="stock-info">
+            <div class="stock-name">${stock.name}</div>
+            <div class="stock-code">${stock.code}</div>
+          </div>
+          <div class="stock-score">${stock.finalScore.toFixed(1)} 分</div>
+          <div class="stock-decision ${stock.decision}">${getDecisionText(stock.decision)}</div>
+        `;
 
         grid.appendChild(card);
       });
 
-      grid.style.display = 'grid';
+      section.style.display = 'block';
       document.getElementById('loadingState').style.display = 'none';
-      selectionControls.style.display = 'block';
     }
 
-    // 页面加载时不自动获取数据，等待用户点击按钮
+    // 获取分数颜色
+    function getScoreColor(score) {
+      if (score >= 80) return 'var(--good)';
+      if (score >= 60) return 'var(--warn)';
+      return 'var(--bad)';
+    }
+
+    // 获取决策颜色
+    function getDecisionColor(decision) {
+      switch (decision) {
+        case 'buy': return 'var(--good)';
+        case 'watch': return 'var(--warn)';
+        case 'avoid': return 'var(--bad)';
+        default: return 'var(--text-soft)';
+      }
+    }
+
+    // 获取决策文本
+    function getDecisionText(decision) {
+      switch (decision) {
+        case 'buy': return '买入';
+        case 'watch': return '观察';
+        case 'avoid': return '回避';
+        default: return '待定';
+      }
+    }
+
+    // 页面加载时自动初始化
+    window.addEventListener('DOMContentLoaded', initPage);
+
+    // 点击配置面板背景关闭
+    document.getElementById('configPanel').addEventListener('click', function(e) {
+      if (e.target === this) {
+        hideConfigPanel();
+      }
+    });
+
+    // ESC 键关闭配置面板
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        hideConfigPanel();
+      }
+    });
   </script>
 </body>
 </html>

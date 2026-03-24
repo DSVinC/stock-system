@@ -1,0 +1,133 @@
+{
+  "optimizerId": "opt_1774329331405",
+  "status": "completed",
+  "elapsed_ms": 2561,
+  "totalEvaluations": 4,
+  "validEvaluations": 4,
+  "constraintMetEvaluations": 4,
+  "bestParams": {
+    "industry_weights": {
+      "policy_weight": 0.13422732631995193,
+      "business_weight": 0.1152890013793485,
+      "opinion_weight": 0.7157855671294608,
+      "capital_weight": 0.034698105171238725
+    },
+    "factor_thresholds": {
+      "roe_threshold": 13.896379899813706,
+      "revenue_growth": 47.24138644880459,
+      "profit_growth": 20.348669210786575,
+      "pe_percentile": 75.8140391740619,
+      "pb_percentile": 40.51040875544282,
+      "rsi_threshold": 64.49841211400198,
+      "macd_threshold": 0.02757961129799258
+    }
+  },
+  "bestMetrics": {
+    "sharpeRatio": -7.055692707033119,
+    "maxDrawdown": 0.05326567664040929,
+    "totalReturn": -0.05340373724999977,
+    "annualizedReturn": -0.6922174992615291
+  },
+  "history": [
+    {
+      "params": {
+        "industry_weights": {
+          "policy_weight": 0.13422732631995193,
+          "business_weight": 0.1152890013793485,
+          "opinion_weight": 0.7157855671294608,
+          "capital_weight": 0.034698105171238725
+        },
+        "factor_thresholds": {
+          "roe_threshold": 13.896379899813706,
+          "revenue_growth": 47.24138644880459,
+          "profit_growth": 20.348669210786575,
+          "pe_percentile": 75.8140391740619,
+          "pb_percentile": 40.51040875544282,
+          "rsi_threshold": 64.49841211400198,
+          "macd_threshold": 0.02757961129799258
+        }
+      },
+      "sharpeRatio": -7.055692707033119,
+      "maxDrawdown": 0.05326567664040929,
+      "totalReturn": -0.05340373724999977,
+      "annualizedReturn": -0.6922174992615291,
+      "valid": true,
+      "cached": false
+    },
+    {
+      "params": {
+        "industry_weights": {
+          "policy_weight": 0.8092338610782405,
+          "business_weight": 0.9392163179627557,
+          "opinion_weight": 0.10455550514906232,
+          "capital_weight": 0
+        },
+        "factor_thresholds": {
+          "roe_threshold": 6.947179666443425,
+          "revenue_growth": 45.88807043273038,
+          "profit_growth": 40.79886439321125,
+          "pe_percentile": 23.60501899817828,
+          "pb_percentile": 75.01310916914511,
+          "rsi_threshold": 32.99609644265023,
+          "macd_threshold": 0.7713324115070967
+        }
+      },
+      "sharpeRatio": -7.055692707033119,
+      "maxDrawdown": 0.05326567664040929,
+      "totalReturn": -0.05340373724999977,
+      "annualizedReturn": -0.6922174992615291,
+      "valid": true,
+      "cached": false
+    },
+    {
+      "params": {
+        "industry_weights": {
+          "policy_weight": 0.7066852429752442,
+          "business_weight": 0.6570816027156361,
+          "opinion_weight": 0.10581231479891973,
+          "capital_weight": 0
+        },
+        "factor_thresholds": {
+          "roe_threshold": 5.1673782382909295,
+          "revenue_growth": 17.397323671759718,
+          "profit_growth": 37.877953646795106,
+          "pe_percentile": 32.30037208500875,
+          "pb_percentile": 52.03646223880275,
+          "rsi_threshold": 32.8438314603495,
+          "macd_threshold": 0.9298874682542569
+        }
+      },
+      "sharpeRatio": -7.055692707033119,
+      "maxDrawdown": 0.05326567664040929,
+      "totalReturn": -0.05340373724999977,
+      "annualizedReturn": -0.6922174992615291,
+      "valid": true,
+      "cached": false
+    },
+    {
+      "params": {
+        "industry_weights": {
+          "policy_weight": 0.8565816498227126,
+          "business_weight": 0.8845332642961521,
+          "opinion_weight": 0.7575008835768076,
+          "capital_weight": 0
+        },
+        "factor_thresholds": {
+          "roe_threshold": 17.926473610782843,
+          "revenue_growth": 19.882841747534815,
+          "profit_growth": 19.03481412782694,
+          "pe_percentile": 25.662172699181212,
+          "pb_percentile": 66.6738765370761,
+          "rsi_threshold": 32.654232083593186,
+          "macd_threshold": 0.8917902948248145
+        }
+      },
+      "sharpeRatio": -7.055692707033119,
+      "maxDrawdown": 0.05326567664040929,
+      "totalReturn": -0.05340373724999977,
+      "annualizedReturn": -0.6922174992615291,
+      "valid": true,
+      "cached": false
+    }
+  ]
+}

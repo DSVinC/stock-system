@@ -2637,12 +2637,13 @@
       reportSelector.innerHTML = '<option value="">正在加载报告...</option>';
       
       try {
-        const response = await fetch(`/api/analysis/reports/${tsCode}`);
+        // 使用新的 /api/report/list 接口
+        const response = await fetch(`/api/report/list?stock_code=${tsCode}`);
         const result = await response.json();
-        
+
         if (result.success && result.reports && result.reports.length > 0) {
-          reportSelector.innerHTML = result.reports.map(r => 
-            `<option value="${r.filename}" data-id="${r.report_id}">${r.date} - ${r.report_id}</option>`
+          reportSelector.innerHTML = result.reports.map(r =>
+            `<option value="${r.report_id}" data-id="${r.report_id}">${r.created_at ? r.created_at.split('T')[0] : ''} - ${r.report_id}</option>`
           ).join('');
           importBtn.disabled = false;
         } else {

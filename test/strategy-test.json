@@ -1,0 +1,20 @@
+{
+  "name": "阶段 1 验收测试",
+  "industry_weights": {
+    "policy_weight": 0.3,
+    "business_weight": 0.3,
+    "opinion_weight": 0.2,
+    "capital_weight": 0.2
+  },
+  "factor_thresholds": {
+    "roe_threshold": 10,
+    "revenue_growth": 15,
+    "profit_growth": 15,
+    "pe_percentile": 50,
+    "pb_percentile": 50,
+    "rsi_threshold": 50,
+    "macd_threshold": 0
+  },
+  "top_industries": 3,
+  "top_stocks_per_industry": 3
+}

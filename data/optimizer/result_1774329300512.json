@@ -1,0 +1,513 @@
+{
+  "optimizerId": "opt_1774329289902",
+  "status": "completed",
+  "elapsed_ms": 10606,
+  "totalEvaluations": 20,
+  "validEvaluations": 20,
+  "constraintMetEvaluations": 20,
+  "bestParams": {
+    "industry_weights": {
+      "policy_weight": 0.4026085563735676,
+      "business_weight": 0.33075899195222913,
+      "opinion_weight": 0.7422489587804322,
+      "capital_weight": 0
+    },
+    "factor_thresholds": {
+      "roe_threshold": 9.790687678020344,
+      "revenue_growth": 34.60386966707105,
+      "profit_growth": 49.7336063347585,
+      "pe_percentile": 26.202601007060117,
+      "pb_percentile": 31.2019548182359,
+      "rsi_threshold": 63.695744911265265,
+      "macd_threshold": 0.8218906121538653
+    }
+  },
+  "bestMetrics": {
+    "sharpeRatio": -7.055692707033119,
+    "maxDrawdown": 0.05326567664040929,
+    "totalReturn": -0.05340373724999977,
+    "annualizedReturn": -0.6922174992615291
+  },
+  "history": [
+    {
+      "params": {
+        "industry_weights": {
+          "policy_weight": 0.4026085563735676,
+          "business_weight": 0.33075899195222913,
+          "opinion_weight": 0.7422489587804322,
+          "capital_weight": 0
+        },
+        "factor_thresholds": {
+          "roe_threshold": 9.790687678020344,
+          "revenue_growth": 34.60386966707105,
+          "profit_growth": 49.7336063347585,
+          "pe_percentile": 26.202601007060117,
+          "pb_percentile": 31.2019548182359,
+          "rsi_threshold": 63.695744911265265,
+          "macd_threshold": 0.8218906121538653
+        }
+      },
+      "sharpeRatio": -7.055692707033119,
+      "maxDrawdown": 0.05326567664040929,
+      "totalReturn": -0.05340373724999977,
+      "annualizedReturn": -0.6922174992615291,
+      "valid": true
+    },
+    {
+      "params": {
+        "industry_weights": {
+          "policy_weight": 0.7929405939036289,
+          "business_weight": 0.35518184418553167,
+          "opinion_weight": 0.49848353097286835,
+          "capital_weight": 0
+        },
+        "factor_thresholds": {
+          "roe_threshold": 11.22235711141045,
+          "revenue_growth": 48.07233285193611,
+          "profit_growth": 41.27478751706832,
+          "pe_percentile": 57.50025468428631,
+          "pb_percentile": 55.66688492952165,
+          "rsi_threshold": 59.14842848907423,
+          "macd_threshold": 0.7541373836252373
+        }
+      },
+      "sharpeRatio": -7.055692707033119,
+      "maxDrawdown": 0.05326567664040929,
+      "totalReturn": -0.05340373724999977,
+      "annualizedReturn": -0.6922174992615291,
+      "valid": true
+    },
+    {
+      "params": {
+        "industry_weights": {
+          "policy_weight": 0.09287779604534241,
+          "business_weight": 0.5108809862295006,
+          "opinion_weight": 0.08588534637796263,
+          "capital_weight": 0.31035587134719433
+        },
+        "factor_thresholds": {
+          "roe_threshold": 13.616492777831962,
+          "revenue_growth": 24.96159958098698,
+          "profit_growth": 43.335986614026176,
+          "pe_percentile": 25.25482377830503,
+          "pb_percentile": 75.21289462121591,
+          "rsi_threshold": 36.663002210864306,
+          "macd_threshold": 0.3551623354944009
+        }
+      },
+      "sharpeRatio": -7.055692707033119,
+      "maxDrawdown": 0.05326567664040929,
+      "totalReturn": -0.05340373724999977,
+      "annualizedReturn": -0.6922174992615291,
+      "valid": true
+    },
+    {
+      "params": {
+        "industry_weights": {
+          "policy_weight": 0.7308914416149239,
+          "business_weight": 0.6593568666061522,
+          "opinion_weight": 0.5465446227362916,
+          "capital_weight": 0
+        },
+        "factor_thresholds": {
+          "roe_threshold": 8.036303638510153,
+          "revenue_growth": 41.345722389451645,
+          "profit_growth": 27.799346645409244,
+          "pe_percentile": 54.00833004410558,
+          "pb_percentile": 38.98066058884203,
+          "rsi_threshold": 30.830520478849156,
+          "macd_threshold": 0.4518299279739213
+        }
+      },
+      "sharpeRatio": -7.055692707033119,
+      "maxDrawdown": 0.05326567664040929,
+      "totalReturn": -0.05340373724999977,
+      "annualizedReturn": -0.6922174992615291,
+      "valid": true
+    },
+    {
+      "params": {
+        "industry_weights": {
+          "policy_weight": 0.7396840805309721,
+          "business_weight": 0.3465190633538784,
+          "opinion_weight": 0.2541085057376127,
+          "capital_weight": 0
+        },
+        "factor_thresholds": {
+          "roe_threshold": 7.043001470616608,
+          "revenue_growth": 12.070977363210886,
+          "profit_growth": 28.83295698272655,
+          "pe_percentile": 63.10859745813916,
+          "pb_percentile": 66.39622241104887,
+          "rsi_threshold": 50.47694655297542,
+          "macd_threshold": 0.2781541355895929
+        }
+      },
+      "sharpeRatio": -7.055692707033119,
+      "maxDrawdown": 0.05326567664040929,
+      "totalReturn": -0.05340373724999977,
+      "annualizedReturn": -0.6922174992615291,
+      "valid": true
+    },
+    {
+      "params": {
+        "industry_weights": {
+          "policy_weight": 0.016570341867911065,
+          "business_weight": 0.18231406262620298,
+          "opinion_weight": 0.9073747111696562,
+          "capital_weight": 0
+        },
+        "factor_thresholds": {
+          "roe_threshold": 17.967034175457275,
+          "revenue_growth": 15.014396106412043,
+          "profit_growth": 12.80330621948945,
+          "pe_percentile": 79.93935923149931,
+          "pb_percentile": 23.993101099570975,
+          "rsi_threshold": 54.78481978492762,
+          "macd_threshold": 0.13961776167581985
+        }
+      },
+      "sharpeRatio": -7.055692707033119,
+      "maxDrawdown": 0.05326567664040929,
+      "totalReturn": -0.05340373724999977,
+      "annualizedReturn": -0.6922174992615291,
+      "valid": true
+    },
+    {
+      "params": {
+        "industry_weights": {
+          "policy_weight": 0.048313921082527855,
+          "business_weight": 0.6835098976075322,
+          "opinion_weight": 0.41107139532576853,
+          "capital_weight": 0
+        },
+        "factor_thresholds": {
+          "roe_threshold": 19.83324211253963,
+          "revenue_growth": 17.525380332175075,
+          "profit_growth": 21.11159581833892,
+          "pe_percentile": 59.67246677091441,
+          "pb_percentile": 23.438769903770446,
+          "rsi_threshold": 65.56732304926953,
+          "macd_threshold": 0.2705869266225466
+        }
+      },
+      "sharpeRatio": -7.055692707033119,
+      "maxDrawdown": 0.05326567664040929,
+      "totalReturn": -0.05340373724999977,
+      "annualizedReturn": -0.6922174992615291,
+      "valid": true
+    },
+    {
+      "params": {
+        "industry_weights": {
+          "policy_weight": 0.1482177556356602,
+          "business_weight": 0.5427701808290896,
+          "opinion_weight": 0.5099336120914602,
+          "capital_weight": 0
+        },
+        "factor_thresholds": {
+          "roe_threshold": 18.304455732558345,
+          "revenue_growth": 30.309390432801344,
+          "profit_growth": 11.894361655387119,
+          "pe_percentile": 76.60012831745536,
+          "pb_percentile": 22.251610448032828,
+          "rsi_threshold": 64.42153522115153,
+          "macd_threshold": 0.23956416943676595
+        }
+      },
+      "sharpeRatio": -7.055692707033119,
+      "maxDrawdown": 0.05326567664040929,
+      "totalReturn": -0.05340373724999977,
+      "annualizedReturn": -0.6922174992615291,
+      "valid": true
+    },
+    {
+      "params": {
+        "industry_weights": {
+          "policy_weight": 0.3301631209993525,
+          "business_weight": 0.9595176083820887,
+          "opinion_weight": 0.866619645148571,
+          "capital_weight": 0
+        },
+        "factor_thresholds": {
+          "roe_threshold": 6.177379314616753,
+          "revenue_growth": 10.061420381971956,
+          "profit_growth": 48.233427420273664,
+          "pe_percentile": 77.18501111000053,
+          "pb_percentile": 22.561781787384362,
+          "rsi_threshold": 37.78980152287575,
+          "macd_threshold": 0.9679565192182872
+        }
+      },
+      "sharpeRatio": -7.055692707033119,
+      "maxDrawdown": 0.05326567664040929,
+      "totalReturn": -0.05340373724999977,
+      "annualizedReturn": -0.6922174992615291,
+      "valid": true
+    },
+    {
+      "params": {
+        "industry_weights": {
+          "policy_weight": 0.8242124359363967,
+          "business_weight": 0.05755731073864867,
+          "opinion_weight": 0.0717807776014947,
+          "capital_weight": 0.04644947572345992
+        },
+        "factor_thresholds": {
+          "roe_threshold": 17.219260570170327,
+          "revenue_growth": 11.497591948081212,
+          "profit_growth": 29.8178274890642,
+          "pe_percentile": 73.67943218767533,
+          "pb_percentile": 20.156988672855448,
+          "rsi_threshold": 32.109064624835085,
+          "macd_threshold": 0.8542926122443761
+        }
+      },
+      "sharpeRatio": -7.055692707033119,
+      "maxDrawdown": 0.05326567664040929,
+      "totalReturn": -0.05340373724999977,
+      "annualizedReturn": -0.6922174992615291,
+      "valid": true
+    },
+    {
+      "params": {
+        "industry_weights": {
+          "policy_weight": 0.8127714806933617,
+          "business_weight": 0.987052985254107,
+          "opinion_weight": 0.16965353852759782,
+          "capital_weight": 0
+        },
+        "factor_thresholds": {
+          "roe_threshold": 19.15541914056496,
+          "revenue_growth": 18.4709545374201,
+          "profit_growth": 13.217677235699036,
+          "pe_percentile": 26.93263945751056,
+          "pb_percentile": 52.187906513103584,
+          "rsi_threshold": 47.806963421693055,
+          "macd_threshold": 0.816430945711153
+        }
+      },
+      "sharpeRatio": -7.055692707033119,
+      "maxDrawdown": 0.05326567664040929,
+      "totalReturn": -0.05340373724999977,
+      "annualizedReturn": -0.6922174992615291,
+      "valid": true
+    },
+    {
+      "params": {
+        "industry_weights": {
+          "policy_weight": 0.9206683904712457,
+          "business_weight": 0.22953063075434516,
+          "opinion_weight": 0.9668876114154903,
+          "capital_weight": 0
+        },
+        "factor_thresholds": {
+          "roe_threshold": 19.695017129758654,
+          "revenue_growth": 10.515003465534004,
+          "profit_growth": 16.779975050920108,
+          "pe_percentile": 35.6454068497337,
+          "pb_percentile": 54.27541243655537,
+          "rsi_threshold": 62.825369889063005,
+          "macd_threshold": 0.08069268823706088
+        }
+      },
+      "sharpeRatio": -7.055692707033119,
+      "maxDrawdown": 0.05326567664040929,
+      "totalReturn": -0.05340373724999977,
+      "annualizedReturn": -0.6922174992615291,
+      "valid": true
+    },
+    {
+      "params": {
+        "industry_weights": {
+          "policy_weight": 0.01150809930788699,
+          "business_weight": 0.20321463118871655,
+          "opinion_weight": 0.9912529937959462,
+          "capital_weight": 0
+        },
+        "factor_thresholds": {
+          "roe_threshold": 19.841197500136282,
+          "revenue_growth": 35.00101865336681,
+          "profit_growth": 32.96472459469789,
+          "pe_percentile": 28.394985678453526,
+          "pb_percentile": 72.14808298295281,
+          "rsi_threshold": 53.875085811779066,
+          "macd_threshold": 0.08129087951276259
+        }
+      },
+      "sharpeRatio": -7.055692707033119,
+      "maxDrawdown": 0.05326567664040929,
+      "totalReturn": -0.05340373724999977,
+      "annualizedReturn": -0.6922174992615291,
+      "valid": true
+    },
+    {
+      "params": {
+        "industry_weights": {
+          "policy_weight": 0.9499229385103578,
+          "business_weight": 0.8100089848012944,
+          "opinion_weight": 0.7831617538173388,
+          "capital_weight": 0
+        },
+        "factor_thresholds": {
+          "roe_threshold": 19.8112117957917,
+          "revenue_growth": 11.290327254130833,
+          "profit_growth": 45.122847935128306,
+          "pe_percentile": 77.22542365921586,
+          "pb_percentile": 55.63124811934725,
+          "rsi_threshold": 55.76534928641708,
+          "macd_threshold": 0.49075317053693124
+        }
+      },
+      "sharpeRatio": -7.055692707033119,
+      "maxDrawdown": 0.05326567664040929,
+      "totalReturn": -0.05340373724999977,
+      "annualizedReturn": -0.6922174992615291,
+      "valid": true
+    },
+    {
+      "params": {
+        "industry_weights": {
+          "policy_weight": 0.17529997877830605,
+          "business_weight": 0.19508465887504267,
+          "opinion_weight": 0.3166338559813151,
+          "capital_weight": 0.31298150636533617
+        },
+        "factor_thresholds": {
+          "roe_threshold": 5.007981142473447,
+          "revenue_growth": 47.505114695849656,
+          "profit_growth": 10.972008520206561,
+          "pe_percentile": 22.491867721844656,
+          "pb_percentile": 74.524170519881,
+          "rsi_threshold": 58.84663750628594,
+          "macd_threshold": 0.8070448183697083
+        }
+      },
+      "sharpeRatio": -7.055692707033119,
+      "maxDrawdown": 0.05326567664040929,
+      "totalReturn": -0.05340373724999977,
+      "annualizedReturn": -0.6922174992615291,
+      "valid": true
+    },
+    {
+      "params": {
+        "industry_weights": {
+          "policy_weight": 0.996431071298192,
+          "business_weight": 0.011613874664312187,
+          "opinion_weight": 0.1865194823203097,
+          "capital_weight": 0
+        },
+        "factor_thresholds": {
+          "roe_threshold": 19.406825625235353,
+          "revenue_growth": 49.37480512308846,
+          "profit_growth": 16.274395700907164,
+          "pe_percentile": 43.191986265728644,
+          "pb_percentile": 58.28460630636622,
+          "rsi_threshold": 34.89966330939352,
+          "macd_threshold": 0.1048920931517553
+        }
+      },
+      "sharpeRatio": -7.055692707033119,
+      "maxDrawdown": 0.05326567664040929,
+      "totalReturn": -0.05340373724999977,
+      "annualizedReturn": -0.6922174992615291,
+      "valid": true
+    },
+    {
+      "params": {
+        "industry_weights": {
+          "policy_weight": 0.15855205293988872,
+          "business_weight": 0.13783083521583517,
+          "opinion_weight": 0.26511917740126956,
+          "capital_weight": 0.43849793444300655
+        },
+        "factor_thresholds": {
+          "roe_threshold": 5.108649650578384,
+          "revenue_growth": 39.722990919722136,
+          "profit_growth": 12.120789037033948,
+          "pe_percentile": 40.123633624669075,
+          "pb_percentile": 20.23577224397094,
+          "rsi_threshold": 69.0042528042529,
+          "macd_threshold": 0.7822225320248314
+        }
+      },
+      "sharpeRatio": -7.055692707033119,
+      "maxDrawdown": 0.05326567664040929,
+      "totalReturn": -0.05340373724999977,
+      "annualizedReturn": -0.6922174992615291,
+      "valid": true
+    },
+    {
+      "params": {
+        "industry_weights": {
+          "policy_weight": 0.9864880898277479,
+          "business_weight": 0.08260524568214489,
+          "opinion_weight": 0.9911279771859057,
+          "capital_weight": 0
+        },
+        "factor_thresholds": {
+          "roe_threshold": 6.911817399658464,
+          "revenue_growth": 17.438702331980053,
+          "profit_growth": 11.45557892360555,
+          "pe_percentile": 27.460869954455937,
+          "pb_percentile": 42.451421878586615,
+          "rsi_threshold": 52.021512034087145,
+          "macd_threshold": 0.9479835189806561
+        }
+      },
+      "sharpeRatio": -7.055692707033119,
+      "maxDrawdown": 0.05326567664040929,
+      "totalReturn": -0.05340373724999977,
+      "annualizedReturn": -0.6922174992615291,
+      "valid": true
+    },
+    {
+      "params": {
+        "industry_weights": {
+          "policy_weight": 0.15510935832787215,
+          "business_weight": 0.9351404042245947,
+          "opinion_weight": 0.9396392369457482,
+          "capital_weight": 0
+        },
+        "factor_thresholds": {
+          "roe_threshold": 6.325072116129584,
+          "revenue_growth": 35.1981462414329,
+          "profit_growth": 16.330521690708334,
+          "pe_percentile": 20.488266083087424,
+          "pb_percentile": 66.52435962368972,
+          "rsi_threshold": 49.86819140119955,
+          "macd_threshold": 0.02669712877247643
+        }
+      },
+      "sharpeRatio": -7.055692707033119,
+      "maxDrawdown": 0.05326567664040929,
+      "totalReturn": -0.05340373724999977,
+      "annualizedReturn": -0.6922174992615291,
+      "valid": true
+    },
+    {
+      "params": {
+        "industry_weights": {
+          "policy_weight": 0.044557168853074036,
+          "business_weight": 0.9409802940396781,
+          "opinion_weight": 0.7879054780212088,
+          "capital_weight": 0
+        },
+        "factor_thresholds": {
+          "roe_threshold": 14.116522018627945,
+          "revenue_growth": 11.312977564928879,
+          "profit_growth": 24.681853317263624,
+          "pe_percentile": 29.82579340669121,
+          "pb_percentile": 71.03562602362851,
+          "rsi_threshold": 67.74830821394445,
+          "macd_threshold": 0.8869039767203108
+        }
+      },
+      "sharpeRatio": -7.055692707033119,
+      "maxDrawdown": 0.05326567664040929,
+      "totalReturn": -0.05340373724999977,
+      "annualizedReturn": -0.6922174992615291,
+      "valid": true
+    }
+  ]
+}

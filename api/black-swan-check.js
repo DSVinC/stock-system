@@ -170,7 +170,7 @@ async function checkBlackSwan(stockCode, days = 30) {
   const eventSql = `
     SELECT event_type, event_time, title, content
     FROM company_events
-    WHERE stock_code = '${stockCode}'
+    WHERE ts_code = '${stockCode}'
       AND event_time >= datetime('now', '-${days} days')
     ORDER BY event_time DESC
     LIMIT 50;

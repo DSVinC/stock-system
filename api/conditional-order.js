@@ -384,6 +384,139 @@ async function getConditionalOrder(req, res) {
 }
 
 /**
+ * 从分析报告导入条件单
+ * POST /api/conditional-order/create-from-report
+ * @param {string} stock_code - 股票代码
+ * @param {string} report_id - 分析报告 ID
+ * @param {number} account_id - 账户 ID（可选）
+ * @param {number} position_pct - 仓位百分比（可选）
+ */
+async function createFromReport(req, res) {
+  try {
+    const { stock_code, report_id, account_id, position_pct } = req.body;
+    
+    if (!stock_code || !report_id) {
+      return res.status(400).json({ success: false, error: '缺少股票代码或报告 ID' });
+    }
+    
+    // 读取分析报告
+    const db = require('./db');
+    const report = await db.getPromise(
+      'SELECT * FROM stock_analysis_reports WHERE report_id = ? AND stock_code = ?',
+      [report_id, stock_code]
+    );
+    
+    if (!report) {
+      return res.status(404).json({ success: false, error: '未找到分析报告' });
+    }
+    
+    // 解析报告决策
+    const decisions = JSON.parse(report.report_json).decisions || {};
+    const createdOrders = [];
+    
+    // 1. 创建止损条件单
+    if (decisions.stop_loss) {
+      const stopLossOrder = {
+        account_id: account_id || 1,
+        ts_code: stock_code,
+        stock_name: report.stock_name,
+        order_type: 'stop_loss',
+        action: 'sell',
+        conditions: JSON.stringify([{
+          field: 'price',
+          operator: '<=',
+          value: decisions.stop_loss
+        }]),
+        condition_logic: 'AND',
+        report_id: report_id
+      };
+      
+      const stopLossResult = await db.runPromise(
+        `INSERT INTO conditional_order (account_id, ts_code, stock_name, order_type, action, conditions, condition_logic, report_id, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
+        [stopLossOrder.account_id, stopLossOrder.ts_code, stopLossOrder.stock_name, 
+         stopLossOrder.order_type, stopLossOrder.action, stopLossOrder.conditions, 
+         stopLossOrder.condition_logic, stopLossOrder.report_id]
+      );
+      createdOrders.push({ type: 'stop_loss', id: stopLossResult.lastID });
+    }
+    
+    // 2. 创建止盈条件单
+    if (decisions.stop_profit) {
+      const stopProfits = Array.isArray(decisions.stop_profit) 
+        ? decisions.stop_profit 
+        : [decisions.stop_profit];
+      
+      for (const target of stopProfits) {
+        const stopProfitOrder = {
+          account_id: account_id || 1,
+          ts_code: stock_code,
+          stock_name: report.stock_name,
+          order_type: 'take_profit',
+          action: 'sell',
+          conditions: JSON.stringify([{
+            field: 'price',
+            operator: '>=',
+            value: target
+          }]),
+          condition_logic: 'AND',
+          report_id: report_id
+        };
+        
+        const stopProfitResult = await db.runPromise(
+          `INSERT INTO conditional_order (account_id, ts_code, stock_name, order_type, action, conditions, condition_logic, report_id, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
+          [stopProfitOrder.account_id, stopProfitOrder.ts_code, stopProfitOrder.stock_name,
+           stopProfitOrder.order_type, stopProfitOrder.action, stopProfitOrder.conditions,
+           stopProfitOrder.condition_logic, stopProfitOrder.report_id]
+        );
+        createdOrders.push({ type: 'take_profit', target, id: stopProfitResult.lastID });
+      }
+    }
+    
+    // 3. 创建建仓条件单（如果有建仓区间）
+    if (decisions.entry_zone) {
+      const entryZone = decisions.entry_zone;
+      const entryOrder = {
+        account_id: account_id || 1,
+        ts_code: stock_code,
+        stock_name: report.stock_name,
+        order_type: 'entry',
+        action: 'buy',
+        position_pct: position_pct || 10,
+        conditions: JSON.stringify([{
+          field: 'price',
+          operator: 'between',
+          value: [entryZone.low, entryZone.high]
+        }]),
+        condition_logic: 'AND',
+        report_id: report_id
+      };
+      
+      const entryResult = await db.runPromise(
+        `INSERT INTO conditional_order (account_id, ts_code, stock_name, order_type, action, conditions, condition_logic, report_id, status, position_pct)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [entryOrder.account_id, entryOrder.ts_code, entryOrder.stock_name,
+         entryOrder.order_type, entryOrder.action, entryOrder.conditions,
+         entryOrder.condition_logic, entryOrder.report_id, entryOrder.position_pct]
+      );
+      createdOrders.push({ type: 'entry', id: entryResult.lastID });
+    }
+    
+    res.json({
+      success: true,
+      message: `成功创建 ${createdOrders.length} 个条件单`,
+      orders: createdOrders,
+      report_id: report_id
+    });
+    
+  } catch (error) {
+    console.error('从报告导入条件单失败:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+/**
  * 创建条件单
  * POST /api/conditional-order
  */
@@ -885,6 +1018,7 @@ module.exports = {
   getConditionalOrders,
   getConditionalOrder,
   createConditionalOrder,
+  createFromReport,
   updateConditionalOrder,
   getConditionalOrderHistory,
   deleteConditionalOrder,

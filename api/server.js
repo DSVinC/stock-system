@@ -175,6 +175,7 @@ async function bootstrap() {
     router.get('/:id/history', conditionalOrder.getConditionalOrderHistory);
     router.get('/:id', conditionalOrder.getConditionalOrder);
     router.post('/', conditionalOrder.createConditionalOrder);
+    router.post('/create-from-report', conditionalOrder.createFromReport);
     router.put('/:id/toggle', conditionalOrder.toggleConditionalOrder);
     router.put('/:id', conditionalOrder.updateConditionalOrder);
     router.delete('/:id', conditionalOrder.deleteConditionalOrder);
@@ -186,6 +187,21 @@ async function bootstrap() {
   }
 
   if (await mountApi('select.js', '/api/select').catch(() => false)) {
+
+  // 报告存储 API (TASK_V3_009)
+  try {
+    const reportStorage = require('./report-storage');
+    const router = require('express').Router();
+    router.post('/store', reportStorage.storeReport);
+    router.get('/list', reportStorage.getReportList);
+    router.get('/:stockCode/latest', reportStorage.getLatestReport);
+    router.post('/:reportId/import-to-order', reportStorage.importToOrderFromReport);
+    app.use('/api/report', router);
+    mounted.push('/api/report');
+    console.log('[mountApi] report-storage API mounted: /api/report');
+  } catch (e) {
+    console.log('[mountApi] report-storage 模块加载失败:', e.message);
+  }
     mounted.push('/api/select');
   }
 
@@ -196,6 +212,33 @@ async function bootstrap() {
     mounted.push('/api/industry');
   } catch (e) {
     console.log('[mountApi] industry 模块加载失败:', e.message);
+  }
+
+  // TASK_V3_001: 4 维度行业自动评分 API
+  try {
+    const industryScore = require('./industry-score');
+    app.use('/api/industry/score', industryScore);
+    mounted.push('/api/industry/score');
+  } catch (e) {
+    console.log('[mountApi] industry-score 模块加载失败:', e.message);
+  }
+
+  // TASK_V3_003: 行业内个股 7 因子评分 API
+  try {
+    const industryTopStocks = require('./industry-top-stocks');
+    app.use('/api/industry', industryTopStocks);
+    mounted.push('/api/industry/:industry/top-stocks');
+  } catch (e) {
+    console.log('[mountApi] industry-top-stocks 模块加载失败:', e.message);
+  }
+
+  // TASK_V3_004: 个股 Top10 自动筛选 API
+  try {
+    const stockSelect = require('./stock-select');
+    app.use('/api/stock/select', stockSelect);
+    mounted.push('/api/stock/select');
+  } catch (e) {
+    console.log('[mountApi] stock-select 模块加载失败:', e.message);
   }
 
   if (await mountApi('analyze.js', '/api/analyze').catch(() => false)) {
@@ -220,6 +263,8 @@ async function bootstrap() {
   try {
     const backtest = require('./backtest');
     const router = require('express').Router();
+    
+    // 原有回测功能
     router.post('/run', backtest.runBacktest);
     router.get('/history', backtest.getBacktestHistory);
     router.get('/:id', backtest.getBacktestDetail);
@@ -229,10 +274,85 @@ async function bootstrap() {
     router.post('/:id/report', backtest.generateBacktestReport);
     // TASK_100: 批量回测
     router.post('/batch', backtest.runBatchBacktest);
+    
+    // TASK_V3_007: 因子快照回测功能
+    router.post('/factor-snapshot/run', backtest.runFactorSnapshotBacktest);
+    router.get('/factor-snapshot/history', backtest.getFactorSnapshotBacktestHistory);
+    router.get('/factor-snapshot/:id', backtest.getFactorSnapshotBacktestDetail);
+    router.post('/factor-snapshot/scan', backtest.scanFactorSnapshotParameters);
+    
     app.use('/api/backtest', router);
     mounted.push('/api/backtest');
+    mounted.push('/api/backtest/factor-snapshot/run');
+    mounted.push('/api/backtest/factor-snapshot/history');
+    mounted.push('/api/backtest/factor-snapshot/:id');
+    mounted.push('/api/backtest/factor-snapshot/scan');
   } catch (e) {
     console.log('[mountApi] backtest模块加载失败:', e.message);
+  }
+
+  // TASK_V3_008_FIX_001: 分钟线回测 API
+  try {
+    const minuteBacktest = require('./backtest-minute');
+    const router = require('express').Router();
+
+    // POST /api/backtest/minute/run - 运行分钟线回测
+    router.post('/run', async (req, res) => {
+      try {
+        const result = await minuteBacktest.runMinuteBacktest(req.body);
+        res.json(result);
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // POST /api/backtest/minute/batch - 批量回测（参数扫描）
+    router.post('/batch', async (req, res) => {
+      try {
+        const engine = new minuteBacktest(req.body);
+        const results = await engine.runBatch(req.body.baseParams, req.body.paramRanges);
+        res.json({ success: true, data: results });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    app.use('/api/backtest/minute', router);
+    mounted.push('/api/backtest/minute');
+    mounted.push('/api/backtest/minute/run');
+    mounted.push('/api/backtest/minute/batch');
+  } catch (e) {
+    console.log('[mountApi] backtest-minute 模块加载失败:', e.message);
+  }
+
+  // TASK_V3_103: 回测缓存 API
+  try {
+    const backtestCache = require('./backtest-cache');
+    const cacheRouter = require('express').Router();
+
+    // GET /api/backtest/cache/:key - 查询缓存
+    cacheRouter.get('/:key', backtestCache.handleGetCache);
+
+    // DELETE /api/backtest/cache/:key - 删除缓存
+    cacheRouter.delete('/:key', backtestCache.handleDeleteCache);
+
+    // POST /api/backtest/cache/cleanup - 清理过期缓存
+    cacheRouter.post('/cleanup', backtestCache.handleCleanupCache);
+
+    // GET /api/backtest/cache/stats - 获取缓存统计
+    cacheRouter.get('/stats', backtestCache.handleGetStats);
+
+    // GET /api/backtest/cache/list - 获取缓存列表
+    cacheRouter.get('/list', backtestCache.handleGetList);
+
+    // DELETE /api/backtest/cache - 清空所有缓存
+    cacheRouter.delete('/', backtestCache.handleClearAll);
+
+    app.use('/api/backtest/cache', cacheRouter);
+    mounted.push('/api/backtest/cache');
+    console.log('[mountApi] backtest-cache API mounted: /api/backtest/cache');
+  } catch (e) {
+    console.log('[mountApi] backtest-cache 模块加载失败:', e.message);
   }
 
   // 持仓监控API
@@ -293,6 +413,76 @@ async function bootstrap() {
     mounted.push('/api/stock');
   } catch (e) {
     console.log('[mountApi] stock search模块加载失败:', e.message);
+  }
+
+  // TASK_V3_006_003: 选股 + 分钟线获取整合 API
+  try {
+    const stockRouter = require('./stock');
+    app.use('/api/stock', stockRouter);
+    mounted.push('/api/stock/select-with-minute');
+    console.log('[mountApi] stock 选股+分钟线API已加载');
+  } catch (e) {
+    console.log('[mountApi] stock 选股+分钟线模块加载失败:', e.message);
+  }
+
+  // TASK_V3_006: 分钟线数据API
+  try {
+    const minuteFetch = require('./minute-fetch');
+    const router = require('express').Router();
+
+    // POST /api/minute/fetch - 触发分钟线数据获取（支持 stocks 数组）
+    router.post('/fetch', minuteFetch.handleMinuteFetch);
+
+    // GET /api/minute/status - 查询状态概览（不带参数）
+    router.get('/status', minuteFetch.handleMinuteStatus);
+
+    // GET /api/minute/status/:taskId/:tsCode - 查询特定任务状态
+    router.get('/status/:taskId/:tsCode', minuteFetch.handleMinuteStatus);
+
+    // GET /api/minute/data - 查询分钟线数据
+    router.get('/data', minuteFetch.handleMinuteData);
+
+    // GET /api/minute/integrity/:tsCode - 检查数据完整性
+    router.get('/integrity/:tsCode', minuteFetch.handleMinuteIntegrity);
+
+    // GET /api/minute/tasks - 获取任务列表
+    router.get('/tasks', minuteFetch.handleMinuteTasks);
+
+    app.use('/api/minute', router);
+    mounted.push('/api/minute/fetch');
+    mounted.push('/api/minute/status');
+    mounted.push('/api/minute/status/:taskId/:tsCode');
+    mounted.push('/api/minute/data');
+    mounted.push('/api/minute/integrity/:tsCode');
+    mounted.push('/api/minute/tasks');
+
+    console.log('[mountApi] 分钟线数据API已加载');
+  } catch (e) {
+    console.log('[mountApi] minute-fetch模块加载失败:', e.message);
+  }
+
+  // TASK_V3_102: 参数优化 API
+  try {
+    const optimizer = require('./optimizer');
+    const router = require('express').Router();
+
+    // POST /api/optimizer/run - 运行优化
+    router.post('/run', optimizer.runOptimizer);
+
+    // GET /api/optimizer/status/:id - 查询优化状态
+    router.get('/status/:id', optimizer.getOptimizerStatus);
+
+    // GET /api/optimizer/result/:id - 获取优化结果
+    router.get('/result/:id', optimizer.getOptimizerResult);
+
+    app.use('/api/optimizer', router);
+    mounted.push('/api/optimizer/run');
+    mounted.push('/api/optimizer/status/:id');
+    mounted.push('/api/optimizer/result/:id');
+
+    console.log('[mountApi] 参数优化API已加载');
+  } catch (e) {
+    console.log('[mountApi] optimizer模块加载失败:', e.message);
   }
 
   app.get('/api', (req, res) => {
