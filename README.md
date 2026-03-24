@@ -332,6 +332,12 @@ Codex 会自动检查：
 ### 验收与测试
 - `docs/acceptance/` - 验收报告目录
 - `docs/test-report-2026-03-22.md` - 测试报告
+- **`docs/CLI_ACCEPTANCE_GUIDE.md`** - CLI 验收操作指南（工具用法、并行流程、常见错误）⭐
+
+### 开发规范
+- `docs/PROJECT_ROLES.md` - 项目角色分工
+- `docs/WORK_LOG_POLICY.md` - 工作日志制度
+- `docs/CLAUDE_TASK_DISPATCH_TEMPLATE.md` - Claude 任务派发模板
 
 ## 部署
 
