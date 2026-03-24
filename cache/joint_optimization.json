@@ -1,0 +1,265 @@
+{
+  "status": "completed",
+  "elapsed_ms": 2,
+  "totalCombinations": 20,
+  "validCombinations": 20,
+  "bestAllocation": {
+    "coreWeight": 0,
+    "satelliteWeight": 1,
+    "coreWeightPercent": "0%",
+    "satelliteWeightPercent": "100%"
+  },
+  "bestMetrics": {
+    "sharpeRatio": 14.753594919109712,
+    "maxDrawdown": 0.011428571428571439,
+    "annualizedReturn": 7.611678322480554,
+    "calmarRatio": 666.0218532170478,
+    "totalReturn": 1.33
+  },
+  "allResults": [
+    {
+      "coreWeight": 0,
+      "satelliteWeight": 1,
+      "metrics": {
+        "sharpeRatio": 14.753594919109712,
+        "maxDrawdown": 0.011428571428571439,
+        "annualizedReturn": 7.611678322480554,
+        "calmarRatio": 666.0218532170478,
+        "totalReturn": 1.33
+      },
+      "valid": true
+    },
+    {
+      "coreWeight": 0.05,
+      "satelliteWeight": 0.95,
+      "metrics": {
+        "sharpeRatio": 14.629399072353554,
+        "maxDrawdown": 0.011338732729871178,
+        "annualizedReturn": 7.457294703458816,
+        "calmarRatio": 657.6832597714418,
+        "totalReturn": 1.3135
+      },
+      "valid": true
+    },
+    {
+      "coreWeight": 0.1,
+      "satelliteWeight": 0.9,
+      "metrics": {
+        "sharpeRatio": 14.499318507369479,
+        "maxDrawdown": 0.01124880838894188,
+        "annualizedReturn": 7.304603400478161,
+        "calmarRatio": 649.3668616187772,
+        "totalReturn": 1.2970000000000002
+      },
+      "valid": true
+    },
+    {
+      "coreWeight": 0.15,
+      "satelliteWeight": 0.85,
+      "metrics": {
+        "sharpeRatio": 14.363374023099638,
+        "maxDrawdown": 0.011158798283261844,
+        "annualizedReturn": 7.153597819340526,
+        "calmarRatio": 641.0724199639754,
+        "totalReturn": 1.2805
+      },
+      "valid": true
+    },
+    {
+      "coreWeight": 0.2,
+      "satelliteWeight": 0.8,
+      "metrics": {
+        "sharpeRatio": 14.221604887914406,
+        "maxDrawdown": 0.011068702290076388,
+        "annualizedReturn": 7.004271344281273,
+        "calmarRatio": 632.7996869660982,
+        "totalReturn": 1.2640000000000002
+      },
+      "valid": true
+    },
+    {
+      "coreWeight": 0.25,
+      "satelliteWeight": 0.75,
+      "metrics": {
+        "sharpeRatio": 14.074069197950976,
+        "maxDrawdown": 0.010978520286396244,
+        "annualizedReturn": 6.856617337741807,
+        "calmarRatio": 624.5484053290871,
+        "totalReturn": 1.2475
+      },
+      "valid": true
+    },
+    {
+      "coreWeight": 0.3,
+      "satelliteWeight": 0.7,
+      "metrics": {
+        "sharpeRatio": 13.920844082314362,
+        "maxDrawdown": 0.010888252148996996,
+        "annualizedReturn": 6.710629140138182,
+        "calmarRatio": 616.3183078705935,
+        "totalReturn": 1.2309999999999999
+      },
+      "valid": true
+    },
+    {
+      "coreWeight": 0.35,
+      "satelliteWeight": 0.65,
+      "metrics": {
+        "sharpeRatio": 13.762025746644737,
+        "maxDrawdown": 0.010797897754419365,
+        "annualizedReturn": 6.566300069625489,
+        "calmarRatio": 608.109117067536,
+        "totalReturn": 1.2145000000000001
+      },
+      "valid": true
+    },
+    {
+      "coreWeight": 0.4,
+      "satelliteWeight": 0.6,
+      "metrics": {
+        "sharpeRatio": 13.597729349033274,
+        "maxDrawdown": 0.010707456978967377,
+        "annualizedReturn": 6.423623421857957,
+        "calmarRatio": 599.920544577098,
+        "totalReturn": 1.198
+      },
+      "valid": true
+    },
+    {
+      "coreWeight": 0.45,
+      "satelliteWeight": 0.55,
+      "metrics": {
+        "sharpeRatio": 13.428088704989783,
+        "maxDrawdown": 0.010616929698708644,
+        "annualizedReturn": 6.282592469744699,
+        "calmarRatio": 591.7522907313648,
+        "totalReturn": 1.1815000000000002
+      },
+      "valid": true
+    },
+    {
+      "coreWeight": 0.5,
+      "satelliteWeight": 0.5,
+      "metrics": {
+        "sharpeRatio": 13.253255821067249,
+        "maxDrawdown": 0.010526315789473589,
+        "annualizedReturn": 6.143200463200899,
+        "calmarRatio": 583.6040440040907,
+        "totalReturn": 1.165
+      },
+      "valid": true
+    },
+    {
+      "coreWeight": 0.55,
+      "satelliteWeight": 0.45,
+      "metrics": {
+        "sharpeRatio": 13.073400259744016,
+        "maxDrawdown": 0.010435615126855079,
+        "annualizedReturn": 6.005440628894416,
+        "calmarRatio": 575.4754804477195,
+        "totalReturn": 1.1485000000000003
+      },
+      "valid": true
+    },
+    {
+      "coreWeight": 0.6,
+      "satelliteWeight": 0.4,
+      "metrics": {
+        "sharpeRatio": 12.888708341181939,
+        "maxDrawdown": 0.010344827586207033,
+        "annualizedReturn": 5.869306169987598,
+        "calmarRatio": 567.3662630987936,
+        "totalReturn": 1.1320000000000001
+      },
+      "valid": true
+    },
+    {
+      "coreWeight": 0.65,
+      "satelliteWeight": 0.35,
+      "metrics": {
+        "sharpeRatio": 12.699382190417971,
+        "maxDrawdown": 0.010253953042644879,
+        "annualizedReturn": 5.734790265874262,
+        "calmarRatio": 559.276041349517,
+        "totalReturn": 1.1155
+      },
+      "valid": true
+    },
+    {
+      "coreWeight": 0.7,
+      "satelliteWeight": 0.3,
+      "metrics": {
+        "sharpeRatio": 12.505638641331673,
+        "maxDrawdown": 0.010162991371045009,
+        "annualizedReturn": 5.601886071911636,
+        "calmarRatio": 551.2044502833837,
+        "totalReturn": 1.0989999999999998
+      },
+      "valid": true
+    },
+    {
+      "coreWeight": 0.75,
+      "satelliteWeight": 0.25,
+      "metrics": {
+        "sharpeRatio": 12.307708011271558,
+        "maxDrawdown": 0.010071942446043121,
+        "annualizedReturn": 5.470586719147176,
+        "calmarRatio": 543.151109972472,
+        "totalReturn": 1.0825
+      },
+      "valid": true
+    },
+    {
+      "coreWeight": 0.8,
+      "satelliteWeight": 0.2,
+      "metrics": {
+        "sharpeRatio": 12.10583276245107,
+        "maxDrawdown": 0.009980806142034514,
+        "annualizedReturn": 5.340885314040091,
+        "calmarRatio": 535.115624733634,
+        "totalReturn": 1.0660000000000003
+      },
+      "valid": true
+    },
+    {
+      "coreWeight": 0.85,
+      "satelliteWeight": 0.15,
+      "metrics": {
+        "sharpeRatio": 11.90026606807142,
+        "maxDrawdown": 0.009889582333173497,
+        "annualizedReturn": 5.21277493817745,
+        "calmarRatio": 527.0975823409427,
+        "totalReturn": 1.0495
+      },
+      "valid": true
+    },
+    {
+      "coreWeight": 0.9,
+      "satelliteWeight": 0.1,
+      "metrics": {
+        "sharpeRatio": 11.69127030255006,
+        "maxDrawdown": 0.009798270893371744,
+        "annualizedReturn": 5.0862486479847275,
+        "calmarRatio": 519.0965531913832,
+        "totalReturn": 1.033
+      },
+      "valid": true
+    },
+    {
+      "coreWeight": 0.95,
+      "satelliteWeight": 0.05,
+      "metrics": {
+        "sharpeRatio": 11.479115476190792,
+        "maxDrawdown": 0.009706871696299853,
+        "annualizedReturn": 4.961299474430583,
+        "calmarRatio": 511.1120894202993,
+        "totalReturn": 1.0164999999999997
+      },
+      "valid": true
+    }
+  ],
+  "constraints": {
+    "maxDrawdown": 0.2
+  },
+  "timestamp": "2026-03-24T09:22:25.479Z"
+}
