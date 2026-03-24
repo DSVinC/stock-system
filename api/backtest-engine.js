@@ -2,10 +2,21 @@
  * 基于因子快照的日线回测引擎
  * 使用 stock_factor_snapshot 表进行选股，stock_daily 表获取价格
  * 支持 7 个绩效指标计算
+ *
+ * TASK_V3_203 - 增加分钟线数据加载支持
  */
 
 const { getDatabase } = require('./db');
 const performance = require('./backtest-report');
+
+// 支持的分钟线周期
+const MINUTE_INTERVALS = {
+  '1': 1,    // 1分钟
+  '5': 5,    // 5分钟
+  '15': 15,  // 15分钟
+  '30': 30,  // 30分钟
+  '60': 60   // 60分钟
+};
 
 class FactorSnapshotBacktest {
   constructor(config = {}) {
@@ -642,6 +653,243 @@ class FactorSnapshotBacktest {
     }
 
     return combinations;
+  }
+
+  // ==================== 分钟线数据支持（TASK_V3_203）====================
+
+  /**
+   * 获取分钟线数据
+   * @param {string} tsCode - 股票代码
+   * @param {string} date - 日期 YYYY-MM-DD
+   * @param {string} interval - 分钟周期 (1/5/15/30/60)
+   * @returns {Promise<Array>} 分钟线数据数组
+   */
+  async getMinuteData(tsCode, date, interval = '5') {
+    const cacheKey = `minute_${tsCode}_${date}_${interval}`;
+    if (this.minuteCache && this.minuteCache.has(cacheKey)) {
+      return this.minuteCache.get(cacheKey);
+    }
+
+    const dateDb = date.replace(/-/g, '');
+    const dbCode = this.convertToDbCode(tsCode);
+
+    // 根据周期计算时间过滤条件
+    const intervalNum = MINUTE_INTERVALS[interval] || 5;
+
+    const query = `
+      SELECT
+        trade_time,
+        open,
+        high,
+        low,
+        close,
+        vol,
+        amount,
+        pct_change
+      FROM stock_minute
+      WHERE ts_code = ? AND trade_date = ?
+      ORDER BY trade_time ASC
+    `;
+
+    try {
+      const rows = await this.db.allPromise(query, [dbCode, dateDb]);
+
+      // 根据周期聚合数据
+      const aggregatedData = this.aggregateMinuteData(rows || [], intervalNum);
+
+      if (!this.minuteCache) {
+        this.minuteCache = new Map();
+      }
+      this.minuteCache.set(cacheKey, aggregatedData);
+
+      return aggregatedData;
+    } catch (error) {
+      console.error(`[回测引擎] 获取分钟线数据失败 (${tsCode} ${date}):`, error.message);
+      return [];
+    }
+  }
+
+  /**
+   * 聚合分钟线数据到指定周期
+   * @param {Array} minuteData - 原始分钟线数据
+   * @param {number} interval - 目标周期（分钟）
+   * @returns {Array} 聚合后的数据
+   */
+  aggregateMinuteData(minuteData, interval) {
+    if (!minuteData || minuteData.length === 0) {
+      return [];
+    }
+
+    // 对于1分钟线，直接返回
+    if (interval === 1) {
+      return minuteData;
+    }
+
+    const aggregated = [];
+    const timeGroups = new Map();
+
+    // 按时间间隔分组
+    for (const bar of minuteData) {
+      const time = bar.trade_time;
+      if (!time) continue;
+
+      // 解析时间并计算所属的聚合时间段
+      const [hours, minutes] = time.split(':').map(Number);
+      const totalMinutes = hours * 60 + minutes;
+      const groupIndex = Math.floor(totalMinutes / interval);
+      const groupStartMinutes = groupIndex * interval;
+      const groupHours = Math.floor(groupStartMinutes / 60);
+      const groupMinutes = groupStartMinutes % 60;
+      const groupKey = `${String(groupHours).padStart(2, '0')}:${String(groupMinutes).padStart(2, '0')}:00`;
+
+      if (!timeGroups.has(groupKey)) {
+        timeGroups.set(groupKey, []);
+      }
+      timeGroups.get(groupKey).push(bar);
+    }
+
+    // 对每个时间段进行聚合
+    for (const [time, bars] of timeGroups) {
+      if (bars.length === 0) continue;
+
+      const open = bars[0].open;
+      const close = bars[bars.length - 1].close;
+      const high = Math.max(...bars.map(b => b.high));
+      const low = Math.min(...bars.map(b => b.low));
+      const vol = bars.reduce((sum, b) => sum + (parseFloat(b.vol) || 0), 0);
+      const amount = bars.reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0);
+
+      // 计算涨跌幅
+      const prevClose = bars[0].pre_close || open;
+      const pctChange = prevClose > 0 ? ((close - prevClose) / prevClose) * 100 : 0;
+
+      aggregated.push({
+        trade_time: time,
+        open: parseFloat(open),
+        high: parseFloat(high),
+        low: parseFloat(low),
+        close: parseFloat(close),
+        vol,
+        amount,
+        pct_change: pctChange
+      });
+    }
+
+    // 按时间排序
+    return aggregated.sort((a, b) => a.trade_time.localeCompare(b.trade_time));
+  }
+
+  /**
+   * 获取分钟线时间点列表
+   * @param {string} date - 日期
+   * @param {string} interval - 分钟周期
+   * @returns {Promise<Array>} 时间点数组
+   */
+  async getMinuteTimes(date, interval = '5') {
+    const dateDb = date.replace(/-/g, '');
+
+    try {
+      const query = `
+        SELECT DISTINCT trade_time
+        FROM stock_minute
+        WHERE trade_date = ?
+        ORDER BY trade_time ASC
+      `;
+
+      const rows = await this.db.allPromise(query, [dateDb]);
+      const times = rows.map(r => r.trade_time);
+
+      // 根据周期过滤时间点
+      const intervalNum = MINUTE_INTERVALS[interval] || 5;
+      const filteredTimes = times.filter(time => {
+        const [hours, minutes] = time.split(':').map(Number);
+        const totalMinutes = hours * 60 + minutes;
+        return totalMinutes % intervalNum === 0;
+      });
+
+      return filteredTimes.length > 0 ? filteredTimes : times;
+    } catch (error) {
+      console.error(`[回测引擎] 获取分钟时间点失败 (${date}):`, error.message);
+      return [];
+    }
+  }
+
+  /**
+   * 加载分钟线数据用于回测
+   * @param {string} tsCode - 股票代码
+   * @param {string} startDate - 开始日期
+   * @param {string} endDate - 结束日期
+   * @param {string} interval - 分钟周期
+   * @returns {Promise<Object>} 分钟线数据 { date -> [bar] }
+   */
+  async loadMinuteDataForBacktest(tsCode, startDate, endDate, interval = '5') {
+    const startDateDb = startDate.replace(/-/g, '');
+    const endDateDb = endDate.replace(/-/g, '');
+    const dbCode = this.convertToDbCode(tsCode);
+
+    const query = `
+      SELECT
+        trade_date,
+        trade_time,
+        open,
+        high,
+        low,
+        close,
+        vol,
+        amount,
+        pct_change,
+        pre_close
+      FROM stock_minute
+      WHERE ts_code = ? AND trade_date BETWEEN ? AND ?
+      ORDER BY trade_date ASC, trade_time ASC
+    `;
+
+    try {
+      const rows = await this.db.allPromise(query, [dbCode, startDateDb, endDateDb]);
+      const dataByDate = new Map();
+
+      for (const row of rows) {
+        const dateStr = String(row.trade_date);
+        const date = dateStr.length === 8
+          ? `${dateStr.substr(0, 4)}-${dateStr.substr(4, 2)}-${dateStr.substr(6, 2)}`
+          : dateStr;
+
+        if (!dataByDate.has(date)) {
+          dataByDate.set(date, []);
+        }
+        dataByDate.get(date).push({
+          trade_time: row.trade_time,
+          open: parseFloat(row.open) || 0,
+          high: parseFloat(row.high) || 0,
+          low: parseFloat(row.low) || 0,
+          close: parseFloat(row.close) || 0,
+          vol: parseFloat(row.vol) || 0,
+          amount: parseFloat(row.amount) || 0,
+          pct_change: parseFloat(row.pct_change) || 0,
+          pre_close: parseFloat(row.pre_close) || 0
+        });
+      }
+
+      // 对每个日期的数据进行周期聚合
+      const intervalNum = MINUTE_INTERVALS[interval] || 5;
+      for (const [date, bars] of dataByDate) {
+        dataByDate.set(date, this.aggregateMinuteData(bars, intervalNum));
+      }
+
+      return dataByDate;
+    } catch (error) {
+      console.error(`[回测引擎] 加载分钟线数据失败:`, error.message);
+      return new Map();
+    }
+  }
+
+  /**
+   * 清除分钟线缓存
+   */
+  clearMinuteCache() {
+    if (this.minuteCache) {
+      this.minuteCache.clear();
+    }
   }
 
   /**

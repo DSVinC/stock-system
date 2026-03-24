@@ -2,10 +2,32 @@
  * 基于分钟线数据的短线回测引擎
  * 使用 stock_minute 表进行回测
  * 支持 5 分钟线级别回测和日内交易（T+0 模拟）
+ *
+ * TASK_V3_203 - 增强功能：
+ * - 网格交易策略支持（步长 0.8-1.5%）
+ * - 多周期回测（1/5/15/30/60 分钟）
+ * - 分钟线特有指标（日内交易次数、持仓时长）
  */
 
 const { getDatabase } = require('./db');
 const performance = require('./backtest-report');
+
+// 支持的分钟线周期常量
+const MINUTE_INTERVALS = {
+  '1': 1,    // 1分钟
+  '5': 5,    // 5分钟
+  '15': 15,  // 15分钟
+  '30': 30,  // 30分钟
+  '60': 60   // 60分钟
+};
+
+// 网格交易默认参数
+const DEFAULT_GRID_CONFIG = {
+  stepPercent: 1.0,       // 网格步长百分比（0.8-1.5）
+  basePosition: 1000,     // 基础持仓量
+  maxPosition: 5000,      // 最大持仓量
+  minPosition: 0          // 最小持仓量
+};
 
 class MinuteBacktest {
   constructor(config = {}) {
@@ -18,9 +40,14 @@ class MinuteBacktest {
       minuteInterval: config.minuteInterval || 5, // 分钟线间隔：5分钟
       allowIntradayTrade: config.allowIntradayTrade !== false, // 允许日内交易
       maxDailyTrades: config.maxDailyTrades || 10, // 每日最大交易次数
+      // 网格交易配置（TASK_V3_203）
+      gridConfig: {
+        ...DEFAULT_GRID_CONFIG,
+        ...(config.gridConfig || {})
+      },
       ...config
     };
-    
+
     this.db = getDatabase();
     this.equityCurve = [];
     this.minuteReturns = [];
@@ -31,7 +58,7 @@ class MinuteBacktest {
     this.minuteTimestamps = []; // 所有分钟时间戳
     this.currentTimestamp = null;
     this.dailyTradesCount = new Map(); // 记录每日交易次数：date -> count
-    
+
     // 技术指标缓存
     this.indicators = {
       rsi: new Map(), // ts_code -> RSI值
@@ -39,6 +66,448 @@ class MinuteBacktest {
       ma: new Map(),   // ts_code -> {ma5, ma10, ma20}
       volume: new Map() // ts_code -> 成交量相关指标
     };
+
+    // 网格交易状态（TASK_V3_203）
+    this.gridStates = new Map(); // ts_code -> GridState
+  }
+
+  /**
+   * 初始化网格交易状态
+   * TASK_V3_203
+   * @param {string} tsCode - 股票代码
+   * @param {number} basePrice - 基准价格
+   * @param {Object} gridConfig - 网格配置
+   */
+  initGridState(tsCode, basePrice, gridConfig = {}) {
+    const config = { ...this.config.gridConfig, ...gridConfig };
+    const stepPercent = config.stepPercent || 1.0;
+
+    // 网格价格层级
+    const gridLevels = [];
+    const numLevels = 10; // 上下各10层
+
+    for (let i = -numLevels; i <= numLevels; i++) {
+      gridLevels.push({
+        price: basePrice * Math.pow(1 + stepPercent / 100, i),
+        level: i
+      });
+    }
+
+    this.gridStates.set(tsCode, {
+      basePrice,
+      stepPercent,
+      gridLevels,
+      currentLevel: 0,
+      position: 0,
+      avgCost: 0,
+      totalProfit: 0,
+      tradeCount: 0
+    });
+  }
+
+  /**
+   * 执行网格交易
+   * TASK_V3_203
+   * @param {string} tsCode - 股票代码
+   * @param {number} currentPrice - 当前价格
+   * @param {string} date - 日期
+   * @param {string} time - 时间
+   * @returns {Object} 交易结果
+   */
+  executeGridTrade(tsCode, currentPrice, date, time) {
+    const gridState = this.gridStates.get(tsCode);
+    if (!gridState) {
+      return { action: 'none', reason: 'grid_not_initialized' };
+    }
+
+    const config = this.config.gridConfig;
+    const stepPercent = gridState.stepPercent;
+
+    // 计算当前价格相对于基准价格的涨跌幅
+    const priceChange = ((currentPrice - gridState.basePrice) / gridState.basePrice) * 100;
+
+    // 计算应该持有的网格层级
+    const expectedLevel = Math.round(priceChange / stepPercent);
+
+    // 判断是否需要交易
+    if (expectedLevel < gridState.currentLevel) {
+      // 价格下跌，买入
+      const buyLevels = gridState.currentLevel - expectedLevel;
+      const sharesToBuy = config.basePosition * buyLevels;
+
+      if (sharesToBuy > 0 && this.cash >= sharesToBuy * currentPrice) {
+        // 执行买入
+        const stock = { ts_code: tsCode, reason: 'grid_buy' };
+        const success = this.executeBuy(stock, currentPrice, sharesToBuy, date, time);
+
+        if (success) {
+          gridState.currentLevel = expectedLevel;
+          gridState.position += sharesToBuy;
+          gridState.tradeCount++;
+
+          return {
+            action: 'buy',
+            shares: sharesToBuy,
+            price: currentPrice,
+            newLevel: expectedLevel,
+            reason: 'grid_buy'
+          };
+        }
+      }
+    } else if (expectedLevel > gridState.currentLevel) {
+      // 价格上涨，卖出
+      const sellLevels = expectedLevel - gridState.currentLevel;
+      const sharesToSell = Math.min(
+        config.basePosition * sellLevels,
+        gridState.position
+      );
+
+      if (sharesToSell > 0) {
+        const position = this.positions.get(tsCode);
+        if (position) {
+          const tempPosition = { ...position, ts_code: tsCode };
+          const success = this.executeSell(tempPosition, currentPrice, date, time, 'grid_sell');
+
+          if (success) {
+            gridState.currentLevel = expectedLevel;
+            gridState.position -= sharesToSell;
+            gridState.tradeCount++;
+
+            return {
+              action: 'sell',
+              shares: sharesToSell,
+              price: currentPrice,
+              newLevel: expectedLevel,
+              reason: 'grid_sell'
+            };
+          }
+        }
+      }
+    }
+
+    return { action: 'hold', reason: 'no_trade_signal' };
+  }
+
+  /**
+   * 运行网格交易策略回测
+   * TASK_V3_203
+   * @param {Object} params - 回测参数
+   * @returns {Object} 回测结果
+   */
+  async runGridBacktest(params = {}) {
+    const {
+      startDate,
+      endDate,
+      tsCode,
+      basePrice,
+      stepPercent = 1.0,
+      interval = '5'
+    } = params;
+
+    console.log(`[网格回测] 开始网格交易回测: ${tsCode}`);
+    console.log(`[网格回测] 时间范围: ${startDate} 到 ${endDate}`);
+    console.log(`[网格回测] 网格步长: ${stepPercent}%`);
+
+    // 重置状态
+    this.reset();
+
+    // 初始化网格状态
+    const actualBasePrice = basePrice || await this.getFirstPrice(tsCode, startDate);
+    if (!actualBasePrice) {
+      throw new Error(`无法获取 ${tsCode} 的初始价格`);
+    }
+
+    this.initGridState(tsCode, actualBasePrice, { stepPercent });
+
+    // 获取交易日
+    this.dates = await this.getTradingDates(startDate, endDate);
+    if (this.dates.length === 0) {
+      throw new Error(`在 ${startDate} 到 ${endDate} 范围内未找到交易日数据`);
+    }
+
+    // 加载分钟线数据
+    const minuteDataByDate = await this.loadMinuteData(tsCode, startDate, endDate, interval);
+
+    // 遍历每个交易日
+    for (let dayIdx = 0; dayIdx < this.dates.length; dayIdx++) {
+      const date = this.dates[dayIdx];
+      this.dailyTradesCount.set(date, 0);
+
+      const minuteData = minuteDataByDate.get(date) || [];
+      if (minuteData.length === 0) {
+        continue;
+      }
+
+      // 遍历每个分钟K线
+      for (const bar of minuteData) {
+        const time = bar.trade_time;
+
+        // 执行网格交易
+        this.executeGridTrade(tsCode, bar.close, date, time);
+
+        // 记录权益曲线
+        const totalAssets = this.calculateTotalAssetsForStock(tsCode, bar.close);
+        this.equityCurve.push(totalAssets);
+
+        // 计算分钟收益率
+        if (this.equityCurve.length > 1) {
+          const prevAssets = this.equityCurve[this.equityCurve.length - 2];
+          const minuteReturn = (totalAssets - prevAssets) / prevAssets;
+          this.minuteReturns.push(minuteReturn);
+        }
+      }
+
+      // 进度日志
+      if (dayIdx % 5 === 0 || dayIdx === this.dates.length - 1) {
+        const progress = ((dayIdx + 1) / this.dates.length * 100).toFixed(1);
+        console.log(`[网格回测] 进度: ${progress}% (${dayIdx + 1}/${this.dates.length})`);
+      }
+    }
+
+    // 生成回测结果
+    return this.generateGridResults(params);
+  }
+
+  /**
+   * 获取股票的首个价格
+   * @param {string} tsCode - 股票代码
+   * @param {string} date - 日期
+   * @returns {Promise<number>} 价格
+   */
+  async getFirstPrice(tsCode, date) {
+    try {
+      const dateDb = date.replace(/-/g, '');
+      const query = `
+        SELECT close FROM stock_minute
+        WHERE ts_code = ? AND trade_date >= ?
+        ORDER BY trade_date ASC, trade_time ASC
+        LIMIT 1
+      `;
+
+      const row = await this.db.getPromise(query, [tsCode, dateDb]);
+      return row ? parseFloat(row.close) : null;
+    } catch (error) {
+      console.error(`[网格回测] 获取首个价格失败:`, error.message);
+      return null;
+    }
+  }
+
+  /**
+   * 加载分钟线数据
+   * @param {string} tsCode - 股票代码
+   * @param {string} startDate - 开始日期
+   * @param {string} endDate - 结束日期
+   * @param {string} interval - 分钟周期
+   * @returns {Promise<Map>} 按日期分组的分钟线数据
+   */
+  async loadMinuteData(tsCode, startDate, endDate, interval = '5') {
+    const startDateDb = startDate.replace(/-/g, '');
+    const endDateDb = endDate.replace(/-/g, '');
+
+    const query = `
+      SELECT
+        trade_date,
+        trade_time,
+        open,
+        high,
+        low,
+        close,
+        vol,
+        amount
+      FROM stock_minute
+      WHERE ts_code = ? AND trade_date BETWEEN ? AND ?
+      ORDER BY trade_date ASC, trade_time ASC
+    `;
+
+    try {
+      const rows = await this.db.allPromise(query, [tsCode, startDateDb, endDateDb]);
+      const dataByDate = new Map();
+
+      for (const row of rows) {
+        const dateStr = String(row.trade_date);
+        const date = dateStr.length === 8
+          ? `${dateStr.substr(0, 4)}-${dateStr.substr(4, 2)}-${dateStr.substr(6, 2)}`
+          : dateStr;
+
+        if (!dataByDate.has(date)) {
+          dataByDate.set(date, []);
+        }
+        dataByDate.get(date).push({
+          trade_time: row.trade_time,
+          open: parseFloat(row.open) || 0,
+          high: parseFloat(row.high) || 0,
+          low: parseFloat(row.low) || 0,
+          close: parseFloat(row.close) || 0,
+          vol: parseFloat(row.vol) || 0,
+          amount: parseFloat(row.amount) || 0
+        });
+      }
+
+      // 根据周期聚合数据
+      const intervalNum = MINUTE_INTERVALS[interval] || 5;
+      if (intervalNum > 1) {
+        for (const [date, bars] of dataByDate) {
+          dataByDate.set(date, this.aggregateBars(bars, intervalNum));
+        }
+      }
+
+      return dataByDate;
+    } catch (error) {
+      console.error(`[网格回测] 加载分钟线数据失败:`, error.message);
+      return new Map();
+    }
+  }
+
+  /**
+   * 聚合K线数据
+   * @param {Array} bars - K线数组
+   * @param {number} interval - 聚合周期
+   * @returns {Array} 聚合后的K线
+   */
+  aggregateBars(bars, interval) {
+    if (!bars || bars.length === 0 || interval <= 1) {
+      return bars;
+    }
+
+    const aggregated = [];
+    const groups = new Map();
+
+    for (const bar of bars) {
+      const time = bar.trade_time;
+      const [hours, minutes] = time.split(':').map(Number);
+      const totalMinutes = hours * 60 + minutes;
+      const groupIndex = Math.floor(totalMinutes / interval);
+      const groupStartMinutes = groupIndex * interval;
+      const groupHours = Math.floor(groupStartMinutes / 60);
+      const groupMinutes = groupStartMinutes % 60;
+      const groupKey = `${String(groupHours).padStart(2, '0')}:${String(groupMinutes).padStart(2, '0')}:00`;
+
+      if (!groups.has(groupKey)) {
+        groups.set(groupKey, []);
+      }
+      groups.get(groupKey).push(bar);
+    }
+
+    for (const [time, groupBars] of groups) {
+      if (groupBars.length === 0) continue;
+
+      aggregated.push({
+        trade_time: time,
+        open: groupBars[0].open,
+        high: Math.max(...groupBars.map(b => b.high)),
+        low: Math.min(...groupBars.map(b => b.low)),
+        close: groupBars[groupBars.length - 1].close,
+        vol: groupBars.reduce((sum, b) => sum + b.vol, 0),
+        amount: groupBars.reduce((sum, b) => sum + b.amount, 0)
+      });
+    }
+
+    return aggregated.sort((a, b) => a.trade_time.localeCompare(b.trade_time));
+  }
+
+  /**
+   * 计算单只股票的总资产
+   * @param {string} tsCode - 股票代码
+   * @param {number} currentPrice - 当前价格
+   * @returns {number} 总资产
+   */
+  calculateTotalAssetsForStock(tsCode, currentPrice) {
+    const position = this.positions.get(tsCode);
+    const positionValue = position ? position.shares * currentPrice : 0;
+    return this.cash + positionValue;
+  }
+
+  /**
+   * 生成网格交易回测结果
+   * @param {Object} params - 回测参数
+   * @returns {Object} 回测结果
+   */
+  generateGridResults(params) {
+    const initialCapital = this.config.initialCapital;
+    const finalCapital = this.equityCurve[this.equityCurve.length - 1] || initialCapital;
+
+    // 使用分钟线特有指标计算
+    const minuteMetrics = performance.calculateMinuteMetrics(this.trades);
+    const gridStats = performance.calculateGridStatistics(this.trades, this.config.gridConfig);
+
+    // 计算绩效报告
+    const performanceReport = performance.calculateMinutePerformanceReport({
+      equityCurve: this.equityCurve,
+      dailyReturns: this.minuteReturns,
+      trades: this.trades,
+      initialCapital,
+      finalCapital,
+      tradingDays: this.dates.length
+    });
+
+    return {
+      success: true,
+      params,
+      summary: {
+        initialCapital,
+        finalCapital,
+        totalReturn: performanceReport.totalReturn,
+        annualizedReturn: performanceReport.annualizedReturn,
+        maxDrawdown: performanceReport.maxDrawdown,
+        sharpeRatio: performanceReport.sharpeRatio,
+        winRate: performanceReport.winRate,
+        totalTrades: this.trades.filter(t => t.action === 'SELL').length,
+        tradingDays: this.dates.length,
+        // 分钟线特有指标
+        ...minuteMetrics,
+        // 网格交易统计
+        gridStats
+      },
+      details: {
+        equityCurve: this.equityCurve,
+        trades: this.trades,
+        dates: this.dates
+      },
+      performance: performanceReport
+    };
+  }
+
+  /**
+   * 批量测试不同网格步长
+   * TASK_V3_203
+   * @param {Object} baseParams - 基础参数
+   * @param {Array} stepPercents - 步长数组 [0.8, 1.0, 1.2, 1.5]
+   * @returns {Promise<Array>} 批量回测结果
+   */
+  async runGridOptimization(baseParams, stepPercents = [0.8, 1.0, 1.2, 1.5]) {
+    const results = [];
+
+    console.log(`[网格优化] 开始优化，共 ${stepPercents.length} 组参数`);
+
+    for (const stepPercent of stepPercents) {
+      try {
+        const params = { ...baseParams, stepPercent };
+        const result = await this.runGridBacktest(params);
+
+        results.push({
+          stepPercent,
+          summary: result.summary,
+          success: true
+        });
+
+        console.log(`[网格优化] 步长 ${stepPercent}%: 总收益 ${(result.summary.totalReturn * 100).toFixed(2)}%`);
+      } catch (error) {
+        results.push({
+          stepPercent,
+          error: error.message,
+          success: false
+        });
+      }
+    }
+
+    // 按收益率排序
+    results.sort((a, b) => {
+      if (!a.success) return 1;
+      if (!b.success) return -1;
+      return (b.summary?.totalReturn || 0) - (a.summary?.totalReturn || 0);
+    });
+
+    return results;
   }
   
   /**
@@ -695,12 +1164,15 @@ class MinuteBacktest {
     this.minuteTimestamps = [];
     this.currentTimestamp = null;
     this.dailyTradesCount.clear();
-    
+
     // 重置技术指标缓存
     this.indicators.rsi.clear();
     this.indicators.macd.clear();
     this.indicators.ma.clear();
     this.indicators.volume.clear();
+
+    // 重置网格交易状态（TASK_V3_203）
+    this.gridStates.clear();
   }
   
   /**
@@ -867,6 +1339,10 @@ class MinuteBacktest {
 
 module.exports = MinuteBacktest;
 
+// 导出常量（TASK_V3_203）
+module.exports.MINUTE_INTERVALS = MINUTE_INTERVALS;
+module.exports.DEFAULT_GRID_CONFIG = DEFAULT_GRID_CONFIG;
+
 /**
  * 分钟线回测快捷函数
  * @param {Object} config - 回测配置
@@ -884,3 +1360,22 @@ async function runMinuteBacktest(config) {
 }
 
 module.exports.runMinuteBacktest = runMinuteBacktest;
+
+/**
+ * 网格交易回测快捷函数（TASK_V3_203）
+ * @param {Object} config - 回测配置
+ * @returns {Promise<Object>} 回测结果
+ */
+async function runGridBacktest(config) {
+  const engine = new MinuteBacktest(config);
+  return engine.runGridBacktest({
+    startDate: config.startDate,
+    endDate: config.endDate,
+    tsCode: config.tsCode,
+    basePrice: config.basePrice,
+    stepPercent: config.stepPercent,
+    interval: config.interval || '5'
+  });
+}
+
+module.exports.runGridBacktest = runGridBacktest;

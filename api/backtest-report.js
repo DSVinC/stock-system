@@ -461,6 +461,235 @@ function calculatePerformanceReport(backtestData) {
   };
 }
 
+// ==================== 分钟线特有指标计算 ====================
+
+/**
+ * 计算分钟线回测特有指标
+ * TASK_V3_203 - 分钟线回测引擎适配
+ *
+ * @param {Array} trades - 交易记录（需包含 entryDate, entryTime, exitDate, exitTime）
+ * @param {Object} options - 计算选项
+ * @returns {Object} 分钟线特有指标
+ */
+function calculateMinuteMetrics(trades, options = {}) {
+  if (!trades || trades.length === 0) {
+    return {
+      intradayTradeCount: 0,
+      avgHoldingMinutes: 0,
+      maxHoldingMinutes: 0,
+      minHoldingMinutes: 0,
+      tradesPerDay: 0,
+      intradayWinRate: 0,
+      avgIntradayReturn: 0,
+      holdingDistribution: {}
+    };
+  }
+
+  // 只统计已平仓的交易（有 exitDate 的卖出交易）
+  const closedTrades = trades.filter(t => t.action === 'SELL' && t.exitDate);
+
+  if (closedTrades.length === 0) {
+    return {
+      intradayTradeCount: 0,
+      avgHoldingMinutes: 0,
+      maxHoldingMinutes: 0,
+      minHoldingMinutes: 0,
+      tradesPerDay: 0,
+      intradayWinRate: 0,
+      avgIntradayReturn: 0,
+      holdingDistribution: {}
+    };
+  }
+
+  // 计算持仓时长（分钟）
+  const holdingMinutes = closedTrades.map(t => {
+    if (t.holdingPeriod !== undefined) {
+      return t.holdingPeriod;
+    }
+    return calculateHoldingMinutes(t.entryDate, t.entryTime, t.exitDate, t.exitTime);
+  }).filter(m => m > 0);
+
+  // 日内交易：持仓时长小于 240 分钟（4小时，即一个交易日）
+  const intradayTrades = closedTrades.filter((t, idx) => {
+    const minutes = holdingMinutes[idx] || 0;
+    return minutes > 0 && minutes < 240;
+  });
+
+  // 按日期统计交易次数
+  const tradesByDate = new Map();
+  closedTrades.forEach(t => {
+    const date = t.exitDate || t.date;
+    tradesByDate.set(date, (tradesByDate.get(date) || 0) + 1);
+  });
+
+  // 计算每日平均交易次数
+  const totalDays = tradesByDate.size;
+  const tradesPerDay = totalDays > 0 ? closedTrades.length / totalDays : 0;
+
+  // 日内交易胜率
+  const intradayWinCount = intradayTrades.filter(t => (t.return || 0) > 0).length;
+  const intradayWinRate = intradayTrades.length > 0 ? intradayWinCount / intradayTrades.length : 0;
+
+  // 日内交易平均收益率
+  const intradayReturns = intradayTrades.map(t => t.return || 0);
+  const avgIntradayReturn = intradayReturns.length > 0
+    ? intradayReturns.reduce((sum, r) => sum + r, 0) / intradayReturns.length
+    : 0;
+
+  // 持仓时长分布
+  const holdingDistribution = {
+    'under_30min': holdingMinutes.filter(m => m < 30).length,
+    '30_60min': holdingMinutes.filter(m => m >= 30 && m < 60).length,
+    '60_120min': holdingMinutes.filter(m => m >= 60 && m < 120).length,
+    '120_240min': holdingMinutes.filter(m => m >= 120 && m < 240).length,
+    'over_240min': holdingMinutes.filter(m => m >= 240).length
+  };
+
+  return {
+    intradayTradeCount: intradayTrades.length,
+    avgHoldingMinutes: holdingMinutes.length > 0
+      ? Math.round(holdingMinutes.reduce((sum, m) => sum + m, 0) / holdingMinutes.length)
+      : 0,
+    maxHoldingMinutes: holdingMinutes.length > 0 ? Math.max(...holdingMinutes) : 0,
+    minHoldingMinutes: holdingMinutes.length > 0 ? Math.min(...holdingMinutes) : 0,
+    tradesPerDay: Math.round(tradesPerDay * 100) / 100,
+    intradayWinRate,
+    avgIntradayReturn,
+    holdingDistribution
+  };
+}
+
+/**
+ * 计算持仓时长（分钟）
+ * @param {string} entryDate - 入场日期 YYYY-MM-DD
+ * @param {string} entryTime - 入场时间 HH:MM:SS
+ * @param {string} exitDate - 出场日期 YYYY-MM-DD
+ * @param {string} exitTime - 出场时间 HH:MM:SS
+ * @returns {number} 持仓分钟数
+ */
+function calculateHoldingMinutes(entryDate, entryTime, exitDate, exitTime) {
+  if (!entryDate || !exitDate) return 0;
+
+  try {
+    // 处理日期格式
+    const entryDateStr = entryDate.includes('-') ? entryDate : formatDate(entryDate);
+    const exitDateStr = exitDate.includes('-') ? exitDate : formatDate(exitDate);
+
+    // 默认时间
+    const entryTimeStr = entryTime || '09:30:00';
+    const exitTimeStr = exitTime || '15:00:00';
+
+    const entry = new Date(`${entryDateStr}T${entryTimeStr}`);
+    const exit = new Date(`${exitDateStr}T${exitTimeStr}`);
+
+    // 计算分钟差
+    const diffMs = exit - entry;
+    return Math.max(0, Math.round(diffMs / (1000 * 60)));
+  } catch (error) {
+    return 0;
+  }
+}
+
+/**
+ * 格式化日期字符串
+ * @param {string} dateStr - YYYYMMDD 格式
+ * @returns {string} YYYY-MM-DD 格式
+ */
+function formatDate(dateStr) {
+  const str = String(dateStr);
+  if (str.length === 8) {
+    return `${str.substr(0, 4)}-${str.substr(4, 2)}-${str.substr(6, 2)}`;
+  }
+  return dateStr;
+}
+
+/**
+ * 生成分钟线回测完整报告
+ * @param {Object} backtestData - 回测数据
+ * @returns {Object} 完整的分钟线回测报告
+ */
+function calculateMinutePerformanceReport(backtestData) {
+  // 先计算基础绩效报告
+  const baseReport = calculatePerformanceReport(backtestData);
+
+  // 计算分钟线特有指标
+  const minuteMetrics = calculateMinuteMetrics(backtestData.trades);
+
+  return {
+    ...baseReport,
+    minuteMetrics
+  };
+}
+
+/**
+ * 计算网格交易统计
+ * TASK_V3_203 - 网格交易策略回测支持
+ *
+ * @param {Array} trades - 交易记录
+ * @param {Object} gridConfig - 网格配置 { stepPercent }
+ * @returns {Object} 网格交易统计
+ */
+function calculateGridStatistics(trades, gridConfig = {}) {
+  if (!trades || trades.length === 0) {
+    return {
+      totalGridTrades: 0,
+      avgGridProfit: 0,
+      gridWinRate: 0,
+      avgGridHoldingMinutes: 0,
+      profitByStep: {}
+    };
+  }
+
+  // 筛选网格交易（根据 reason 或其他标识）
+  const gridTrades = trades.filter(t =>
+    t.reason === 'grid_buy' ||
+    t.reason === 'grid_sell' ||
+    t.reason === 'grid_strategy'
+  );
+
+  if (gridTrades.length === 0) {
+    return {
+      totalGridTrades: 0,
+      avgGridProfit: 0,
+      gridWinRate: 0,
+      avgGridHoldingMinutes: 0,
+      profitByStep: {}
+    };
+  }
+
+  // 计算网格交易统计
+  const gridReturns = gridTrades.map(t => t.return || 0);
+  const avgGridProfit = gridReturns.reduce((sum, r) => sum + r, 0) / gridReturns.length;
+  const gridWinCount = gridReturns.filter(r => r > 0).length;
+  const gridWinRate = gridWinCount / gridReturns.length;
+
+  // 平均持仓时间
+  const holdingMinutes = gridTrades
+    .filter(t => t.holdingPeriod !== undefined)
+    .map(t => t.holdingPeriod);
+  const avgGridHoldingMinutes = holdingMinutes.length > 0
+    ? holdingMinutes.reduce((sum, m) => sum + m, 0) / holdingMinutes.length
+    : 0;
+
+  // 按步长统计收益（如果有）
+  const stepPercent = gridConfig.stepPercent || 1.0;
+  const profitByStep = {
+    [`${stepPercent}%`]: {
+      tradeCount: gridTrades.length,
+      avgReturn: avgGridProfit,
+      winRate: gridWinRate
+    }
+  };
+
+  return {
+    totalGridTrades: gridTrades.length,
+    avgGridProfit,
+    gridWinRate,
+    avgGridHoldingMinutes: Math.round(avgGridHoldingMinutes),
+    profitByStep
+  };
+}
+
 module.exports = {
   // 类
   PerformanceMetrics,
@@ -475,5 +704,11 @@ module.exports = {
   calculateCalmarRatio,
   calculateSortinoRatio,
   calculateTradeStatistics,
-  calculatePerformanceReport
+  calculatePerformanceReport,
+
+  // 分钟线特有指标（TASK_V3_203）
+  calculateMinuteMetrics,
+  calculateHoldingMinutes,
+  calculateMinutePerformanceReport,
+  calculateGridStatistics
 };

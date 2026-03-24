@@ -101,6 +101,7 @@
 | 2026-03-24 00:12 | V3 版开发计划制定完成 | ✅ |
 | **2026-03-24 12:50** | **V3 阶段 0：选股自动化完成** | **✅** |
 | **2026-03-24 14:30** | **V3 阶段 1：回测核心框架完成** | **✅** |
+| **2026-03-24 16:10** | **V3 阶段 2：网格交易回测完成** | **✅** |
 
 ---
 
@@ -155,17 +156,25 @@
 
 | 任务 ID | 任务名称 | 优先级 | 状态 | 负责人 | 进度 | 预计 |
 |---------|----------|--------|------|--------|------|--------|
-| **TASK_V3_201** | BaoStock 分钟线获取脚本 | P1 | ⚪ pending | 待分配 | 0% | 1 天 |
-| **TASK_V3_202** | stock_minute 表设计 | P1 | ⚪ pending | 待分配 | 0% | 0.5 天 |
-| **TASK_V3_203** | 分钟线回测引擎适配 | P1 | ⚪ pending | 待分配 | 0% | 2-3 天 |
-| **TASK_V3_204** | 网格参数优化模块 | P1 | ⚪ pending | 待分配 | 0% | 2 天 |
+| **TASK_V3_201** | BaoStock 分钟线获取脚本 | P1 | 🟢 done | Claude Code | 100% | 1 天 |
+| **TASK_V3_202** | stock_minute 表设计 | P1 | 🟢 done | Claude Code | 100% | 0.5 天 |
+| **TASK_V3_203** | 分钟线回测引擎适配 | P1 | 🟢 done | Claude Code | 100% | 2-3 天 |
+| **TASK_V3_204** | 网格参数优化模块 | P1 | 🟢 done | Claude Code | 100% | 2 天 |
 
 **阶段 2 交付物**：
-- ✅ 分钟线数据获取流程
-- ✅ 网格回测框架（步长 0.8-1.5%）
-- ✅ 网格参数优化
+- ✅ `scripts/fetch_minute_data.mjs` - BaoStock 分钟线获取脚本
+- ✅ `db/migrations/008_create_stock_minute_table.sql` - 分钟线表（联合主键）
+- ✅ `api/backtest-minute.js` - 分钟线回测引擎
+- ✅ `api/grid-optimizer.js` - 网格参数优化器（Worker 多线程并行）
+- ✅ `test/grid-optimizer.test.js` - 网格优化测试
 
-**阶段 2 工期**：5.5-6.5 天
+**阶段 2 工期**：实际 1 天完成（原计划 5.5-6.5 天）
+
+**验收报告**：
+- `docs/acceptance/TASK_V3_201_ACCEPTANCE.md`
+- `docs/acceptance/TASK_V3_202_ACCEPTANCE.md`
+- `docs/acceptance/TASK_V3_203_ACCEPTANCE.md`
+- `docs/acceptance/TASK_V3_204_ACCEPTANCE.md`
 
 ---
 

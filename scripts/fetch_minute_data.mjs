@@ -32,15 +32,21 @@ dotenv.config({ path: path.join(__dirname, '..', '.env') });
 const CONFIG = {
     // 数据范围
     DATA_RANGE_DAYS: 250,
-    FREQUENCY: '5',        // 5分钟线
+    FREQUENCY: '5',        // 默认5分钟线，支持: 1, 5, 15, 30, 60
     ADJUST_FLAG: '3',      // 不复权
+
+    // 支持的分钟线频率
+    SUPPORTED_FREQUENCIES: ['1', '5', '15', '30', '60'],
 
     // 限流配置
     RATE_LIMIT_DELAY_MS: 2000,
 
     // 重试配置
-    MAX_RETRIES: 3,
+    MAX_RETRIES: 3,        // 失败后重试 3 次
     RETRY_DELAY_MS: 3000,
+
+    // 进度显示配置
+    PROGRESS_INTERVAL: 100, // 每 100 只股票打印一次进度
 
     // 日志配置
     LOG_LEVEL: process.env.LOG_LEVEL || 'info',
@@ -556,9 +562,19 @@ if __name__ == '__main__':
 
     /**
      * 调用 Python 脚本获取分钟线数据
+     * @param {string} tsCode - 股票代码
+     * @param {string} startDate - 开始日期
+     * @param {string} endDate - 结束日期
+     * @param {string} frequency - 分钟线频率（1/5/15/30/60）
      */
-    async getMinuteData(tsCode, startDate, endDate) {
+    async getMinuteData(tsCode, startDate, endDate, frequency = '5') {
         return new Promise((resolve, reject) => {
+            // 验证频率参数
+            if (!CONFIG.SUPPORTED_FREQUENCIES.includes(frequency)) {
+                reject(new Error(`不支持的频率: ${frequency}，支持的频率: ${CONFIG.SUPPORTED_FREQUENCIES.join(', ')}`));
+                return;
+            }
+
             // 转换股票代码格式 (000001.SZ -> sz.000001)
             let bsCode = tsCode.toLowerCase();
             if (bsCode.endsWith('.sz')) {
@@ -573,10 +589,11 @@ if __name__ == '__main__':
                 action: 'fetch',
                 ts_code: bsCode,
                 start_date: startDate,
-                end_date: endDate
+                end_date: endDate,
+                frequency: frequency
             });
 
-            Logger.debug('调用 Python 脚本', { tsCode, bsCode, startDate, endDate });
+            Logger.debug('调用 Python 脚本', { tsCode, bsCode, startDate, endDate, frequency });
 
             const python = spawn(CONFIG.PYTHON_PATH, [this.pythonScript], {
                 stdio: ['pipe', 'pipe', 'pipe']
@@ -737,110 +754,150 @@ class MinuteDataFetcher {
             startDate = this.getDefaultStartDate(),
             endDate = this.getDefaultEndDate(),
             forceRefresh = false,
-            taskId = this.generateTaskId()
+            taskId = this.generateTaskId(),
+            frequency = CONFIG.FREQUENCY,
+            maxRetries = CONFIG.MAX_RETRIES
         } = options;
 
         Logger.info('开始获取分钟线数据', {
-            tsCode, startDate, endDate, taskId, forceRefresh
+            tsCode, startDate, endDate, taskId, forceRefresh, frequency
         });
 
-        try {
-            // 创建任务
-            await this.dbManager.createTask(taskId, tsCode, startDate, endDate);
+        // 带重试的获取逻辑
+        let lastError = null;
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                // 创建任务（仅第一次尝试）
+                if (attempt === 1) {
+                    await this.dbManager.createTask(taskId, tsCode, startDate, endDate);
+                }
 
-            // 检查是否已有数据
-            if (!forceRefresh) {
-                const existing = await this.checkExistingData(tsCode, startDate, endDate);
-                if (existing.coverage > 80) {
-                    Logger.info('数据已存在，跳过获取', { tsCode, coverage: `${existing.coverage.toFixed(2)}%` });
+                // 检查是否已有数据（仅第一次尝试）
+                if (attempt === 1 && !forceRefresh) {
+                    const existing = await this.checkExistingData(tsCode, startDate, endDate);
+                    if (existing.coverage > 80) {
+                        Logger.info('数据已存在，跳过获取', { tsCode, coverage: `${existing.coverage.toFixed(2)}%` });
 
-                    await this.dbManager.updateTaskStatus(taskId, tsCode, {
-                        status: 'success',
-                        processed_days: existing.totalDates,
-                        total_records: existing.totalRecords,
-                        completed_at: new Date().toISOString()
-                    });
+                        await this.dbManager.updateTaskStatus(taskId, tsCode, {
+                            status: 'success',
+                            processed_days: existing.totalDates,
+                            total_records: existing.totalRecords,
+                            completed_at: new Date().toISOString()
+                        });
 
-                    return {
-                        success: true,
-                        taskId,
-                        message: '数据已存在',
-                        coverage: existing.coverage,
-                        stats: existing
-                    };
+                        return {
+                            success: true,
+                            taskId,
+                            message: '数据已存在',
+                            coverage: existing.coverage,
+                            stats: existing
+                        };
+                    }
+                }
+
+                // 更新任务状态为运行中
+                await this.dbManager.updateTaskStatus(taskId, tsCode, {
+                    status: 'running',
+                    started_at: new Date().toISOString()
+                });
+
+                // 获取数据
+                Logger.info(`正在从 BaoStock 获取分钟线数据 (尝试 ${attempt}/${maxRetries})...`, { tsCode, dateRange: `${startDate} ~ ${endDate}`, frequency });
+
+                const minuteData = await this.baostock.getMinuteData(tsCode, startDate, endDate, frequency);
+
+                // 保存数据
+                const saveResult = await this.dbManager.saveMinuteData(tsCode, minuteData);
+
+                // 检查数据完整性
+                const integrity = await this.dbManager.checkDataIntegrity(tsCode, startDate, endDate);
+
+                // 更新任务状态
+                await this.dbManager.updateTaskStatus(taskId, tsCode, {
+                    status: 'success',
+                    processed_days: integrity.stats.length,
+                    processed_records: saveResult.saved,
+                    total_records: saveResult.saved + saveResult.skipped,
+                    completed_at: new Date().toISOString()
+                });
+
+                const result = {
+                    success: true,
+                    taskId,
+                    message: '分钟线数据获取完成',
+                    data: {
+                        saved: saveResult.saved,
+                        skipped: saveResult.skipped,
+                        integrity: integrity.summary
+                    },
+                    attempts: attempt
+                };
+
+                Logger.info('分钟线数据获取完成', result);
+                return result;
+
+            } catch (error) {
+                lastError = error;
+                Logger.warn(`获取分钟线数据失败 (尝试 ${attempt}/${maxRetries})`, { tsCode, taskId, error: error.message });
+
+                if (attempt < maxRetries) {
+                    Logger.info(`等待 ${CONFIG.RETRY_DELAY_MS / 1000} 秒后重试...`);
+                    await this.delay(CONFIG.RETRY_DELAY_MS);
                 }
             }
-
-            // 更新任务状态为运行中
-            await this.dbManager.updateTaskStatus(taskId, tsCode, {
-                status: 'running',
-                started_at: new Date().toISOString()
-            });
-
-            // 获取数据
-            Logger.info('正在从 BaoStock 获取分钟线数据...', { tsCode, dateRange: `${startDate} ~ ${endDate}` });
-
-            const minuteData = await this.baostock.getMinuteData(tsCode, startDate, endDate);
-
-            // 保存数据
-            const saveResult = await this.dbManager.saveMinuteData(tsCode, minuteData);
-
-            // 检查数据完整性
-            const integrity = await this.dbManager.checkDataIntegrity(tsCode, startDate, endDate);
-
-            // 更新任务状态
-            await this.dbManager.updateTaskStatus(taskId, tsCode, {
-                status: 'success',
-                processed_days: integrity.stats.length,
-                processed_records: saveResult.saved,
-                total_records: saveResult.saved + saveResult.skipped,
-                completed_at: new Date().toISOString()
-            });
-
-            const result = {
-                success: true,
-                taskId,
-                message: '分钟线数据获取完成',
-                data: {
-                    saved: saveResult.saved,
-                    skipped: saveResult.skipped,
-                    integrity: integrity.summary
-                }
-            };
-
-            Logger.info('分钟线数据获取完成', result);
-            return result;
-
-        } catch (error) {
-            Logger.error('获取分钟线数据失败', { tsCode, taskId, error: error.message });
-
-            await this.dbManager.updateTaskStatus(taskId, tsCode, {
-                status: 'failed',
-                error_count: 1,
-                last_error: error.message,
-                completed_at: new Date().toISOString()
-            });
-
-            throw error;
         }
+
+        // 所有重试都失败
+        Logger.error('获取分钟线数据失败（所有重试均失败）', { tsCode, taskId, error: lastError.message });
+
+        await this.dbManager.updateTaskStatus(taskId, tsCode, {
+            status: 'failed',
+            error_count: maxRetries,
+            last_error: lastError.message,
+            completed_at: new Date().toISOString()
+        });
+
+        throw lastError;
     }
 
     async fetchMinuteDataBatch(tsCodes, options = {}) {
         const results = [];
-        const { concurrency = 1 } = options; // BaoStock 限制并发
+        const { concurrency = 1, frequency = CONFIG.FREQUENCY } = options; // BaoStock 限制并发
 
         Logger.info('开始批量获取分钟线数据', {
             stockCount: tsCodes.length,
-            concurrency
+            concurrency,
+            frequency,
+            progressInterval: CONFIG.PROGRESS_INTERVAL
         });
+
+        const startTime = Date.now();
 
         for (let i = 0; i < tsCodes.length; i++) {
             const tsCode = tsCodes[i];
-            Logger.info(`正在处理 ${i + 1}/${tsCodes.length}`, { tsCode });
 
             try {
-                const result = await this.fetchMinuteData(tsCode, options);
+                const result = await this.fetchMinuteData(tsCode, { ...options, frequency });
                 results.push(result);
+
+                // 进度显示：每 100 只股票打印一次
+                if ((i + 1) % CONFIG.PROGRESS_INTERVAL === 0 || (i + 1) === tsCodes.length) {
+                    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+                    const successCount = results.filter(r => r.success).length;
+                    const failCount = results.filter(r => !r.success).length;
+                    const avgTime = ((Date.now() - startTime) / (i + 1)).toFixed(0);
+                    const estimatedRemaining = ((tsCodes.length - i - 1) * avgTime / 1000).toFixed(1);
+
+                    Logger.info(`📊 进度: ${i + 1}/${tsCodes.length} (${((i + 1) / tsCodes.length * 100).toFixed(1)}%)`, {
+                        processed: i + 1,
+                        total: tsCodes.length,
+                        success: successCount,
+                        failed: failCount,
+                        elapsed: `${elapsed}s`,
+                        avgTime: `${avgTime}ms/stock`,
+                        estimatedRemaining: `${estimatedRemaining}s`
+                    });
+                }
 
                 // 请求间延迟
                 if (i < tsCodes.length - 1) {
@@ -855,11 +912,14 @@ class MinuteDataFetcher {
             }
         }
 
+        const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
         const summary = {
             total: results.length,
             success: results.filter(r => r.success).length,
             failed: results.filter(r => !r.success).length,
-            successRate: ((results.filter(r => r.success).length / results.length) * 100).toFixed(2) + '%'
+            successRate: ((results.filter(r => r.success).length / results.length) * 100).toFixed(2) + '%',
+            totalTime: `${totalTime}s`,
+            avgTimePerStock: `${(totalTime / results.length).toFixed(2)}s`
         };
 
         Logger.info('批量获取完成', summary);
@@ -980,18 +1040,28 @@ async function main() {
                 const tsCode = args[1];
                 if (!tsCode) {
                     Logger.error('请提供股票代码');
-                    console.log('用法: node fetch_minute_data.mjs fetch <ts_code> [start_date] [end_date] [--force]');
+                    console.log('用法: node fetch_minute_data.mjs fetch <ts_code> [start_date] [end_date] [--frequency=5] [--force]');
                     process.exit(1);
                 }
 
                 const startDate = args[2] || fetcher.getDefaultStartDate();
                 const endDate = args[3] || fetcher.getDefaultEndDate();
                 const forceRefresh = args.includes('--force');
+                const frequencyArg = args.find(a => a.startsWith('--frequency='));
+                const frequency = frequencyArg ? frequencyArg.split('=')[1] : CONFIG.FREQUENCY;
+
+                // 验证频率参数
+                if (!CONFIG.SUPPORTED_FREQUENCIES.includes(frequency)) {
+                    Logger.error(`不支持的频率: ${frequency}`);
+                    console.log(`支持的频率: ${CONFIG.SUPPORTED_FREQUENCIES.join(', ')}`);
+                    process.exit(1);
+                }
 
                 const result = await fetcher.fetchMinuteData(tsCode, {
                     startDate,
                     endDate,
-                    forceRefresh
+                    forceRefresh,
+                    frequency
                 });
 
                 console.log(JSON.stringify(result, null, 2));
@@ -1001,12 +1071,22 @@ async function main() {
                 const stockList = args[1];
                 if (!stockList) {
                     Logger.error('请提供股票代码列表（逗号分隔）');
-                    console.log('用法: node fetch_minute_data.mjs batch <ts_code1,ts_code2,...>');
+                    console.log('用法: node fetch_minute_data.mjs batch <ts_code1,ts_code2,...> [--frequency=5] [--force]');
                     process.exit(1);
                 }
 
                 const tsCodes = stockList.split(',').map(code => code.trim());
-                const batchResult = await fetcher.fetchMinuteDataBatch(tsCodes);
+                const batchFrequencyArg = args.find(a => a.startsWith('--frequency='));
+                const batchFrequency = batchFrequencyArg ? batchFrequencyArg.split('=')[1] : CONFIG.FREQUENCY;
+
+                // 验证频率参数
+                if (!CONFIG.SUPPORTED_FREQUENCIES.includes(batchFrequency)) {
+                    Logger.error(`不支持的频率: ${batchFrequency}`);
+                    console.log(`支持的频率: ${CONFIG.SUPPORTED_FREQUENCIES.join(', ')}`);
+                    process.exit(1);
+                }
+
+                const batchResult = await fetcher.fetchMinuteDataBatch(tsCodes, { frequency: batchFrequency });
 
                 console.log(JSON.stringify(batchResult, null, 2));
                 break;
@@ -1055,10 +1135,10 @@ BaoStock 分钟线数据获取工具
   node fetch_minute_data.mjs <command> [options]
 
 命令:
-  fetch <ts_code> [start_date] [end_date] [--force]
+  fetch <ts_code> [start_date] [end_date] [--frequency=5] [--force]
     获取单个股票的分钟线数据
 
-  batch <ts_code1,ts_code2,...> [--force]
+  batch <ts_code1,ts_code2,...> [--frequency=5] [--force]
     批量获取多个股票的分钟线数据
 
   status <task_id> <ts_code>
@@ -1070,10 +1150,25 @@ BaoStock 分钟线数据获取工具
   help
     显示此帮助信息
 
+分钟线频率 (--frequency):
+  1  - 1分钟线
+  5  - 5分钟线 (默认)
+  15 - 15分钟线
+  30 - 30分钟线
+  60 - 60分钟线
+
+特性:
+  ✅ 支持 1/5/15/30/60 分钟 K 线
+  ✅ 支持全市场或指定股票代码列表
+  ✅ 支持日期范围查询
+  ✅ 自动去重
+  ✅ 进度显示（每 100 只股票打印一次）
+  ✅ 错误重试机制（失败后重试 3 次）
+
 示例:
   node fetch_minute_data.mjs fetch 000001.SZ
-  node fetch_minute_data.mjs fetch 000001.SZ 2025-01-01 2026-01-01 --force
-  node fetch_minute_data.mjs batch "000001.SZ,000002.SZ,000858.SZ"
+  node fetch_minute_data.mjs fetch 000001.SZ 2025-01-01 2026-01-01 --frequency=15 --force
+  node fetch_minute_data.mjs batch "000001.SZ,000002.SZ,000858.SZ" --frequency=5
   node fetch_minute_data.mjs status minute_1711245600000_abc123 000001.SZ
   node fetch_minute_data.mjs integrity 000001.SZ
 
