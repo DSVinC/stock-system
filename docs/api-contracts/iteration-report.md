@@ -1,6 +1,6 @@
 # API 契约：迭代任务报告导出接口 (iteration/report)
 
-**路径**: `GET /api/iteration/report/:taskId?format=markdown`  
+**路径**: `GET /api/iteration/report/:taskId?format=markdown[&download=1]`  
 **创建日期**: 2026-03-28  
 **最后更新**: 2026-03-28  
 **相关任务**: `TASK_FLOW_REFACTOR_035E`, `TASK_FLOW_REFACTOR_035F`  
@@ -21,6 +21,7 @@
 | 字段 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | format | string | 否 | `markdown` | 目前仅支持 `markdown` |
+| download | string | 否 | - | 传 `1` 时返回 markdown 附件流（非 JSON） |
 
 ---
 
@@ -48,6 +49,12 @@
 | fileName | string | 建议下载文件名 |
 | generatedAt | string | 生成时间（ISO） |
 | markdown | string | 报告正文（Markdown） |
+
+## 下载模式返回（200, `download=1`）
+
+- `Content-Type`: `text/markdown; charset=utf-8`
+- `Content-Disposition`: `attachment; filename="{taskId}_report.md"`
+- 响应体：markdown 文本（不再包裹 JSON）
 
 ---
 
@@ -110,6 +117,7 @@
 
 - 调用成功后按 `fileName` 下载 `.md`
 - 调用失败时写入日志面板并保留错误信息
+- 如需外部系统直接下载，可使用 `download=1` 模式
 
 ---
 

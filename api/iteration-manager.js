@@ -709,6 +709,7 @@ router.get('/status/:taskId', async (req, res) => {
 router.get('/report/:taskId', async (req, res) => {
   const { taskId } = req.params;
   const format = String(req.query.format || 'markdown').toLowerCase();
+  const download = String(req.query.download || '') === '1';
 
   if (format !== 'markdown') {
     return res.status(400).json({
@@ -740,6 +741,13 @@ router.get('/report/:taskId', async (req, res) => {
   }
 
   const markdown = generateIterationReportMarkdown(taskPayload);
+  if (download) {
+    const fileName = `${taskId}_report.md`;
+    res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    return res.send(markdown);
+  }
+
   return res.json({
     success: true,
     data: {
