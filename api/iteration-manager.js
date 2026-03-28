@@ -304,6 +304,13 @@ router.post('/start', async (req, res) => {
       console.error(`[迭代任务 ${taskId}] 执行失败:`, err);
       const t = activeTasks.get(taskId);
       if (t) {
+        if (t.status === 'stopped') {
+          t.resultSummary = buildTaskResultSummary(t);
+          persistIterationTaskRun(t).catch(persistError => {
+            console.error(`[迭代任务 ${taskId}] 停止态快照保存失败:`, persistError);
+          });
+          return;
+        }
         t.status = 'failed';
         t.error = err.message;
         t.resultSummary = buildTaskResultSummary(t);
@@ -343,7 +350,16 @@ router.post('/stop/:taskId', (req, res) => {
   }
 
   task.status = 'stopped';
+  task.stopReason = 'manual_stop';
   task.stoppedAt = new Date().toISOString();
+  const optunaProcess = task.optunaProcess;
+  if (optunaProcess && typeof optunaProcess.kill === 'function') {
+    try {
+      optunaProcess.kill('SIGTERM');
+    } catch (error) {
+      console.warn(`[迭代任务 ${taskId}] 终止 Optuna 子进程失败:`, error.message);
+    }
+  }
   task.resultSummary = buildTaskResultSummary(task);
   persistIterationTaskRun(task).catch(error => {
     console.error(`[迭代任务 ${taskId}] 停止快照保存失败:`, error);
@@ -858,49 +874,74 @@ async function runOptunaIterationTask(task) {
 
   console.log(`[迭代任务 ${taskId}] 启动 Optuna: python3 ${args.join(' ')}`);
 
-  const result = await new Promise((resolve, reject) => {
-    const child = spawn('python3', args, {
-      cwd: path.resolve(__dirname, '..'),
-      stdio: ['ignore', 'pipe', 'pipe']
-    });
-
-    let stdout = '';
-    let stderr = '';
-
-    if (child.stdout) {
-      child.stdout.on('data', chunk => {
-        stdout += chunk.toString();
+  let childRef = null;
+  let result;
+  try {
+    result = await new Promise((resolve, reject) => {
+      const child = spawn('python3', args, {
+        cwd: path.resolve(__dirname, '..'),
+        stdio: ['ignore', 'pipe', 'pipe']
       });
-    }
+      childRef = child;
+      task.optunaProcess = child;
 
-    if (child.stderr) {
-      child.stderr.on('data', chunk => {
-        stderr += chunk.toString();
+      let stdout = '';
+      let stderr = '';
+
+      if (child.stdout) {
+        child.stdout.on('data', chunk => {
+          stdout += chunk.toString();
+        });
+      }
+
+      if (child.stderr) {
+        child.stderr.on('data', chunk => {
+          stderr += chunk.toString();
+        });
+      }
+
+      child.on('error', (error) => {
+        if (task.status === 'stopped') {
+          resolve({ stopped: true });
+          return;
+        }
+        reject(error);
       });
-    }
+      child.on('close', code => {
+        if (task.status === 'stopped') {
+          resolve({ stopped: true });
+          return;
+        }
 
-    child.on('error', reject);
-    child.on('close', code => {
-      if (code !== 0) {
-        const detail = stderr.trim() || stdout.trim() || `exit code ${code}`;
-        reject(new Error(`Optuna 优化失败: ${detail}`));
-        return;
-      }
+        if (code !== 0) {
+          const detail = stderr.trim() || stdout.trim() || `exit code ${code}`;
+          reject(new Error(`Optuna 优化失败: ${detail}`));
+          return;
+        }
 
-      const raw = stdout.trim();
-      if (!raw) {
-        reject(new Error('Optuna 优化失败: stdout 为空'));
-        return;
-      }
+        const raw = stdout.trim();
+        if (!raw) {
+          reject(new Error('Optuna 优化失败: stdout 为空'));
+          return;
+        }
 
-      try {
-        const payload = JSON.parse(raw);
-        resolve(payload);
-      } catch (error) {
-        reject(new Error(`Optuna 输出不是有效 JSON: ${error.message}`));
-      }
+        try {
+          const payload = JSON.parse(raw);
+          resolve(payload);
+        } catch (error) {
+          reject(new Error(`Optuna 输出不是有效 JSON: ${error.message}`));
+        }
+      });
     });
-  });
+  } finally {
+    if (task.optunaProcess === childRef) {
+      task.optunaProcess = null;
+    }
+  }
+
+  if (result?.stopped) {
+    return;
+  }
 
   const bestScore = Number(result.best_score ?? result.bestScore ?? result.scoreTotal ?? 0);
   const bestParams = result.best_params ?? result.bestParams ?? null;

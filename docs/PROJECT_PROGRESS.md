@@ -57,6 +57,7 @@
 | **TASK_FLOW_REFACTOR_028B** | **V5_007 可见性收口：默认 heuristic 路径回显 optimizationBackend** | **P0** | **🟢 done** | **Codex / subagent** | **100%** |
 | **TASK_FLOW_REFACTOR_029A** | **V5_007 恢复态收口：恢复任务时同步 optimizationBackend 下拉框** | **P0** | **🟢 done** | **Codex / subagent** | **100%** |
 | **TASK_FLOW_REFACTOR_029B** | **V5_007 恢复态回归：浏览器 smoke 验证 backend 控件同步** | **P0** | **🟢 done** | **Codex / subagent** | **100%** |
+| **TASK_FLOW_REFACTOR_030A** | **V5_007 停止链路收口：optuna 手动停止终止子进程并保持 stopped** | **P0** | **🟢 done** | **Codex** | **100%** |
 | TASK_P0_001 | 黑天鹅检测模块 | P0 | 🟢 accepted | 灵爪 | 100% |
 | TASK_P0_002 | 舆情因子计算模块 | P0 | 🟢 accepted | 灵爪 | 100% |
 | TASK_P0_003 | 因子快照库模块 | P0 | 🟢 accepted | 灵爪 | 100% |
@@ -111,6 +112,7 @@
 所有 P0/P1 任务已完成并验收通过。
 
 **最新完成** (2026-03-28):
+- TASK_FLOW_REFACTOR_030A: 修复 `optuna` 手动停止链路，停止时会终止子进程，且状态保持 `stopped` 不再误转 `failed`
 - TASK_FLOW_REFACTOR_029B: 已新增恢复态浏览器 smoke，验证恢复最近任务后 `optimizationBackend` 下拉框与任务真实值一致
 - TASK_FLOW_REFACTOR_029A: 恢复最近任务时，`iteration-manager` 会同步 `optimizationBackend` 下拉框，避免摘要与控件口径漂移
 - TASK_FLOW_REFACTOR_028B: 后端默认路径也稳定回显 `optimizationBackend=heuristic`，恢复摘要不再出现“未导入优化后端”
@@ -602,6 +604,7 @@
 
 ## 📝 最近事件
 
+*2026-03-28 08:59* - TASK_FLOW_REFACTOR_030A 完成，optuna 手动停止会终止子进程，任务状态稳定保持 stopped
 *2026-03-28 08:30* - TASK_FLOW_REFACTOR_029B 完成，新增恢复态浏览器 smoke，已验证恢复任务时 optimizationBackend 控件同步
 *2026-03-27 18:31* - TASK_FLOW_REFACTOR_015E 完成，分析页导入条件单已支持本地 `stockV2Data` 回退，不再被 TUSHARE token 依赖卡死
 *2026-03-27 18:27* - TASK_FLOW_REFACTOR_015D 完成，条件单导入在股票详情缺失时已可回退，浏览器联调确认导入、创建、来源展示整段闭环可用
