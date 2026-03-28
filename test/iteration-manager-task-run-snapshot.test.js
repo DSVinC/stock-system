@@ -175,9 +175,10 @@ async function main() {
         fast_period: 5,
         slow_period: 20
       },
-      parallelTasks: 6
+      parallelTasks: 6,
+      optimizationBackend: 'heuristic'
     });
-    assert.equal(task.maxIterations, 0);
+    assert.equal(task.maxIterations, 10);
     assert.equal(typeof task.createdAt, 'string');
 
     console.log('✅ iteration manager task run snapshot test passed');

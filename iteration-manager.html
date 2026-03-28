@@ -1017,7 +1017,10 @@
         const finalStatus = summary.finalStatus || summary.status || taskStatus || '--';
         const bestScoreSummary = Number.isFinite(Number(summary.bestScore)) ? Number(summary.bestScore).toFixed(1) : '--';
         const completedAt = summary.completedAt || summary.completed_time || summary.stoppedAt || summary.stopped_time || summary.finishedAt || summary.finished_at || '';
-        const reason = formatResultReason(summary.errorReason || summary.stopReason || summary.reason || summary.message || '');
+        const reasonFormatter = typeof formatResultReason === 'function'
+          ? formatResultReason
+          : (value) => String(value || '').trim();
+        const reason = reasonFormatter(summary.errorReason || summary.stopReason || summary.reason || summary.message || '');
         const timeLabel = completedAt
           ? (finalStatus === 'completed' ? '完成时间' : '停止时间')
           : '';
