@@ -1032,6 +1032,9 @@
           ? formatResultReason
           : (value) => String(value || '').trim();
         const reason = reasonFormatter(summary.errorReason || summary.stopReason || summary.reason || summary.message || '');
+        const nextAction = summary.nextActionSuggestion && typeof summary.nextActionSuggestion === 'object'
+          ? summary.nextActionSuggestion
+          : null;
         const timeLabel = completedAt
           ? (finalStatus === 'completed' ? '完成时间' : '停止时间')
           : '';
@@ -1074,6 +1077,15 @@
             <div class="metric">
               <span class="metric-label">${reasonLabel}</span>
               <span class="metric-value">${reason}</span>
+            </div>` : ''}
+            ${nextAction ? `
+            <div class="metric">
+              <span class="metric-label">下一步建议</span>
+              <span class="metric-value">${nextAction.title || '--'}</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">建议原因</span>
+              <span class="metric-value">${nextAction.reason || '--'}</span>
             </div>` : ''}
           </div>
         </div>

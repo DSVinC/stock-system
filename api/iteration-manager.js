@@ -87,6 +87,74 @@ function parseOptionalFiniteNumber(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function deriveNextActionSuggestion(task) {
+  const status = String(task.status || '').toLowerCase();
+  const stopReason = String(task.stopReason || task.resultSummary?.stopReason || '').toLowerCase();
+  const scoreThreshold = parseOptionalFiniteNumber(task.scoreThreshold);
+  const bestScore = parseOptionalFiniteNumber(task.bestScore) ?? 0;
+  const history = Array.isArray(task.history) ? task.history : [];
+
+  if (status === 'failed') {
+    return {
+      action: 'inspect_error_and_retry',
+      title: '先排查报错并重试',
+      reason: '任务执行失败，需先定位错误日志并修复后再继续迭代。'
+    };
+  }
+
+  if (status === 'stopped' && stopReason === 'manual_stop') {
+    return {
+      action: 'resume_iteration',
+      title: '继续迭代任务',
+      reason: '任务被手动停止，可在确认参数后继续迭代。'
+    };
+  }
+
+  if (status === 'completed' && scoreThreshold !== null && bestScore >= scoreThreshold) {
+    return {
+      action: 'publish_to_strategy_library',
+      title: '发布到策略库',
+      reason: `最佳得分 ${bestScore.toFixed(1)} 已达到目标阈值 ${scoreThreshold.toFixed(1)}，建议发布并进入执行验证。`
+    };
+  }
+
+  const metricCarrier = history.find(item => item && item.metrics && typeof item.metrics === 'object');
+  const metrics = metricCarrier?.metrics || {};
+  const maxDrawdown = parseOptionalFiniteNumber(metrics.maxDrawdown);
+  const winRate = parseOptionalFiniteNumber(metrics.winRate);
+  const tradeCount = parseOptionalFiniteNumber(metrics.tradeCount ?? metrics.totalTrades);
+
+  if (maxDrawdown !== null && maxDrawdown <= -0.2) {
+    return {
+      action: 'tighten_risk_limits',
+      title: '收紧风险阈值后重跑',
+      reason: `最大回撤 ${Math.abs(maxDrawdown * 100).toFixed(1)}% 偏高，建议收紧止损或下调仓位上限。`
+    };
+  }
+
+  if (winRate !== null && winRate < 0.45) {
+    return {
+      action: 'switch_strategy_template',
+      title: '切换策略模板',
+      reason: `胜率 ${((winRate || 0) * 100).toFixed(1)}% 偏低，建议切换策略模板或因子组合。`
+    };
+  }
+
+  if (tradeCount !== null && tradeCount > 0 && tradeCount < 5) {
+    return {
+      action: 'loosen_entry_conditions',
+      title: '放宽入场条件',
+      reason: `有效交易仅 ${tradeCount} 笔，建议放宽入场阈值以提升样本量。`
+    };
+  }
+
+  return {
+    action: 'increase_trials',
+    title: '扩大迭代规模',
+    reason: '当前结果未达目标，建议增加迭代轮数或扩展样本区间。'
+  };
+}
+
 function buildTaskResponse(task) {
   if (!task) return null;
 
@@ -135,6 +203,7 @@ function buildTaskResultSummary(task) {
   const completedTrialsRaw = task.optunaTrialsCompleted ?? task.resultSummary?.completedTrials ?? task.resultSummary?.trialCount;
   const requestedTrials = parseOptionalFiniteNumber(requestedTrialsRaw);
   const completedTrials = parseOptionalFiniteNumber(completedTrialsRaw);
+  const nextActionSuggestion = deriveNextActionSuggestion(task);
 
   return {
     status: task.status || null,
@@ -147,6 +216,7 @@ function buildTaskResultSummary(task) {
     stoppedAt: task.stoppedAt || null,
     stopReason: task.stopReason || null,
     completedAt: task.completedAt || null,
+    nextActionSuggestion,
     ...(optimizationBackend === 'optuna'
       ? {
           requestedTrials,

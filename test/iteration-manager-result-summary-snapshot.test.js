@@ -188,6 +188,8 @@ async function main() {
     assert.equal(statusResponse.body.task.resultSummary.status, 'stopped');
     assert.equal(statusResponse.body.task.resultSummary.stoppedAt, stoppedAt);
     assert.equal(statusResponse.body.task.resultSummary.stopReason, 'manual_stop');
+    assert.ok(statusResponse.body.task.resultSummary.nextActionSuggestion, '应返回下一步建议');
+    assert.equal(statusResponse.body.task.resultSummary.nextActionSuggestion.action, 'resume_iteration');
 
     console.log('✅ iteration manager result summary snapshot test passed');
   } finally {
