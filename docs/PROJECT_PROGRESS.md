@@ -1,6 +1,6 @@
 # 股票系统 - 项目进度总览
 
-**最后更新**: 2026-03-28 11:46  
+**最后更新**: 2026-03-28 12:03  
 **项目经理**: Codex  
 **程序员**: subagent / Claude Code（按任务分配）  
 **验收员**: Codex / Gemini CLI（按任务分配）  
@@ -125,6 +125,7 @@
 所有 P0/P1 任务已完成并验收通过。
 
 **最新完成** (2026-03-28):
+- TASK_FLOW_REFACTOR_040A: V5 二次迭代决策树增强（偏差/夏普/收益结构/未达阈值完成态规则），默认总测升级为 50/50
 - TASK_FLOW_REFACTOR_039C: README 与 runtime 测试口径已统一，默认总测当前口径固定为 49/49
 - TASK_FLOW_REFACTOR_039B: `iteration-manager-default-backend.test.js` 已改为无端口模式，独立执行不再触发 listen EPERM
 - TASK_FLOW_REFACTOR_039A: iteration-manager 相关默认总测脚本已完成无端口改造，沙箱下默认总测恢复 49/49 全通过
@@ -634,6 +635,7 @@
 
 ## 📝 最近事件
 
+*2026-03-28 12:03* - TASK_FLOW_REFACTOR_040A 完成，迭代下一步建议规则新增 4 类决策分支并接入新回归，`tests/run-all-tests.js` 升级为 `50/50` 全通过
 *2026-03-28 11:46* - TASK_FLOW_REFACTOR_039C 完成，README 默认总测口径已更新为 49/49，并回写 038A runtime 的过期环境告警
 *2026-03-28 11:43* - TASK_FLOW_REFACTOR_039B 完成，`iteration-manager-default-backend.test.js` 已改为无端口模式，脚本可在当前沙箱直接通过
 *2026-03-28 11:40* - TASK_FLOW_REFACTOR_039A 完成，iteration-manager 6 条默认总测脚本改为无端口模式，`tests/run-all-tests.js` 恢复 `49/49` 全绿

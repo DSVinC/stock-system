@@ -87,13 +87,22 @@ function parseOptionalFiniteNumber(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function getLatestMetricsFromHistory(task) {
+  const history = Array.isArray(task?.history) ? task.history : [];
+  for (let i = history.length - 1; i >= 0; i -= 1) {
+    const entry = history[i];
+    if (entry && entry.metrics && typeof entry.metrics === 'object') {
+      return entry.metrics;
+    }
+  }
+  return {};
+}
+
 function deriveDeploymentReadiness(task) {
   const scoreThreshold = parseOptionalFiniteNumber(task.scoreThreshold) ?? 75;
   const bestScore = parseOptionalFiniteNumber(task.bestScore) ?? 0;
   const summary = task.resultSummary && typeof task.resultSummary === 'object' ? task.resultSummary : {};
-  const history = Array.isArray(task.history) ? task.history : [];
-  const metricCarrier = history.find(item => item && item.metrics && typeof item.metrics === 'object');
-  const metrics = metricCarrier?.metrics || {};
+  const metrics = getLatestMetricsFromHistory(task);
   const tradeCount = parseOptionalFiniteNumber(
     metrics.tradeCount ?? metrics.totalTrades ?? summary.tradeCount ?? summary.totalTrades
   );
@@ -176,7 +185,6 @@ function deriveNextActionSuggestion(task) {
   const stopReason = String(task.stopReason || task.resultSummary?.stopReason || '').toLowerCase();
   const scoreThreshold = parseOptionalFiniteNumber(task.scoreThreshold);
   const bestScore = parseOptionalFiniteNumber(task.bestScore) ?? 0;
-  const history = Array.isArray(task.history) ? task.history : [];
   const deploymentReadiness = deriveDeploymentReadiness(task);
 
   if (status === 'failed') {
@@ -211,11 +219,24 @@ function deriveNextActionSuggestion(task) {
     };
   }
 
-  const metricCarrier = history.find(item => item && item.metrics && typeof item.metrics === 'object');
-  const metrics = metricCarrier?.metrics || {};
+  const summary = task.resultSummary && typeof task.resultSummary === 'object' ? task.resultSummary : {};
+  const metrics = getLatestMetricsFromHistory(task);
   const maxDrawdown = parseOptionalFiniteNumber(metrics.maxDrawdown);
   const winRate = parseOptionalFiniteNumber(metrics.winRate);
   const tradeCount = parseOptionalFiniteNumber(metrics.tradeCount ?? metrics.totalTrades);
+  const sharpeRatio = parseOptionalFiniteNumber(metrics.sharpeRatio);
+  const totalReturn = parseOptionalFiniteNumber(metrics.returnRate ?? metrics.totalReturn);
+  const simulationDeviation = parseOptionalFiniteNumber(
+    metrics.simulationDeviation ?? summary.simulationDeviation ?? summary.simulation_deviation
+  );
+
+  if (status === 'completed' && scoreThreshold !== null && bestScore < scoreThreshold) {
+    return {
+      action: 'increase_trials',
+      title: '扩大迭代规模',
+      reason: `当前最佳得分 ${bestScore.toFixed(1)} 低于阈值 ${scoreThreshold.toFixed(1)}，建议增加迭代轮数并扩展参数搜索范围。`
+    };
+  }
 
   if (maxDrawdown !== null && maxDrawdown <= -0.2) {
     return {
@@ -225,11 +246,35 @@ function deriveNextActionSuggestion(task) {
     };
   }
 
+  if (simulationDeviation !== null && Math.abs(simulationDeviation) >= 0.2) {
+    return {
+      action: 'recalibrate_slippage_model',
+      title: '先校准模拟偏差',
+      reason: `模拟收益偏差 ${(simulationDeviation * 100).toFixed(1)}% 偏高，建议先校准滑点/成本假设再继续迭代。`
+    };
+  }
+
   if (winRate !== null && winRate < 0.45) {
     return {
       action: 'switch_strategy_template',
       title: '切换策略模板',
       reason: `胜率 ${((winRate || 0) * 100).toFixed(1)}% 偏低，建议切换策略模板或因子组合。`
+    };
+  }
+
+  if (sharpeRatio !== null && sharpeRatio < 1) {
+    return {
+      action: 'optimize_exit_ratio',
+      title: '优化止盈止损比',
+      reason: `夏普比率 ${sharpeRatio.toFixed(2)} 偏低，建议优先优化止盈止损比与退出逻辑。`
+    };
+  }
+
+  if (totalReturn !== null && totalReturn < 0.1 && winRate !== null && winRate >= 0.55) {
+    return {
+      action: 'increase_holding_period',
+      title: '延长持仓周期',
+      reason: `胜率 ${((winRate || 0) * 100).toFixed(1)}% 尚可但收益仅 ${(totalReturn * 100).toFixed(1)}%，建议延长持仓周期捕捉趋势。`
     };
   }
 
