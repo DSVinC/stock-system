@@ -70,6 +70,7 @@
 | **TASK_FLOW_REFACTOR_033C** | **V5_007 深化：中等规模 trial 回归与稳定性验证** | **P0** | **🟢 done** | **Codex** | **100%** |
 | **TASK_FLOW_REFACTOR_033D** | **V5 研究→策略库闭环增强：优化结果发布口径统一** | **P1** | **🟢 done** | **Codex** | **100%** |
 | **TASK_FLOW_REFACTOR_034A** | **文档真源回写：V3 阶段 3/4 pending 口径与 runtime 对齐** | **P1** | **🟢 done** | **Codex** | **100%** |
+| **TASK_FLOW_REFACTOR_034B** | **V5 规划对照回写：TASK_V5_000 规划项与落地证据映射** | **P1** | **🟢 done** | **Codex** | **100%** |
 | TASK_P0_001 | 黑天鹅检测模块 | P0 | 🟢 accepted | 灵爪 | 100% |
 | TASK_P0_002 | 舆情因子计算模块 | P0 | 🟢 accepted | 灵爪 | 100% |
 | TASK_P0_003 | 因子快照库模块 | P0 | 🟢 accepted | 灵爪 | 100% |
@@ -124,6 +125,7 @@
 所有 P0/P1 任务已完成并验收通过。
 
 **最新完成** (2026-03-28):
+- TASK_FLOW_REFACTOR_034B: 已新增 `TASK_V5_000` 规划项与落地证据对照文档，保留规划态 pending 同时补足执行态可追溯映射
 - TASK_FLOW_REFACTOR_034A: 已将 V3 阶段 3/4 的 pending 口径按 runtime 验收证据回写为 done，V3 总体进度更新为 21/21
 - TASK_FLOW_REFACTOR_033D: 已统一研究版本发布到策略库的反馈 summary 口径，补齐 `position_closed_count/total_realized_pnl` 等字段，并为历史快照缺字段场景补渲染回退，默认总测保持 43/43
 - TASK_FLOW_REFACTOR_033C: 已新增中等规模 Optuna trial 回归（40/55/80）并纳入默认总测，验证 resultSummary trial 字段稳定，默认总测提升到 43/43
@@ -628,6 +630,7 @@
 
 ## 📝 最近事件
 
+*2026-03-28 09:53* - TASK_FLOW_REFACTOR_034B 完成，已补 V5_000 规划对照回写文档，交接可直接定位规划项落地证据
 *2026-03-28 09:53* - V3 阶段 3/4 pending 口径已按 runtime 证据回写为 done，V3 总体进度已对齐为 21/21
 *2026-03-28 09:49* - TASK_FLOW_REFACTOR_033D 完成，研究版本发布 feedback summary 与执行流渲染口径统一，历史快照缺字段可回退展示
 *2026-03-28 09:44* - TASK_FLOW_REFACTOR_033C 完成，新增中等规模 trial 稳定性回归并接入默认总测，当前 43/43 全通过
