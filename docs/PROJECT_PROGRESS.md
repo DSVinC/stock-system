@@ -628,7 +628,7 @@
 
 *2026-03-28 09:49* - TASK_FLOW_REFACTOR_033D 完成，研究版本发布 feedback summary 与执行流渲染口径统一，历史快照缺字段可回退展示
 *2026-03-28 09:44* - TASK_FLOW_REFACTOR_033C 完成，新增中等规模 trial 稳定性回归并接入默认总测，当前 43/43 全通过
-*2026-03-28 09:37* - TASK_FLOW_REFACTOR_033B 完成，Optuna trial 维度结果已结构化沉淀并展示，默认总测保持 42/42
+*2026-03-28 09:37* - TASK_FLOW_REFACTOR_033B 完成，Optuna trial 维度结果已结构化沉淀并展示，默认总测保持 43/43
 *2026-03-28 09:33* - TASK_FLOW_REFACTOR_033A 完成，V5 深化未做项已拆解并登记到三保险
 *2026-03-28 09:19* - TASK_FLOW_REFACTOR_032A 完成，README 与运行时进度口径已统一
 *2026-03-28 09:16* - TASK_FLOW_REFACTOR_031D 完成，默认总测恢复 42/42 全通过
