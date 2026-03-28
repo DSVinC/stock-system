@@ -183,11 +183,20 @@ async function main() {
     assert.ok(markdown.includes('## 执行清单'));
     assert.ok(markdown.includes('## 约束条件'));
 
+    const htmlRes = await invokeRouter(iterationRouter, 'GET', `/report/${taskId}?format=html`);
+    assert.equal(htmlRes.statusCode, 200);
+    assert.equal(htmlRes.body.success, true);
+    assert.equal(htmlRes.body.data.format, 'html');
+    assert.ok(htmlRes.body.data.fileName.endsWith('_report.html'));
+    assert.ok(String(htmlRes.body.data.html || '').includes('<h1>迭代任务回测报告</h1>'));
+    assert.ok(String(htmlRes.body.data.html || '').includes('<h2>执行清单</h2>'));
+    assert.ok(String(htmlRes.body.data.html || '').includes('<h2>约束条件</h2>'));
+
     const unsupportedRes = await invokeRouter(iterationRouter, 'GET', `/report/${taskId}?format=json`);
 
     assert.equal(unsupportedRes.statusCode, 400);
     assert.equal(unsupportedRes.body.success, false);
-    assert.ok(String(unsupportedRes.body.error || '').includes('format=markdown'));
+    assert.ok(String(unsupportedRes.body.error || '').includes('format=markdown/html'));
 
     const missingRes = await invokeRouter(iterationRouter, 'GET', '/report/ITER_REPORT_NOT_FOUND?format=markdown');
 

@@ -599,6 +599,104 @@ function generateIterationReportMarkdown(taskPayload) {
   return lines.join('\n');
 }
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function generateIterationReportHtml(taskPayload) {
+  const task = taskPayload || {};
+  const inputSummary = task.inputSummary && typeof task.inputSummary === 'object' ? task.inputSummary : {};
+  const summary = task.resultSummary && typeof task.resultSummary === 'object' ? task.resultSummary : {};
+  const readiness = summary && summary.deploymentReadiness && typeof summary.deploymentReadiness === 'object'
+    ? summary.deploymentReadiness
+    : null;
+  const checks = readiness && Array.isArray(readiness.checks) ? readiness.checks : [];
+  const nextAction = summary && summary.nextActionSuggestion && typeof summary.nextActionSuggestion === 'object'
+    ? summary.nextActionSuggestion
+    : null;
+  const tuningPlan = summary && summary.tuningPlan && typeof summary.tuningPlan === 'object'
+    ? summary.tuningPlan
+    : null;
+  const stocks = Array.isArray(inputSummary.stocks) ? inputSummary.stocks : [];
+  const bestParams = task.bestParams && typeof task.bestParams === 'object' ? task.bestParams : {};
+  const bestParamEntries = Object.entries(bestParams);
+
+  const renderList = (items) => {
+    if (!Array.isArray(items) || items.length === 0) {
+      return '<li>--</li>';
+    }
+    return items.map(item => `<li>${escapeHtml(item)}</li>`).join('');
+  };
+
+  const checkListHtml = checks.length === 0
+    ? '<li>暂无检查明细</li>'
+    : checks.map(check => {
+      const title = check.title || check.id || '--';
+      const suffix = check.detail ? `（${check.detail}）` : '';
+      return `<li>${escapeHtml(`${title}: ${check.status || '--'}${suffix}`)}</li>`;
+    }).join('');
+
+  return [
+    '<!doctype html>',
+    '<html lang="zh-CN">',
+    '<head>',
+    '<meta charset="utf-8" />',
+    `<title>迭代任务回测报告 - ${escapeHtml(task.taskId || '--')}</title>`,
+    '<style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;margin:24px;line-height:1.6;color:#111}h1,h2,h3{margin:16px 0 8px}ul{margin:6px 0 14px 20px}code{background:#f5f5f5;padding:2px 4px;border-radius:4px}</style>',
+    '</head>',
+    '<body>',
+    '<h1>迭代任务回测报告</h1>',
+    '<h2>任务信息</h2>',
+    '<ul>',
+    `<li>任务 ID: ${escapeHtml(task.taskId || '--')}</li>`,
+    `<li>策略类型: ${escapeHtml(task.strategyType || '--')}</li>`,
+    `<li>优化后端: ${escapeHtml(task.optimizationBackend || summary.optimizationBackend || '--')}</li>`,
+    `<li>当前状态: ${escapeHtml(task.status || summary.status || '--')}</li>`,
+    `<li>创建时间: ${escapeHtml(task.createdAt || '--')}</li>`,
+    `<li>完成时间: ${escapeHtml(summary.completedAt || task.completedAt || '--')}</li>`,
+    '</ul>',
+    '<h2>回测输入</h2>',
+    '<ul>',
+    `<li>股票池: ${escapeHtml(stocks.length > 0 ? stocks.join(', ') : '--')}</li>`,
+    `<li>时间区间: ${escapeHtml(inputSummary.startDate || '--')} ~ ${escapeHtml(inputSummary.endDate || '--')}</li>`,
+    `<li>最大迭代次数: ${escapeHtml(task.maxIterations ?? '--')}</li>`,
+    `<li>目标分数: ${escapeHtml(task.scoreThreshold ?? '--')}</li>`,
+    '</ul>',
+    '<h2>结果摘要</h2>',
+    '<ul>',
+    `<li>最佳得分: ${escapeHtml(Number.isFinite(Number(task.bestScore)) ? Number(task.bestScore).toFixed(1) : '--')}</li>`,
+    `<li>当前轮次: ${escapeHtml(task.currentIteration ?? '--')} / ${escapeHtml(task.maxIterations ?? '--')}</li>`,
+    `<li>进度: ${escapeHtml(Number.isFinite(Number(task.progress)) ? Number(task.progress).toFixed(0) : '--')}%</li>`,
+    `<li>计划试验数: ${escapeHtml(summary.requestedTrials ?? '--')}</li>`,
+    `<li>完成试验数: ${escapeHtml(summary.completedTrials ?? summary.trialCount ?? '--')}</li>`,
+    '</ul>',
+    '<h2>最佳参数</h2>',
+    `<ul>${bestParamEntries.length === 0 ? '<li>暂无最佳参数</li>' : bestParamEntries.map(([key, value]) => `<li>${escapeHtml(`${key}: ${value}`)}</li>`).join('')}</ul>`,
+    '<h2>实盘前检查</h2>',
+    readiness
+      ? `<ul><li>实盘就绪: ${readiness.readyForLive ? '是' : '否'}</li><li>失败项: ${escapeHtml(readiness.failedCount ?? 0)}</li><li>待补齐: ${escapeHtml(readiness.pendingCount ?? 0)}</li></ul><h3>检查清单</h3><ul>${checkListHtml}</ul>`
+      : '<ul><li>暂无检查结果</li></ul>',
+    '<h2>下一步建议</h2>',
+    nextAction
+      ? `<ul><li>建议动作: ${escapeHtml(nextAction.title || nextAction.action || '--')}</li><li>建议原因: ${escapeHtml(nextAction.reason || '--')}</li></ul>`
+      : '<ul><li>暂无建议</li></ul>',
+    tuningPlan && Array.isArray(tuningPlan.steps) && tuningPlan.steps.length > 0
+      ? `<h2>执行清单</h2><ul><li>优先级: ${escapeHtml(tuningPlan.priority || '--')}</li>${renderList(tuningPlan.steps)}</ul>`
+      : '',
+    tuningPlan && Array.isArray(tuningPlan.guardrails) && tuningPlan.guardrails.length > 0
+      ? `<h2>约束条件</h2><ul>${renderList(tuningPlan.guardrails)}</ul>`
+      : '',
+    `<p>报告生成时间: <code>${escapeHtml(new Date().toISOString())}</code></p>`,
+    '</body>',
+    '</html>'
+  ].join('');
+}
+
 async function ensureIterationTaskRunsTable(db) {
   await db.runPromise(ITERATION_TASK_RUNS_TABLE_SQL);
 }
@@ -901,17 +999,17 @@ router.get('/status/:taskId', async (req, res) => {
 
 /**
  * 导出迭代任务报告
- * GET /api/iteration/report/:taskId?format=markdown
+ * GET /api/iteration/report/:taskId?format=markdown|html
  */
 router.get('/report/:taskId', async (req, res) => {
   const { taskId } = req.params;
   const format = String(req.query.format || 'markdown').toLowerCase();
   const download = String(req.query.download || '') === '1';
 
-  if (format !== 'markdown') {
+  if (format !== 'markdown' && format !== 'html') {
     return res.status(400).json({
       success: false,
-      error: '仅支持 format=markdown'
+      error: '仅支持 format=markdown/html'
     });
   }
 
@@ -937,22 +1035,26 @@ router.get('/report/:taskId', async (req, res) => {
     });
   }
 
-  const markdown = generateIterationReportMarkdown(taskPayload);
+  const isHtml = format === 'html';
+  const reportContent = isHtml
+    ? generateIterationReportHtml(taskPayload)
+    : generateIterationReportMarkdown(taskPayload);
+
   if (download) {
-    const fileName = `${taskId}_report.md`;
-    res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+    const fileName = `${taskId}_report.${isHtml ? 'html' : 'md'}`;
+    res.setHeader('Content-Type', `${isHtml ? 'text/html' : 'text/markdown'}; charset=utf-8`);
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-    return res.send(markdown);
+    return res.send(reportContent);
   }
 
   return res.json({
     success: true,
     data: {
       taskId,
-      format: 'markdown',
-      fileName: `${taskId}_report.md`,
+      format: isHtml ? 'html' : 'markdown',
+      fileName: `${taskId}_report.${isHtml ? 'html' : 'md'}`,
       generatedAt: new Date().toISOString(),
-      markdown
+      ...(isHtml ? { html: reportContent } : { markdown: reportContent })
     }
   });
 });

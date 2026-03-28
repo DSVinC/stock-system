@@ -1,9 +1,9 @@
 # API 契约：迭代任务报告导出接口 (iteration/report)
 
-**路径**: `GET /api/iteration/report/:taskId?format=markdown[&download=1]`  
+**路径**: `GET /api/iteration/report/:taskId?format=markdown|html[&download=1]`  
 **创建日期**: 2026-03-28  
 **最后更新**: 2026-03-28  
-**相关任务**: `TASK_FLOW_REFACTOR_035E`, `TASK_FLOW_REFACTOR_035F`  
+**相关任务**: `TASK_FLOW_REFACTOR_035E`, `TASK_FLOW_REFACTOR_035F`, `TASK_FLOW_REFACTOR_041A`  
 **负责人**: 开发/验收 (Codex)
 
 ---
@@ -20,12 +20,14 @@
 
 | 字段 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| format | string | 否 | `markdown` | 目前仅支持 `markdown` |
-| download | string | 否 | - | 传 `1` 时返回 markdown 附件流（非 JSON） |
+| format | string | 否 | `markdown` | 支持 `markdown` / `html` |
+| download | string | 否 | - | 传 `1` 时返回对应格式附件流（非 JSON） |
 
 ---
 
 ## 成功返回结构（200）
+
+### markdown
 
 ```json
 {
@@ -50,11 +52,30 @@
 | generatedAt | string | 生成时间（ISO） |
 | markdown | string | 报告正文（Markdown） |
 
+### html
+
+```json
+{
+  "success": true,
+  "data": {
+    "taskId": "ITER_xxx",
+    "format": "html",
+    "fileName": "ITER_xxx_report.html",
+    "generatedAt": "2026-03-28T04:13:00.000Z",
+    "html": "<!doctype html><html ...>...</html>"
+  }
+}
+```
+
 ## 下载模式返回（200, `download=1`）
 
 - `Content-Type`: `text/markdown; charset=utf-8`
 - `Content-Disposition`: `attachment; filename="{taskId}_report.md"`
 - 响应体：markdown 文本（不再包裹 JSON）
+- 当 `format=html` 时：
+  - `Content-Type`: `text/html; charset=utf-8`
+  - `Content-Disposition`: `attachment; filename="{taskId}_report.html"`
+  - 响应体：html 文本（不再包裹 JSON）
 
 ---
 
@@ -65,7 +86,7 @@
 ```json
 {
   "success": false,
-  "error": "仅支持 format=markdown"
+  "error": "仅支持 format=markdown/html"
 }
 ```
 
@@ -126,3 +147,4 @@
 | 日期 | 变更内容 | 变更人 |
 |------|----------|--------|
 | 2026-03-28 | 初始契约创建 | Codex |
+| 2026-03-28 | 增加 `format=html` 与 html 下载模式契约 | Codex |

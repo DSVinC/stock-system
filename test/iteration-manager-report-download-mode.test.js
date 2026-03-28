@@ -127,6 +127,13 @@ async function main() {
     assert.ok(String(res.body || '').includes('## 任务信息'));
     assert.ok(String(res.body || '').includes('## 下一步建议'));
 
+    const htmlRes = await invokeRouter(iterationRouter, 'GET', `/report/${taskId}?format=html&download=1`);
+    assert.equal(htmlRes.statusCode, 200);
+    assert.ok(String(htmlRes.headers['content-type'] || '').includes('text/html'));
+    assert.ok(String(htmlRes.headers['content-disposition'] || '').includes(`${taskId}_report.html`));
+    assert.ok(String(htmlRes.body || '').includes('<h1>迭代任务回测报告</h1>'));
+    assert.ok(String(htmlRes.body || '').includes('<h2>下一步建议</h2>'));
+
     console.log('✅ iteration manager report download mode test passed');
   } finally {
     activeTasks.clear();
