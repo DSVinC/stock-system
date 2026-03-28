@@ -630,6 +630,7 @@
 
 ## 📝 最近事件
 
+*2026-03-28 10:55* - TASK_FLOW_REFACTOR_037B 完成，新增 /api/strategy-template/profiles（4类策略画像）与回归测试，默认总测提升至 48/48
 *2026-03-28 10:49* - TASK_FLOW_REFACTOR_037A 完成，报告接口新增 download=1 直出模式（text/markdown 附件），新增回归并接入默认总测（47/47）
 *2026-03-28 10:43* - TASK_FLOW_REFACTOR_036C 完成，README 默认总测口径由 42/42 更新为 46/46，并复核默认总测全绿
 *2026-03-28 10:40* - TASK_FLOW_REFACTOR_036B 完成，新增迭代报告导出接口契约文档 docs/api-contracts/iteration-report.md，导出接口已形成可交接合同
