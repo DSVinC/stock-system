@@ -36,7 +36,7 @@
 - 验证方式：
   - `node test/strategy-template-default-route.test.js` ✅
   - `node test/strategy-template-profiles.test.js` ✅
-  - `node tests/run-all-tests.js` ⚠️ 当前环境存在已知沙箱限制：多个 iteration-manager 脚本在 `app.listen()` 时报 `listen EPERM`（非本任务逻辑回归）
+  - `node tests/run-all-tests.js` ✅（后续 039A/039B 已将相关 iteration-manager 脚本改为无端口模式，默认总测恢复 `49/49`）
 
 ## 边界情况
 

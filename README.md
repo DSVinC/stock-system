@@ -356,7 +356,7 @@ Codex 会自动检查：
 - **任务实时状态**：`docs/runtime/{TASK_ID}_STATUS.md`
 - **V4 口径**：已完成并验收（细节见 `docs/PROJECT_PROGRESS.md`）
 - **V5 口径**：框架与链路已落地，规划文档 `docs/tasks/TASK_V5_000.md` 仍保留 `pending` 规划态说明
-- **默认测试入口**：`node tests/run-all-tests.js` 当前 **48/48 通过**
+- **默认测试入口**：`node tests/run-all-tests.js` 当前 **49/49 通过**
 
 > 说明：README 只保留高层状态，避免与运行时文档出现双口径。详细任务完成度请直接查看 `docs/PROJECT_PROGRESS.md`。
 
