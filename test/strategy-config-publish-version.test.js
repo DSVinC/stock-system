@@ -431,6 +431,10 @@ async function runTests() {
       assert.ok(summary !== null);
       assert.ok(Array.isArray(summary.event_types));
       assert.ok(Array.isArray(summary.ts_codes));
+      assert.ok(Object.prototype.hasOwnProperty.call(summary, 'position_closed_count'));
+      assert.ok(Object.prototype.hasOwnProperty.call(summary, 'total_realized_pnl'));
+      assert.ok(Object.prototype.hasOwnProperty.call(summary, 'simulated_trade_count'));
+      assert.strictEqual(summary.total_realized_pnl, 3800);
     });
 
     // ----------------------------------------

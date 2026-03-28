@@ -63,6 +63,16 @@ function main() {
   assert.ok(rendered.includes('平仓数: 6'));
   assert.ok(rendered.includes('已实现盈亏: 3800'));
 
+  const renderedFallback = sandbox.renderImportStrategyFeedback({
+    execution_feedback_status: 'mixed',
+    execution_feedback_confidence: 'low',
+    total_pnl: 1200,
+    successful_trades: 3,
+    failed_trades: 2
+  });
+  assert.ok(renderedFallback.includes('平仓数: 5'));
+  assert.ok(renderedFallback.includes('已实现盈亏: 1200'));
+
   const emptyRendered = sandbox.renderImportStrategyFeedback(null);
   assert.ok(emptyRendered.includes('暂无执行反馈快照'));
 

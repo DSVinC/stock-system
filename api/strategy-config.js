@@ -1337,6 +1337,9 @@ async function aggregateExecutionFeedback(versionId) {
 
   // 聚合统计
   const totalTrades = feedbacks.length;
+  const simulatedTradeCount = feedbacks.filter(f => f.event_type === 'simulated_trade').length;
+  const positionClosedCount = feedbacks.filter(f => f.event_type === 'position_closed').length;
+  const triggerFailureCount = feedbacks.filter(f => f.event_type === 'conditional_trigger').length;
   const successfulTrades = feedbacks.filter(f =>
     f.realized_return !== null && f.realized_return > 0
   ).length;
@@ -1347,6 +1350,14 @@ async function aggregateExecutionFeedback(versionId) {
   const totalPnl = feedbacks.reduce((sum, f) => {
     return sum + (f.realized_pnl || 0);
   }, 0);
+  const avgRealizedReturn = feedbacks.length > 0
+    ? feedbacks.reduce((sum, f) => sum + (f.realized_return || 0), 0) / feedbacks.length
+    : 0;
+  const avgHoldingDays = feedbacks.length > 0
+    ? feedbacks.reduce((sum, f) => sum + (f.holding_days || 0), 0) / feedbacks.length
+    : 0;
+  const triggerTotal = triggerFailureCount + simulatedTradeCount;
+  const triggerFailureRate = triggerTotal > 0 ? triggerFailureCount / triggerTotal : 0;
 
   const successRate = totalTrades > 0 ? successfulTrades / totalTrades : 0;
 
@@ -1378,11 +1389,17 @@ async function aggregateExecutionFeedback(versionId) {
     failed_trades: failedTrades,
     total_pnl: totalPnl,
     summary: {
+      simulated_trade_count: simulatedTradeCount,
+      position_closed_count: positionClosedCount,
+      win_rate: positionClosedCount > 0 ? successfulTrades / positionClosedCount : 0,
+      total_realized_pnl: totalPnl,
+      avg_realized_return: avgRealizedReturn,
+      avg_holding_days: avgHoldingDays,
+      trigger_failure_count: triggerFailureCount,
+      trigger_failure_rate: triggerFailureRate,
       event_types: [...new Set(feedbacks.map(f => f.event_type))],
       ts_codes: [...new Set(feedbacks.map(f => f.ts_code))],
-      avg_return: feedbacks.length > 0
-        ? feedbacks.reduce((sum, f) => sum + (f.realized_return || 0), 0) / feedbacks.length
-        : 0
+      avg_return: avgRealizedReturn
     }
   };
 }

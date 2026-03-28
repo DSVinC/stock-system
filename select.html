@@ -1690,8 +1690,13 @@
       };
 
       const summary = feedback.execution_summary_json || {};
-      const positionClosedCount = summary.position_closed_count ?? 0;
-      const totalRealizedPnl = summary.total_realized_pnl ?? 0;
+      const positionClosedCount = summary.position_closed_count
+        ?? ((feedback.successful_trades ?? 0) + (feedback.failed_trades ?? 0))
+        ?? feedback.total_trades
+        ?? 0;
+      const totalRealizedPnl = summary.total_realized_pnl
+        ?? feedback.total_pnl
+        ?? 0;
 
       return `
         <div class="import-strategy-feedback">
