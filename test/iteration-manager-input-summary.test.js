@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 
 const assert = require('assert');
-const http = require('http');
-const express = require('express');
+const { URL } = require('url');
 const { EventEmitter } = require('events');
 
 function createMockDb() {
@@ -81,64 +80,90 @@ function createMockSpawn() {
   };
 }
 
-function startTestServer(iterationRouter) {
-  const app = express();
-  app.use(express.json());
-  app.use('/api/iteration', iterationRouter);
+function invokeRouter(router, method, rawPath, body) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(rawPath, 'http://127.0.0.1');
+    const req = {
+      method,
+      url: `${url.pathname}${url.search}`,
+      originalUrl: `${url.pathname}${url.search}`,
+      path: url.pathname,
+      query: Object.fromEntries(url.searchParams.entries()),
+      headers: {},
+      params: {},
+      body
+    };
 
-  return new Promise((resolve) => {
-    const server = app.listen(0, () => {
+    const res = {
+      statusCode: 200,
+      headers: {},
+      body: null,
+      _done: false,
+      status(code) {
+        this.statusCode = code;
+        return this;
+      },
+      setHeader(name, value) {
+        this.headers[String(name).toLowerCase()] = value;
+        return this;
+      },
+      getHeader(name) {
+        return this.headers[String(name).toLowerCase()];
+      },
+      json(payload) {
+        this.body = payload;
+        finish();
+        return this;
+      },
+      send(payload) {
+        this.body = payload;
+        finish();
+        return this;
+      }
+    };
+
+    function finish() {
+      if (res._done) {
+        return;
+      }
+      res._done = true;
       resolve({
-        server,
-        port: server.address().port
+        statusCode: res.statusCode,
+        headers: res.headers,
+        body: res.body
       });
-    });
+    }
+
+    try {
+      router.handle(req, res, err => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        finish();
+      });
+    } catch (error) {
+      reject(error);
+    }
   });
 }
 
-function requestJson({ port, method, path, body }) {
-  return new Promise((resolve, reject) => {
-    const payload = body ? JSON.stringify(body) : null;
-    const req = http.request(
-      {
-        hostname: '127.0.0.1',
-        port,
-        path,
-        method,
-        headers: payload
-          ? {
-              'Content-Type': 'application/json',
-              'Content-Length': Buffer.byteLength(payload)
-            }
-          : {}
-      },
-      (res) => {
-        let raw = '';
-        res.setEncoding('utf8');
-        res.on('data', (chunk) => {
-          raw += chunk;
-        });
-        res.on('end', () => {
-          try {
-            resolve({
-              statusCode: res.statusCode,
-              body: raw ? JSON.parse(raw) : null
-            });
-          } catch (error) {
-            reject(new Error(`响应不是有效 JSON: ${raw}`));
-          }
-        });
-      }
-    );
+async function waitForCompletedStatus(router, taskId) {
+  for (let i = 0; i < 100; i++) {
+    const response = await invokeRouter(router, 'GET', `/status/${taskId}`);
 
-    req.on('error', reject);
-
-    if (payload) {
-      req.write(payload);
+    if (response.statusCode === 200 && response.body?.task?.status === 'completed') {
+      return response;
     }
 
-    req.end();
-  });
+    if (response.statusCode >= 400 && response.statusCode !== 404) {
+      throw new Error(`状态查询失败: ${JSON.stringify(response.body)}`);
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+
+  throw new Error('等待任务完成超时');
 }
 
 async function main() {
@@ -150,7 +175,6 @@ async function main() {
   dbModule.getDatabase = async () => createMockDb();
 
   const iterationRouter = require('../api/iteration-manager');
-  const { server, port } = await startTestServer(iterationRouter);
 
   try {
     const startPayload = {
@@ -168,27 +192,15 @@ async function main() {
       optimizationBackend: 'optuna'
     };
 
-    const startResponse = await requestJson({
-      port,
-      method: 'POST',
-      path: '/api/iteration/start',
-      body: startPayload
-    });
+    const startResponse = await invokeRouter(iterationRouter, 'POST', '/start', startPayload);
 
     assert.equal(startResponse.statusCode, 200);
     assert.equal(startResponse.body.success, true);
     assert.ok(startResponse.body.taskId);
 
-    const statusResponse = await requestJson({
-      port,
-      method: 'GET',
-      path: `/api/iteration/status/${startResponse.body.taskId}`
-    });
-
-    assert.equal(statusResponse.statusCode, 200);
-    assert.equal(statusResponse.body.success, true);
-
+    const statusResponse = await waitForCompletedStatus(iterationRouter, startResponse.body.taskId);
     const task = statusResponse.body.task;
+
     assert.deepEqual(task.inputSummary, {
       stocks: ['000001.SZ', '600519.SH'],
       startDate: '2024-01-01',
@@ -205,7 +217,7 @@ async function main() {
   } finally {
     childProcess.spawn = originalSpawn;
     dbModule.getDatabase = originalGetDatabase;
-    await new Promise((resolve) => server.close(resolve));
+    iterationRouter.__test.activeTasks.clear();
   }
 }
 

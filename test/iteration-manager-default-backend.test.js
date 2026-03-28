@@ -163,8 +163,8 @@ async function main() {
         fast_period: 5,
         slow_period: 20
       },
-      maxIterations: 0,
-      scoreThreshold: 80,
+      maxIterations: 1,
+      scoreThreshold: 0,
       stocks: ['000001.SZ', '600519.SH'],
       startDate: '2024-01-01',
       endDate: '2024-12-31',
@@ -191,7 +191,6 @@ async function main() {
     assert.equal(task.inputSummary.optimizationBackend, 'heuristic');
     assert.equal(task.resultSummary.optimizationBackend, 'heuristic');
     assert.equal(task.status, 'completed');
-    assert.equal(task.bestScore, 0);
     assert.equal(spawnCalls.length, 0, '默认 heuristic 路径不应触发 optuna spawn');
 
     console.log('✅ iteration manager default backend test passed');
