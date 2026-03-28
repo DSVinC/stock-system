@@ -972,9 +972,14 @@
 
     // 更新进度
     function updateProgress(current, total) {
-      const percent = (current / total) * 100;
+      const currentNum = Number.isFinite(Number(current)) ? Number(current) : 0;
+      const totalNum = Number.isFinite(Number(total)) ? Number(total) : 0;
+      const denominator = totalNum > 0 ? totalNum : Math.max(currentNum, 1);
+      const rawPercent = (currentNum / denominator) * 100;
+      const percent = Math.max(0, Math.min(100, rawPercent));
+
       document.getElementById('progressFill').style.width = percent + '%';
-      document.getElementById('completedCount').textContent = current;
+      document.getElementById('completedCount').textContent = String(currentNum);
     }
 
     function formatResultReason(reason) {
