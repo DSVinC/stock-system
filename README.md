@@ -350,35 +350,15 @@ Codex 会自动检查：
 
 ## 开发状态
 
-### V4.0 开发进度（2026-03-26 17:07 更新）
+### 当前口径（2026-03-28）
 
-| 阶段 | 任务数 | 状态 | 完成日期 | 交付物 |
-|------|--------|------|----------|--------|
-| **V4 开发** | 18 个 | ✅ 完成 | 2026-03-25 | 策略管理 + 回测界面 + 联合回测 |
-| **V4 修复** | 6 个 | ✅ 完成 | 2026-03-26 | 指标展示 + 契约清理 + 界面统一 |
-| **V4 复验** | 1 个 | ✅ 完成 | 2026-03-26 | Codex 验收报告（6/6 通过） |
-| **V5 开发** | 11 个 | ✅ 完成 | 2026-03-25 | 策略版本管理 + Optuna 优化 + 评分系统 |
-| **V5 集成** | 1 个 | ✅ 完成 | 2026-03-26 | 集成测试通过 |
+- **唯一进度真源**：`docs/PROJECT_PROGRESS.md`
+- **任务实时状态**：`docs/runtime/{TASK_ID}_STATUS.md`
+- **V4 口径**：已完成并验收（细节见 `docs/PROJECT_PROGRESS.md`）
+- **V5 口径**：框架与链路已落地，规划文档 `docs/tasks/TASK_V5_000.md` 仍保留 `pending` 规划态说明
+- **默认测试入口**：`node tests/run-all-tests.js` 已恢复 **42/42 通过**
 
-**V4 修复交付物** (2026-03-26):
-- `backtest.html` - 添加卡玛比率/盈亏比指标展示（9 个指标）
-- `backtest.html` - 清理策略模板相关失效代码
-- `select.html` - 替换策略模板为选择策略（5 个经典策略）
-- `scripts/verify-api-contract.sh` - API 契约验证脚本
-- `docs/api-contracts/select.md` - 选股接口契约文档
-- `docs/api-contracts/backtest-joint.md` - 联合回测接口契约文档
-
-**验证结果**:
-```
-bash scripts/verify-api-contract.sh select
-✅ 所有 DOM ID 均存在
-✅ 所有检查通过
-
-node tests/test-acceptance.js
-✅ 6 通过，0 失败
-```
-
-**最终验收结论**: V4/V5 系统全部通过验收（2026-03-26 17:05）
+> 说明：README 只保留高层状态，避免与运行时文档出现双口径。详细任务完成度请直接查看 `docs/PROJECT_PROGRESS.md`。
 
 ---
 
