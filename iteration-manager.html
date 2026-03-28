@@ -583,6 +583,16 @@
       return 'optuna';
     }
 
+    function applyOptimizationBackendToUI(optimizationBackend) {
+      const select = document.getElementById('optimizationBackend');
+      const normalized = optimizationBackend === 'optuna' ? 'optuna' : optimizationBackend === 'heuristic' ? 'heuristic' : '';
+      if (!select || !normalized) {
+        return;
+      }
+
+      select.value = normalized;
+    }
+
     function formatResearchConfig(config) {
       if (!config || Object.keys(config).length === 0) {
         return '{}';
@@ -697,6 +707,10 @@
         }
       }
 
+      if (params.optimizationBackend === 'optuna' || params.optimizationBackend === 'heuristic') {
+        applyOptimizationBackendToUI(params.optimizationBackend);
+      }
+
       renderResearchInputSummary(params);
 
       // 加载版本历史
@@ -734,6 +748,11 @@
         const task = result.task;
         currentTaskId = task.taskId || taskId;
         persistCurrentTaskId(currentTaskId);
+
+        const restoredBackend = task?.inputSummary?.optimizationBackend || task?.optimizationBackend;
+        if (restoredBackend === 'optuna' || restoredBackend === 'heuristic') {
+          applyOptimizationBackendToUI(restoredBackend);
+        }
 
         renderResearchInputSummary(task.inputSummary || task);
         document.getElementById('totalCount').textContent = task.maxIterations ?? document.getElementById('totalCount').textContent;
@@ -878,6 +897,11 @@
 
     // 更新任务状态
     function updateTaskStatus(task) {
+      const optimizationBackend = task?.inputSummary?.optimizationBackend || task?.optimizationBackend;
+      if (optimizationBackend === 'optuna' || optimizationBackend === 'heuristic') {
+        applyOptimizationBackendToUI(optimizationBackend);
+      }
+
       renderResearchInputSummary(task.inputSummary || task);
 
       // 更新进度

@@ -73,6 +73,7 @@ function buildLocalStorage(initial = {}) {
 function buildElements() {
   return {
     strategySelect: { value: 'double_ma', addEventListener: () => {} },
+    optimizationBackend: { value: 'heuristic', addEventListener: () => {} },
     maxIterations: { value: '20' },
     scoreThreshold: { value: '70' },
     parallelTasks: { value: '4' },
@@ -192,6 +193,7 @@ async function runSuccessRestoreTest(script) {
               startDate: '2024-01-01',
               endDate: '2024-12-31',
               parallelTasks: 6,
+              optimizationBackend: 'optuna',
               config: {
                 alpha: 1
               }
@@ -215,6 +217,7 @@ async function runSuccessRestoreTest(script) {
     'getUrlParams',
     'formatResearchConfig',
     'normalizeTaskInputSummary',
+    'applyOptimizationBackendToUI',
     'renderResearchInputSummary',
     'updateStatusBadge',
     'updateProgress',
@@ -241,12 +244,14 @@ async function runSuccessRestoreTest(script) {
   assert.ok(sandbox.__elements.researchInputSummary.innerHTML.includes('2024-01-01 → 2024-12-31'));
   assert.ok(sandbox.__elements.researchInputSummary.innerHTML.includes('并发任务'));
   assert.ok(sandbox.__elements.researchInputSummary.innerHTML.includes('6 个并发任务'));
+  assert.ok(sandbox.__elements.researchInputSummary.innerHTML.includes('optuna（真实优化模式）'));
   assert.ok(sandbox.__elements.bestConfig.innerHTML.includes('最佳结果'));
   assert.ok(sandbox.__elements.bestConfig.innerHTML.includes('最佳得分'));
   assert.ok(sandbox.__elements.bestConfig.innerHTML.includes('"alpha": 1'));
   assert.ok(sandbox.__elements.bestConfig.innerHTML.includes('"beta": 2'));
   assert.ok(sandbox.__elements.bestConfig.innerHTML.includes('alpha: 1'));
   assert.ok(sandbox.__elements.bestConfig.innerHTML.includes('beta: 2'));
+  assert.equal(sandbox.__elements.optimizationBackend.value, 'optuna');
   assert.equal(sandbox.localStorage.getItem('currentTaskId'), 'task-restore');
   assert.equal(sandbox.localStorage.getItem('lastIterationTaskId'), 'task-restore');
   assert.equal(sandbox.__fetchCalls.length, 1, '初始化应请求一次状态接口');
@@ -264,6 +269,7 @@ async function runSuccessRestoreTest(script) {
       startDate: '2024-02-01',
       endDate: '2024-02-29',
       parallelTasks: 8,
+      optimizationBackend: 'heuristic',
       config: { foo: 'bar' }
     },
     bestScore: 91.5,
@@ -276,6 +282,8 @@ async function runSuccessRestoreTest(script) {
   assert.ok(sandbox.__elements.researchInputSummary.innerHTML.includes('300750.SZ'));
   assert.ok(sandbox.__elements.researchInputSummary.innerHTML.includes('2024-02-01 → 2024-02-29'));
   assert.ok(sandbox.__elements.researchInputSummary.innerHTML.includes('8 个并发任务'));
+  assert.ok(sandbox.__elements.researchInputSummary.innerHTML.includes('heuristic（默认快速模式）'));
+  assert.equal(sandbox.__elements.optimizationBackend.value, 'heuristic');
   assert.ok(sandbox.__elements.bestConfig.innerHTML.includes('最佳结果'));
   assert.ok(sandbox.__elements.bestConfig.innerHTML.includes('91.5'));
   assert.ok(sandbox.__elements.bestConfig.innerHTML.includes('gamma: 3'));
@@ -302,6 +310,7 @@ async function runPersistenceTest(script) {
     'updateStatusBadge',
     'safeParseConfig',
     'getUrlParams',
+    'getSelectedOptimizationBackend',
     'getIterationTaskStorage',
     'persistCurrentTaskId',
     'startIteration'
@@ -370,6 +379,7 @@ async function runTerminalStateRecoveryTest(script) {
     'normalizeTaskInputSummary',
     'formatResearchConfig',
     'getIterationBadgeState',
+    'applyOptimizationBackendToUI',
     'updateTaskStatus'
   ]);
 

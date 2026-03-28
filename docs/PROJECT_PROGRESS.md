@@ -1,6 +1,6 @@
 # 股票系统 - 项目进度总览
 
-**最后更新**: 2026-03-28 08:17  
+**最后更新**: 2026-03-28 08:25  
 **项目经理**: Codex  
 **程序员**: subagent / Claude Code（按任务分配）  
 **验收员**: Codex / Gemini CLI（按任务分配）  
@@ -55,6 +55,7 @@
 | **TASK_FLOW_REFACTOR_027C** | **V5_007 研究流接入：浏览器 smoke 验证 optuna 请求链路** | **P0** | **🟢 done** | **Codex / subagent** | **100%** |
 | **TASK_FLOW_REFACTOR_028A** | **V5_007 可见性收口：research input summary 展示 optimizationBackend** | **P0** | **🟢 done** | **Codex / subagent** | **100%** |
 | **TASK_FLOW_REFACTOR_028B** | **V5_007 可见性收口：默认 heuristic 路径回显 optimizationBackend** | **P0** | **🟢 done** | **Codex / subagent** | **100%** |
+| **TASK_FLOW_REFACTOR_029A** | **V5_007 恢复态收口：恢复任务时同步 optimizationBackend 下拉框** | **P0** | **🟢 done** | **Codex / subagent** | **100%** |
 | TASK_P0_001 | 黑天鹅检测模块 | P0 | 🟢 accepted | 灵爪 | 100% |
 | TASK_P0_002 | 舆情因子计算模块 | P0 | 🟢 accepted | 灵爪 | 100% |
 | TASK_P0_003 | 因子快照库模块 | P0 | 🟢 accepted | 灵爪 | 100% |
@@ -109,6 +110,7 @@
 所有 P0/P1 任务已完成并验收通过。
 
 **最新完成** (2026-03-28):
+- TASK_FLOW_REFACTOR_029A: 恢复最近任务时，`iteration-manager` 会同步 `optimizationBackend` 下拉框，避免摘要与控件口径漂移
 - TASK_FLOW_REFACTOR_028B: 后端默认路径也稳定回显 `optimizationBackend=heuristic`，恢复摘要不再出现“未导入优化后端”
 - TASK_FLOW_REFACTOR_028A: `iteration-manager` 研究输入摘要已新增“优化后端”展示块
 - TASK_FLOW_REFACTOR_027C: 已补 Playwright 浏览器 smoke，验证 `iteration-manager` 在真实浏览器里会带上 `optimizationBackend=optuna` 与导入后的 `parallelTasks`
