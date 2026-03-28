@@ -225,6 +225,9 @@ async function main() {
     assert.equal(task.error, null);
     assert.equal(task.inputSummary.optimizationBackend, 'optuna');
     assert.equal(task.resultSummary.optimizationBackend, 'optuna');
+    assert.equal(task.resultSummary.requestedTrials, 7);
+    assert.equal(task.resultSummary.completedTrials, 7);
+    assert.equal(task.resultSummary.trialCount, 7);
 
     assert.equal(spawnCalls.length, 1);
     assert.equal(spawnCalls[0].command, 'python3');

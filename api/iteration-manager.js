@@ -81,6 +81,12 @@ function normalizeParallelTasks(value) {
   return Math.min(parsed, 256);
 }
 
+function parseOptionalFiniteNumber(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function buildTaskResponse(task) {
   if (!task) return null;
 
@@ -125,6 +131,11 @@ function buildTaskResponse(task) {
 
 function buildTaskResultSummary(task) {
   const optimizationBackend = normalizeOptimizationBackend(task.optimizationBackend || task.inputSummary?.optimizationBackend);
+  const requestedTrialsRaw = task.optunaTrialsRequested ?? task.resultSummary?.requestedTrials;
+  const completedTrialsRaw = task.optunaTrialsCompleted ?? task.resultSummary?.completedTrials ?? task.resultSummary?.trialCount;
+  const requestedTrials = parseOptionalFiniteNumber(requestedTrialsRaw);
+  const completedTrials = parseOptionalFiniteNumber(completedTrialsRaw);
+
   return {
     status: task.status || null,
     optimizationBackend,
@@ -135,7 +146,14 @@ function buildTaskResultSummary(task) {
     error: task.error || null,
     stoppedAt: task.stoppedAt || null,
     stopReason: task.stopReason || null,
-    completedAt: task.completedAt || null
+    completedAt: task.completedAt || null,
+    ...(optimizationBackend === 'optuna'
+      ? {
+          requestedTrials,
+          completedTrials,
+          trialCount: completedTrials
+        }
+      : {})
   };
 }
 
@@ -317,6 +335,9 @@ router.post('/start', async (req, res) => {
       history: [],
       createdAt: new Date().toISOString()
     };
+    if (normalizedOptimizationBackend === 'optuna') {
+      task.optunaTrialsRequested = normalizedMaxIterations;
+    }
 
     activeTasks.set(taskId, task);
     try {
@@ -966,11 +987,15 @@ async function runOptunaIterationTask(task) {
 
   const bestScore = Number(result.best_score ?? result.bestScore ?? result.scoreTotal ?? 0);
   const bestParams = result.best_params ?? result.bestParams ?? null;
+  const completedTrialsRaw = result.trials ?? result.completed_trials ?? result.completedTrials ?? result.n_trials ?? result.nTrials ?? maxIterations;
+  const completedTrials = parseOptionalFiniteNumber(completedTrialsRaw);
 
   task.currentIteration = maxIterations;
   task.progress = 100;
   task.bestScore = Number.isFinite(bestScore) ? bestScore : 0;
   task.bestParams = bestParams;
+  task.optunaTrialsRequested = maxIterations;
+  task.optunaTrialsCompleted = completedTrials;
   task.status = 'completed';
   task.completedAt = new Date().toISOString();
   task.error = null;

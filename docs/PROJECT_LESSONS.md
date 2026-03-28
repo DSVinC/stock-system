@@ -40,6 +40,24 @@ head -100 docs/PROJECT_LESSONS.md
 
 ---
 
+## 2026-03-28 | 结构化结果字段不要直接 `Number(value)`，先过滤空值避免把 null 误写成 0
+
+### 问题类型
+**边界值处理 / 结果快照准确性** - 对可选数值字段直接 `Number(value)` 会把 `null` 转成 `0`，导致状态摘要出现“看似有效、实际错误”的数值
+
+### 背景
+V5_007 的 Optuna trial 结果在 `resultSummary` 沉淀时，`completedTrials` 原本是可选字段。代码若直接走 `Number(value)`，`null` 会被转换成 `0`，前端会错误展示“完成 0 次试验”。
+
+### 关键经验
+1. 结果快照里的可选数值字段必须先做空值判定
+2. `null/undefined/''` 应保持“无值”语义，而不是变成 `0`
+3. 这类问题要靠接口级断言和 UI 展示断言双重覆盖
+
+### 预防措施
+1. 统一使用 `parseOptionalFiniteNumber` 这类 helper 做可选数值归一化
+2. 对任务摘要字段新增测试断言（例如 `requestedTrials/completedTrials/trialCount`）
+3. 回归时同时检查“后端快照值”和“前端展示值”是否一致
+
 ## 2026-03-28 | 跨语言优化器先打通“真实评分 CLI”，不要在 Python 里重写回测
 
 ### 问题类型
