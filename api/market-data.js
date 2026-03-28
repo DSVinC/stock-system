@@ -3,13 +3,25 @@ const path = require('node:path');
 const https = require('node:https');
 const { execFile } = require('node:child_process');
 const { promisify } = require('node:util');
+const Database = require('better-sqlite3');
 
 const execFileAsync = promisify(execFile);
-const SINA_SCRIPT_DIR = '/Users/vvc/.openclaw/workspace/skills/sina-ashare-mcp/scripts';
 const TUSHARE_URL = 'https://api.tushare.pro';
 const WORKSPACE_ENV_PATH = path.join(__dirname, '..', '.env');
+const DB_PATH = process.env.STOCK_DB || '/Volumes/SSD500/openclaw/stock-system/stock_system.db';
+let dbCache = null;
+
+// 免费新浪财经 API（替代收费的 sina-ashare-mcp）
+const sinaFreeApi = require('../lib/sina-free-api');
 
 loadWorkspaceEnv();
+
+function getDb() {
+  if (!dbCache) {
+    dbCache = new Database(DB_PATH, { readonly: true });
+  }
+  return dbCache;
+}
 
 class MarketDataError extends Error {
   constructor(message, options = {}) {
@@ -199,6 +211,20 @@ function formatDate(date) {
 }
 
 async function findLatestTradeDate(maxLookbackDays = 14) {
+  // 1. 优先查询本地数据库最新交易日
+  const db = getDb();
+  const dbResult = db.prepare(`
+    SELECT MAX(trade_date) as latest FROM stock_factor_snapshot
+  `).get();
+  
+  if (dbResult && dbResult.latest) {
+    const latestDate = String(dbResult.latest);
+    console.log(`[market-data] 使用数据库最新交易日：${latestDate}`);
+    return latestDate;
+  }
+  
+  // 2. 数据库为空时，回退到 Tushare API
+  console.log(`[market-data] 数据库为空，使用 Tushare API 判断交易日`);
   for (let index = 0; index <= maxLookbackDays; index += 1) {
     const candidate = new Date();
     candidate.setDate(candidate.getDate() - index);
@@ -206,7 +232,20 @@ async function findLatestTradeDate(maxLookbackDays = 14) {
     const rows = await tushareRequest('daily_basic', {
       trade_date: tradeDate,
     }, ['ts_code', 'trade_date', 'close', 'turnover_rate', 'volume_ratio', 'pe', 'pb', 'total_mv']);
-    if (rows.length > 0) {
+    
+    // 额外检查：ths_hot 接口是否有数据（休市日 daily_basic 有快照，但 ths_hot 为空）
+    let hasHotData = false;
+    try {
+      const hotData = await tushareRequest('ths_hot', {
+        trade_date: tradeDate,
+        market: '概念板块',
+      }, ['ts_name']);
+      hasHotData = hotData && hotData.length > 0;
+    } catch (_e) {
+      hasHotData = false;
+    }
+    
+    if (rows.length > 0 && hasHotData) {
       return tradeDate;
     }
   }
@@ -403,20 +442,8 @@ function normalizeTsCode(input) {
   return raw;
 }
 
-async function runSinaScript(scriptName, args = []) {
-  try {
-    const { stdout } = await execFileAsync('node', [`${SINA_SCRIPT_DIR}/${scriptName}`, ...args], {
-      timeout: 12000,
-      maxBuffer: 1024 * 1024 * 4,
-    });
-    return JSON.parse(stdout);
-  } catch (error) {
-    throw new MarketDataError(`新浪财经 ${scriptName} 调用失败：${error.message}`, {
-      code: 'SINA_SCRIPT_ERROR',
-      details: error.stderr || error.stdout || null,
-    });
-  }
-}
+// 已弃用：runSinaScript - 改用免费 API
+// async function runSinaScript(scriptName, args = []) { ... }
 
 async function searchStock(query) {
   let normalizedQuery = String(query || '').trim();
@@ -450,30 +477,8 @@ async function searchStock(query) {
     }
   }
 
-  try {
-    const result = await runSinaScript('search-symbol.cjs', [normalizedQuery]);
-    const matches = Array.isArray(result.data) ? result.data : [];
-    const first = matches[0];
-    if (first && first.symbol) {
-      const tsCode = normalizeTsCode(first.symbol);
-      const rows = await tushareRequest('stock_basic', {
-        ts_code: tsCode,
-        list_status: 'L',
-      }, ['ts_code', 'symbol', 'name', 'industry', 'area', 'market', 'list_date']);
-      if (rows.length > 0) return rows[0];
-      return {
-        ts_code: tsCode,
-        symbol: tsCode.slice(0, 6),
-        name: first.name || normalizedQuery,
-        industry: '',
-        area: '',
-        market: '',
-        list_date: '',
-      };
-    }
-  } catch (_error) {
-    // 新浪实时搜索失败时，继续走 Tushare 名称搜索。
-  }
+  // 已移除收费 MCP 搜索，直接使用 Tushare 搜索
+  // 免费新浪 API 无搜索功能
 
   const rows = await tushareRequest('stock_basic', {
     exchange: '',
@@ -564,14 +569,32 @@ async function searchStocks(query, limit = 10) {
 }
 
 async function getRealtimeQuote(tsCode) {
-  const symbol = normalizeCnSymbol(tsCode);
-  const result = await runSinaScript('quote.cjs', [symbol]);
-  if (result.code !== 0 || !result.data) {
-    throw new MarketDataError(`新浪财经实时行情失败：${result.message || 'empty result'}`, {
-      code: 'SINA_QUOTE_EMPTY',
+  const symbol = sinaFreeApi.normalizeSymbol(tsCode);
+  try {
+    const quote = await sinaFreeApi.getQuote(symbol);
+    return {
+      code: 0,
+      data: {
+        symbol: quote.symbol,
+        name: quote.name,
+        price: quote.price,
+        open: quote.open,
+        high: quote.high,
+        low: quote.low,
+        close: quote.close,
+        volume: quote.volume,
+        amount: quote.amount,
+        percent: quote.percent,
+        change: quote.change,
+        time: quote.time,
+        date: quote.date
+      }
+    };
+  } catch (error) {
+    throw new MarketDataError(`新浪财经实时行情失败：${error.message}`, {
+      code: 'SINA_QUOTE_ERROR',
     });
   }
-  return result.data;
 }
 
 async function getDailyHistory(tsCode, lookbackDays = 240) {
@@ -689,6 +712,22 @@ async function getSelectionDatasets() {
       trade_date: tradeDate,
       market: '概念板块',
     }, ['trade_date', 'ts_code', 'ts_name', 'rank', 'hot', 'rank_reason']);
+    
+    // 如果当前日期没有热度数据，尝试前一交易日（休市日场景）
+    if (!conceptHot || conceptHot.length === 0) {
+      // tradeDate 格式：20260324，需要转换为 Date 对象
+      const dateStr = String(tradeDate);
+      const year = parseInt(dateStr.slice(0, 4));
+      const month = parseInt(dateStr.slice(4, 6)) - 1;
+      const day = parseInt(dateStr.slice(6, 8)) - 1; // 减 1 天
+      const prevDate = new Date(year, month, day);
+      const prevTradeDate = formatDate(prevDate);
+      console.log(`[market-data] ${tradeDate} 无热度数据，尝试 ${prevTradeDate}`);
+      conceptHot = await tushareRequest('ths_hot', {
+        trade_date: prevTradeDate,
+        market: '概念板块',
+      }, ['trade_date', 'ts_code', 'ts_name', 'rank', 'hot', 'rank_reason']);
+    }
   } catch (_error) {
     conceptHot = [];
   }

@@ -187,6 +187,22 @@ async function bootstrap() {
   }
 
   if (await mountApi('select.js', '/api/select').catch(() => false)) {
+    console.log('[mountApi] select.js 已挂载');
+    mounted.push('/api/select');
+  }
+  
+  // 选股历史查询 API (TASK_SNAPSHOT_006)
+  try {
+    const selectionReport = require('./selection-report');
+    const router = require('express').Router();
+    router.get('/history', selectionReport.getSelectionHistory);
+    router.get('/report/:id', selectionReport.getSelectionReport);
+    app.use('/api/selection', router);
+    mounted.push('/api/selection');
+    console.log('[mountApi] selection-report API mounted: /api/selection');
+  } catch (e) {
+    console.log('[mountApi] selection-report 模块加载失败:', e.message);
+  }
 
   // 报告存储 API (TASK_V3_009)
   try {
@@ -201,8 +217,6 @@ async function bootstrap() {
     console.log('[mountApi] report-storage API mounted: /api/report');
   } catch (e) {
     console.log('[mountApi] report-storage 模块加载失败:', e.message);
-  }
-    mounted.push('/api/select');
   }
 
   // 行业成分股 API
@@ -274,6 +288,10 @@ async function bootstrap() {
     router.post('/:id/report', backtest.generateBacktestReport);
     // TASK_100: 批量回测
     router.post('/batch', backtest.runBatchBacktest);
+
+    // TASK_V4_024: 联合回测
+    router.post('/joint/run', backtest.runJointBacktest);
+    router.get('/joint/config', backtest.getJointBacktestConfig);
     
     // TASK_V3_007: 因子快照回测功能
     router.post('/factor-snapshot/run', backtest.runFactorSnapshotBacktest);
@@ -283,6 +301,8 @@ async function bootstrap() {
     
     app.use('/api/backtest', router);
     mounted.push('/api/backtest');
+    mounted.push('/api/backtest/joint/run');
+    mounted.push('/api/backtest/joint/config');
     mounted.push('/api/backtest/factor-snapshot/run');
     mounted.push('/api/backtest/factor-snapshot/history');
     mounted.push('/api/backtest/factor-snapshot/:id');
@@ -291,7 +311,179 @@ async function bootstrap() {
     console.log('[mountApi] backtest模块加载失败:', e.message);
   }
 
-  // TASK_V3_008_FIX_001: 分钟线回测 API
+  
+  // TASK_V4_004: 策略配置 API
+  try {
+    const strategyConfig = require('./strategy-config');
+    const router = require('express').Router();
+
+    // 获取所有策略配置
+    router.get('/configs', strategyConfig.getStrategyConfigs);
+    // 获取默认策略配置
+    router.get('/configs/default', strategyConfig.getDefaultStrategyConfig);
+    // 获取单个策略配置
+    router.get('/configs/:id', strategyConfig.getStrategyConfig);
+    // 创建新策略配置
+    router.post('/configs', strategyConfig.createStrategyConfig);
+    // 更新策略配置
+    router.put('/configs/:id', strategyConfig.updateStrategyConfig);
+    // 删除策略配置
+    router.delete('/configs/:id', strategyConfig.deleteStrategyConfig);
+    // 激活/禁用策略配置
+    router.post('/configs/:id/toggle', strategyConfig.toggleStrategyConfig);
+    // 设置为默认策略配置
+    router.post('/configs/:id/default', strategyConfig.setDefaultStrategyConfig);
+
+    app.use('/api/strategy', router);
+    mounted.push('/api/strategy/configs');
+    mounted.push('/api/strategy/configs/default');
+    mounted.push('/api/strategy/configs/:id');
+  } catch (e) {
+    console.log('[mountApi] strategy-config 模块加载失败:', e.message);
+  }
+
+  // TASK_V4_014: 策略 CRUD API
+  try {
+    const strategyCrud = require('./strategy-crud');
+    const crudRouter = strategyCrud.createRouter(express);
+
+    app.use('/api/strategy', crudRouter);
+    mounted.push('/api/strategy/list');
+    mounted.push('/api/strategy/create');
+    console.log('[mountApi] strategy-crud API mounted: /api/strategy');
+  } catch (e) {
+    console.log('[mountApi] strategy-crud 模块加载失败:', e.message);
+  }
+
+  // TASK_V4_011: 策略模板 API
+  try {
+    const createStrategyTemplateRouter = require('./strategy-template');
+    const templateRouter = createStrategyTemplateRouter(express);
+    
+    app.use('/api/strategy-template', templateRouter);
+    mounted.push('/api/strategy-template/list');
+    mounted.push('/api/strategy-template/:id');
+    mounted.push('/api/strategy-template/default');
+    console.log('[mountApi] strategy-template API mounted: /api/strategy-template');
+  } catch (e) {
+    console.log('[mountApi] strategy-template 模块加载失败:', e.message);
+  }
+
+  // V5 自动迭代系统路由
+  try {
+    const iterationManager = require('./iteration-manager');
+    app.use('/api/iteration', iterationManager);
+    mounted.push('/api/iteration/optimize');
+    mounted.push('/api/iteration/score');
+    mounted.push('/api/iteration/compare');
+    console.log('[mountApi] iteration API mounted: /api/iteration');
+  } catch (e) {
+    console.log('[mountApi] iteration 模块加载失败:', e.message);
+  }
+
+  // TASK_V4_016: 策略导入/导出 API
+  try {
+    const strategyConfig = require('./strategy-config');
+    const v4_016Router = strategyConfig.createV4_016Router(express);
+
+    app.use('/api/strategy-config', v4_016Router);
+    mounted.push('/api/strategy-config/export');
+    mounted.push('/api/strategy-config/import');
+    mounted.push('/api/strategy-config/public');
+    mounted.push('/api/strategy-config/copy');
+    console.log('[mountApi] strategy-config V4_016 API mounted: /api/strategy-config/*');
+  } catch (e) {
+    console.log('[mountApi] strategy-config V4_016 模块加载失败:', e.message);
+  }
+
+  // TASK_V4_015: 策略保存/加载 API
+  // 注意：必须挂在 V4_016 之后，避免 /public 被 /:id 动态路由吞掉
+  try {
+    const strategyConfig = require('./strategy-config');
+    const v4_015Router = strategyConfig.createV4_015Router(express);
+
+    app.use('/api/strategy-config', v4_015Router);
+    mounted.push('/api/strategy-config/save');
+    mounted.push('/api/strategy-config/list');
+    mounted.push('/api/strategy-config/:id');
+    console.log('[mountApi] strategy-config V4_015 API mounted: /api/strategy-config');
+  } catch (e) {
+    console.log('[mountApi] strategy-config V4_015 模块加载失败:', e.message);
+  }
+
+  // TASK_V4_025: 多策略回测 API
+  try {
+    const MultiStrategyBacktestEngine = require('./backtest-multi-strategy');
+    const multiRouter = require('express').Router();
+
+    // POST /api/backtest/multi-strategy/run - 运行多策略回测
+    multiRouter.post('/run', async (req, res) => {
+      try {
+        const { startDate, endDate, strategies, config } = req.body;
+
+        if (!startDate || !endDate) {
+          return res.status(400).json({
+            success: false,
+            error: '缺少 startDate 或 endDate 参数'
+          });
+        }
+
+        const engine = new MultiStrategyBacktestEngine(config || {});
+
+        if (strategies && Array.isArray(strategies)) {
+          engine.setStrategies(strategies);
+        }
+
+        const result = await engine.run({ startDate, endDate });
+        res.json(result);
+      } catch (error) {
+        console.error('[多策略回测] 运行失败:', error);
+        res.status(500).json({
+          success: false,
+          error: error.message
+        });
+      }
+    });
+
+    // POST /api/backtest/multi-strategy/single - 单策略回测（使用策略模板）
+    multiRouter.post('/single', async (req, res) => {
+      try {
+        const { startDate, endDate, templateId, customParams, config } = req.body;
+
+        if (!startDate || !endDate) {
+          return res.status(400).json({
+            success: false,
+            error: '缺少 startDate 或 endDate 参数'
+          });
+        }
+
+        const engine = new MultiStrategyBacktestEngine(config || {});
+        engine.addStrategy({
+          templateId: templateId || 'DEFAULT',
+          weight: 1.0,
+          customParams: customParams || {}
+        });
+
+        const result = await engine.run({ startDate, endDate });
+        res.json(result);
+      } catch (error) {
+        console.error('[单策略回测] 运行失败:', error);
+        res.status(500).json({
+          success: false,
+          error: error.message
+        });
+      }
+    });
+
+    app.use('/api/backtest/multi-strategy', multiRouter);
+    mounted.push('/api/backtest/multi-strategy/run');
+    mounted.push('/api/backtest/multi-strategy/single');
+    console.log('[mountApi] multi-strategy backtest API mounted: /api/backtest/multi-strategy');
+  } catch (e) {
+    console.log('[mountApi] multi-strategy backtest 模块加载失败:', e.message);
+  }
+
+// TASK_V3_008_FIX_001: 分钟线回测 API
   try {
     const minuteBacktest = require('./backtest-minute');
     const router = require('express').Router();
@@ -376,6 +568,18 @@ async function bootstrap() {
     mounted.push('/api/monitor/run');
   } catch (e) {
     console.log('[mountApi] position-signals模块加载失败:', e.message);
+  }
+
+  // 交易日查询 API
+  try {
+    const tradingDays = require('./trading-days');
+    const tradingDaysRouter = tradingDays.createRouter(express);
+    app.use('/api/trading-days', tradingDaysRouter);
+    mounted.push('/api/trading-days');
+    mounted.push('/api/trading-days/check');
+    console.log('[mountApi] trading-days API mounted: /api/trading-days');
+  } catch (e) {
+    console.log('[mountApi] trading-days 模块加载失败:', e.message);
   }
 
   // 股票搜索API
@@ -483,6 +687,17 @@ async function bootstrap() {
     console.log('[mountApi] 参数优化API已加载');
   } catch (e) {
     console.log('[mountApi] optimizer模块加载失败:', e.message);
+  }
+
+  // TASK_API_002: 决策引擎 API
+  try {
+    const decisionRouter = require('./decision');
+    app.use('/api/decision', decisionRouter);
+    mounted.push('/api/decision/generate');
+    mounted.push('/api/decision/config');
+    console.log('[mountApi] 决策引擎API已加载');
+  } catch (e) {
+    console.log('[mountApi] decision模块加载失败:', e.message);
   }
 
   // TASK_V3_301~303: 联合优化器 API

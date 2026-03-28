@@ -1,11 +1,13 @@
 # TASK_SNAPSHOT_001: 创建 stock_factor_snapshot 表
 
+已基于真实数据库、迁移脚本、回填脚本证据确认完成；详细证据见 docs/runtime/TASK_SNAPSHOT_001-005_STATUS.md。
+
 **任务 ID**: TASK_SNAPSHOT_001  
 **任务名称**: 创建选股因子历史快照表  
 **优先级**: P0  
 **创建时间**: 2026-03-24  
 **预计工作量**: 0.5 天  
-**状态**: in_progress
+**状态**: 已完成（done）
 
 ---
 

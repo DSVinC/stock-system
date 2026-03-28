@@ -304,9 +304,23 @@ async function getConditionalOrders(req, res) {
     let query = `
       SELECT
         co.*,
-        pa.account_name
+        pa.account_name,
+        coc.strategy_source,
+        coc.strategy_config_id,
+        coc.strategy_config_name,
+        coc.template_id,
+        coc.template_name,
+        coc.strategy_id,
+        coc.strategy_version,
+        coc.report_id,
+        scf.execution_feedback_status,
+        scf.execution_feedback_confidence,
+        scf.total_trades,
+        scf.total_pnl
       FROM conditional_order co
       LEFT JOIN portfolio_account pa ON pa.id = co.account_id
+      LEFT JOIN conditional_order_context coc ON coc.conditional_order_id = co.id
+      LEFT JOIN strategy_config_feedback scf ON scf.strategy_config_id = coc.strategy_config_id
     `;
     let params = [];
     let conditions = [];
@@ -359,9 +373,23 @@ async function getConditionalOrder(req, res) {
     const order = await db.getPromise(`
       SELECT
         co.*,
-        pa.account_name
+        pa.account_name,
+        coc.strategy_source,
+        coc.strategy_config_id,
+        coc.strategy_config_name,
+        coc.template_id,
+        coc.template_name,
+        coc.strategy_id,
+        coc.strategy_version,
+        coc.report_id,
+        scf.execution_feedback_status,
+        scf.execution_feedback_confidence,
+        scf.total_trades,
+        scf.total_pnl
       FROM conditional_order co
       LEFT JOIN portfolio_account pa ON pa.id = co.account_id
+      LEFT JOIN conditional_order_context coc ON coc.conditional_order_id = co.id
+      LEFT JOIN strategy_config_feedback scf ON scf.strategy_config_id = coc.strategy_config_id
       WHERE co.id = ?
     `, [id]);
     
@@ -400,7 +428,7 @@ async function createFromReport(req, res) {
     }
     
     // 读取分析报告
-    const db = require('./db');
+    const db = await getDatabase();
     const report = await db.getPromise(
       'SELECT * FROM stock_analysis_reports WHERE report_id = ? AND stock_code = ?',
       [report_id, stock_code]
@@ -413,6 +441,26 @@ async function createFromReport(req, res) {
     // 解析报告决策
     const decisions = JSON.parse(report.report_json).decisions || {};
     const createdOrders = [];
+    const startDate = new Date().toISOString().split('T')[0];
+    const endDate = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const persistOrderContext = async (conditionalOrderId) => {
+      await db.runPromise(
+        `INSERT INTO conditional_order_context (
+          conditional_order_id,
+          strategy_source,
+          strategy_config_name,
+          report_id,
+          created_at,
+          updated_at
+        ) VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))`,
+        [
+          conditionalOrderId,
+          'analysis_report',
+          `从分析报告导入: ${report_id}`,
+          report_id
+        ]
+      );
+    };
     
     // 1. 创建止损条件单
     if (decisions.stop_loss) {
@@ -427,17 +475,20 @@ async function createFromReport(req, res) {
           operator: '<=',
           value: decisions.stop_loss
         }]),
-        condition_logic: 'AND',
-        report_id: report_id
+        condition_logic: 'AND'
       };
       
       const stopLossResult = await db.runPromise(
-        `INSERT INTO conditional_order (account_id, ts_code, stock_name, order_type, action, conditions, condition_logic, report_id, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
+        `INSERT INTO conditional_order (
+          account_id, ts_code, stock_name, order_type, action,
+          conditions, condition_logic, status, start_date, end_date,
+          created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'enabled', ?, ?, datetime('now'), datetime('now'))`,
         [stopLossOrder.account_id, stopLossOrder.ts_code, stopLossOrder.stock_name, 
          stopLossOrder.order_type, stopLossOrder.action, stopLossOrder.conditions, 
-         stopLossOrder.condition_logic, stopLossOrder.report_id]
+         stopLossOrder.condition_logic, startDate, endDate]
       );
+      await persistOrderContext(stopLossResult.lastID);
       createdOrders.push({ type: 'stop_loss', id: stopLossResult.lastID });
     }
     
@@ -459,17 +510,20 @@ async function createFromReport(req, res) {
             operator: '>=',
             value: target
           }]),
-          condition_logic: 'AND',
-          report_id: report_id
+          condition_logic: 'AND'
         };
         
         const stopProfitResult = await db.runPromise(
-          `INSERT INTO conditional_order (account_id, ts_code, stock_name, order_type, action, conditions, condition_logic, report_id, status)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
+          `INSERT INTO conditional_order (
+            account_id, ts_code, stock_name, order_type, action,
+            conditions, condition_logic, status, start_date, end_date,
+            created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, 'enabled', ?, ?, datetime('now'), datetime('now'))`,
           [stopProfitOrder.account_id, stopProfitOrder.ts_code, stopProfitOrder.stock_name,
            stopProfitOrder.order_type, stopProfitOrder.action, stopProfitOrder.conditions,
-           stopProfitOrder.condition_logic, stopProfitOrder.report_id]
+           stopProfitOrder.condition_logic, startDate, endDate]
         );
+        await persistOrderContext(stopProfitResult.lastID);
         createdOrders.push({ type: 'take_profit', target, id: stopProfitResult.lastID });
       }
     }
@@ -484,22 +538,25 @@ async function createFromReport(req, res) {
         order_type: 'entry',
         action: 'buy',
         position_pct: position_pct || 10,
-        conditions: JSON.stringify([{
-          field: 'price',
-          operator: 'between',
-          value: [entryZone.low, entryZone.high]
-        }]),
-        condition_logic: 'AND',
-        report_id: report_id
+          conditions: JSON.stringify([{
+            field: 'price',
+            operator: 'between',
+            value: [entryZone.low, entryZone.high]
+          }]),
+        condition_logic: 'AND'
       };
       
       const entryResult = await db.runPromise(
-        `INSERT INTO conditional_order (account_id, ts_code, stock_name, order_type, action, conditions, condition_logic, report_id, status, position_pct)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO conditional_order (
+          account_id, ts_code, stock_name, order_type, action,
+          conditions, condition_logic, status, position_pct,
+          start_date, end_date, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'enabled', ?, ?, ?, datetime('now'), datetime('now'))`,
         [entryOrder.account_id, entryOrder.ts_code, entryOrder.stock_name,
          entryOrder.order_type, entryOrder.action, entryOrder.conditions,
-         entryOrder.condition_logic, entryOrder.report_id, entryOrder.position_pct]
+         entryOrder.condition_logic, entryOrder.position_pct, startDate, endDate]
       );
+      await persistOrderContext(entryResult.lastID);
       createdOrders.push({ type: 'entry', id: entryResult.lastID });
     }
     
@@ -526,27 +583,31 @@ async function createConditionalOrder(req, res) {
       account_id, ts_code, stock_name, order_type, action,
       quantity, amount, position_pct,
       conditions, condition_logic,
-      start_date, end_date, max_trigger_count
+      start_date, end_date, max_trigger_count,
+      // Strategy context fields
+      strategySource, strategyConfigId, strategyConfigName,
+      templateId, templateName,
+      strategyId, strategyVersion, reportId
     } = req.body;
-    
+
     if (!account_id || !ts_code || !order_type || !action || !conditions) {
       return res.status(400).json({ success: false, error: '缺少必要参数' });
     }
-    
+
     // 验证ts_code格式
     const tsCodeRegex = /^[0-9]{6}\.(SZ|SH|BJ)$/;
     if (!tsCodeRegex.test(ts_code)) {
       return res.status(400).json({ success: false, error: '股票代码格式无效' });
     }
-    
+
     // 验证conditions
     const condValidation = validateConditions(conditions);
     if (!condValidation.valid) {
       return res.status(400).json({ success: false, error: condValidation.error });
     }
-    
+
     const db = await getDatabase();
-    
+
     const validation = await validateAccountForOrder(db, {
       account_id,
       ts_code,
@@ -563,7 +624,7 @@ async function createConditionalOrder(req, res) {
         error: validation.error
       });
     }
-    
+
     const result = await db.runPromise(`
       INSERT INTO conditional_order (
         account_id, ts_code, stock_name, order_type, action,
@@ -581,11 +642,46 @@ async function createConditionalOrder(req, res) {
       end_date || dateFormat(addMonths(new Date(), 3)),
       max_trigger_count || 1
     ]);
-    
-    res.json({ 
-      success: true, 
+
+    const conditionalOrderId = result.lastID;
+
+    // Insert into conditional_order_context side table when any strategy context is present.
+    if (
+      strategySource || strategyConfigId || strategyConfigName ||
+      templateId || templateName ||
+      strategyId || strategyVersion || reportId
+    ) {
+      await db.runPromise(`
+        INSERT INTO conditional_order_context (
+          conditional_order_id,
+          strategy_source,
+          strategy_config_id,
+          strategy_config_name,
+          template_id,
+          template_name,
+          strategy_id,
+          strategy_version,
+          report_id,
+          created_at,
+          updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+      `, [
+        conditionalOrderId,
+        strategySource || null,
+        strategyConfigId || null,
+        strategyConfigName || null,
+        templateId || null,
+        templateName || null,
+        strategyId || null,
+        strategyVersion || null,
+        reportId || null
+      ]);
+    }
+
+    res.json({
+      success: true,
       data: {
-        id: result.lastID,
+        id: conditionalOrderId,
         account_id,
         account_name: validation.account.account_name,
         ts_code,

@@ -13,8 +13,9 @@
 
 const { createRequire } = require('node:module');
 
-const workspaceRequire = createRequire('/Users/vvc/.openclaw/workspace/skills/sina-ashare-mcp/package.json');
-const express = workspaceRequire('express');
+const express = require('express');
+// express already required above
+const Database = require('better-sqlite3');
 
 const {
   toNumber,
@@ -32,6 +33,16 @@ const {
   analyzeTechnical,
   formatDate
 } = require('./market-data');
+
+// 数据库连接（单例）
+const DB_PATH = process.env.STOCK_DB || '/Volumes/SSD500/openclaw/stock-system/stock_system.db';
+let dbCache = null;
+function getDb() {
+  if (!dbCache) {
+    dbCache = new Database(DB_PATH);
+  }
+  return dbCache;
+}
 
 const {
   calculateTrendFactor,
@@ -64,45 +75,43 @@ const DEFAULT_FACTOR_WEIGHTS = {
  */
 async function getIndustryStocks(industryName) {
   try {
-    // 从同花顺概念板块获取成分股
-    const indexData = await tushareRequest('ths_index', {
-      exchange: 'A',
-      type: 'N'  // 概念板块
-    }, ['ts_code', 'name', 'count', 'exchange', 'list_date', 'type']);
-
-    // 匹配行业名称
-    const matchedIndex = indexData.find(item =>
-      item.name === industryName || item.name.includes(industryName) || industryName.includes(item.name)
-    );
-
-    if (!matchedIndex) {
-      console.warn(`[getIndustryStocks] 未找到行业: ${industryName}`);
+    const db = getDb();
+    
+    // 优先从数据库查询行业成分股
+    const industry = db.prepare(`
+      SELECT ts_code, name, type 
+      FROM industry_index 
+      WHERE name = ? OR name LIKE ? OR ? LIKE name || '%'
+      LIMIT 1
+    `).get(industryName, '%' + industryName + '%', industryName);
+    
+    if (!industry) {
+      console.warn('[getIndustryStocks] 数据库未找到行业：' + industryName);
       return [];
     }
-
-    // 获取成分股 - 使用 con_code 和 con_name 字段
-    const members = await tushareRequest('ths_member', {
-      ts_code: matchedIndex.ts_code
-    }, ['ts_code', 'con_code', 'con_name', 'in_date', 'out_date']);
-
-    // 过滤已退出的股票，并使用正确的字段名
-    const today = formatDate(new Date());
-    const activeMembers = members.filter(item => !item.out_date || item.out_date >= today);
-
-    return activeMembers.map(item => ({
-      ts_code: item.con_code,  // 成分股代码
-      name: item.con_name,     // 成分股名称
+    
+    // 从数据库查询成分股
+    const stocks = db.prepare(`
+      SELECT ts_code, stock_name 
+      FROM industry_member 
+      WHERE industry_code = ?
+    `).all(industry.ts_code);
+    
+    console.log('[getIndustryStocks] 从数据库获取 ' + industry.name + '(' + industry.ts_code + ') 的成分股 ' + stocks.length + ' 只');
+    
+    return stocks.map(item => ({
+      ts_code: item.ts_code,
+      name: item.stock_name,
       industry: industryName
-    })).filter(item => {
-      // 过滤有效的股票代码（格式：000001.SZ 或 600519.SH）
-      return /^\d{6}\.(SH|SZ|BJ)$/.test(item.ts_code);
-    });
+    }));
   } catch (error) {
-    console.warn(`[getIndustryStocks] 获取成分股失败: ${error.message}`);
+    console.warn('[getIndustryStocks] 获取成分股失败：' + error.message);
     return [];
   }
 }
 
+/**
+ * 计算技术面因子评分
 /**
  * 计算技术面因子评分
  * @param {string} tsCode - 股票代码

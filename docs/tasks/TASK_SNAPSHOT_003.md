@@ -1,11 +1,13 @@
 # TASK_SNAPSHOT_003: 创建 stock_selection_reports 表
 
+已基于真实数据库、迁移脚本、回填脚本证据确认完成；详细证据见 docs/runtime/TASK_SNAPSHOT_001-005_STATUS.md。
+
 **任务 ID**: TASK_SNAPSHOT_003  
 **任务名称**: 创建选股报告存储表  
 **优先级**: P0  
 **创建时间**: 2026-03-24  
 **预计工作量**: 0.5 天  
-**状态**: in_progress
+**状态**: 已完成（done）
 
 ---
 

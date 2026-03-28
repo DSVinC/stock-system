@@ -18,8 +18,8 @@ const { open } = require('sqlite');
 
 const execAsync = promisify(exec);
 
-// 数据库路径
-const DB_PATH = path.join(__dirname, '..', 'stock_system.db');
+// 数据库路径（优先使用 .env 配置）
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', 'stock_system.db');
 
 // 日志目录
 const LOG_DIR = path.join(__dirname, '..', 'logs');

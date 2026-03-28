@@ -190,7 +190,13 @@
 
       return {
         stock_name: stockName,
-        stock_code: stockCode
+        stock_code: stockCode,
+        // Preserve strategy context fields
+        strategySource: input.strategySource,
+        strategyConfigId: input.strategyConfigId,
+        strategyConfigName: input.strategyConfigName,
+        templateId: input.templateId,
+        templateName: input.templateName
       };
     }
 
@@ -322,6 +328,40 @@
       }
     }
 
+    function formatMonitorStrategyMeta(stock) {
+      if (!stock || typeof stock !== 'object') {
+        return '';
+      }
+
+      const source = stock.strategy_source || stock.strategySource;
+      const strategyConfigName = stock.strategy_config_name || stock.strategyConfigName;
+      const templateName = stock.template_name || stock.templateName;
+
+      let sourceLabel = '';
+      if (source === 'strategy_config') {
+        sourceLabel = '策略库';
+      } else if (source === 'template') {
+        sourceLabel = '模板';
+      }
+
+      const name = strategyConfigName || templateName;
+      if (!sourceLabel && !name) {
+        return '';
+      }
+
+      const parts = [];
+      if (sourceLabel) {
+        parts.push(
+          `<span style="display:inline-block; margin-right:6px; padding:2px 6px; border-radius:999px; background:rgba(255,255,255,0.08);">${sourceLabel}</span>`
+        );
+      }
+      if (name) {
+        parts.push(`<span>${name}</span>`);
+      }
+
+      return `<div style="margin-top:4px; font-size:12px; color:var(--text-secondary);">${parts.join('')}</div>`;
+    }
+
     function renderRows(stocks) {
       monitorTableBody.replaceChildren();
 
@@ -356,6 +396,12 @@
         nameNode.className = 'stock-name';
         nameNode.textContent = stock.stock_name || '-';
         nameCell.appendChild(nameNode);
+        const strategyMeta = formatMonitorStrategyMeta(stock);
+        if (strategyMeta) {
+          const metaNode = document.createElement('div');
+          metaNode.innerHTML = strategyMeta;
+          nameCell.appendChild(metaNode);
+        }
 
         const codeCell = document.createElement('td');
         codeCell.dataset.label = '代码';
@@ -363,6 +409,16 @@
         codeNode.className = 'stock-code';
         codeNode.textContent = stock.stock_code || '-';
         codeCell.appendChild(codeNode);
+        if (stock.strategySource) checkbox.dataset.strategySource = stock.strategySource;
+        if (stock.strategy_source) checkbox.dataset.strategySource = stock.strategy_source;
+        if (stock.strategyConfigId != null) checkbox.dataset.strategyConfigId = String(stock.strategyConfigId);
+        if (stock.strategy_config_id != null) checkbox.dataset.strategyConfigId = String(stock.strategy_config_id);
+        if (stock.strategyConfigName) checkbox.dataset.strategyConfigName = stock.strategyConfigName;
+        if (stock.strategy_config_name) checkbox.dataset.strategyConfigName = stock.strategy_config_name;
+        if (stock.templateId != null) checkbox.dataset.templateId = String(stock.templateId);
+        if (stock.template_id != null) checkbox.dataset.templateId = String(stock.template_id);
+        if (stock.templateName) checkbox.dataset.templateName = stock.templateName;
+        if (stock.template_name) checkbox.dataset.templateName = stock.template_name;
 
         const timeCell = document.createElement('td');
         timeCell.dataset.label = '添加时间';
@@ -543,10 +599,31 @@
 
     function getSelectedStocks() {
       const checkboxes = document.querySelectorAll('.stock-checkbox:checked');
-      return Array.from(checkboxes).map(cb => ({
-        ts_code: cb.value,
-        stock_name: cb.dataset.name
-      }));
+      return Array.from(checkboxes).map(cb => {
+        const result = {
+          ts_code: cb.value,
+          stock_name: cb.dataset.name
+        };
+
+        // Preserve strategy context fields from data attributes
+        if (cb.dataset.strategySource) {
+          result.strategySource = cb.dataset.strategySource;
+        }
+        if (cb.dataset.strategyConfigId !== undefined && cb.dataset.strategyConfigId !== null) {
+          result.strategyConfigId = parseInt(cb.dataset.strategyConfigId, 10);
+        }
+        if (cb.dataset.strategyConfigName) {
+          result.strategyConfigName = cb.dataset.strategyConfigName;
+        }
+        if (cb.dataset.templateId !== undefined && cb.dataset.templateId !== null) {
+          result.templateId = parseInt(cb.dataset.templateId, 10);
+        }
+        if (cb.dataset.templateName) {
+          result.templateName = cb.dataset.templateName;
+        }
+
+        return result;
+      });
     }
 
     async function showBatchCreateModal() {

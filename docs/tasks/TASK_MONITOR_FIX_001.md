@@ -122,7 +122,7 @@ main().catch(console.error);
 
 ## 📝 备注
 
-- 当前已有 `TUSHARE_TOKEN` 环境变量（`af07b55d634bf87ae88d22fc991e7c27d480df56f71ba02ae1fe1112`）
+- 当前已有 `TUSHARE_TOKEN` 环境变量（`[Keychain 中的 skills/tushare/token]`）
 - 新浪财经 MCP 脚本位置：`/Users/vvc/.openclaw/workspace/skills/sina-ashare-mcp/scripts`
 - 飞书 open_id：`ou_a21807011c59304bedfaf2f7440f5361`
 - 修复后重新验收 TASK_CONDITIONAL_MONITOR_001

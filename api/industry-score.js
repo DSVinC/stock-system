@@ -16,9 +16,18 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { createRequire } = require('node:module');
 
-const workspaceRequire = createRequire('/Users/vvc/.openclaw/workspace/skills/sina-ashare-mcp/package.json');
-const express = workspaceRequire('express');
+const express = require('express');
+// express already required above
+const Database = require('better-sqlite3');
 const { MarketDataError, getSelectionDatasets, toNumber, tushareRequest } = require('./market-data');
+
+// 数据库连接（单例）
+const DB_PATH = process.env.STOCK_DB || '/Volumes/SSD500/openclaw/stock-system/stock_system.db';
+let dbCache = null;
+function getDb() {
+  if (!dbCache) dbCache = new Database(DB_PATH);
+  return dbCache;
+}
 
 const router = express.Router();
 
@@ -197,45 +206,67 @@ async function getIndustryScoreRanking(customWeights = null) {
     throw new Error(`权重总和必须为 1.0，当前为 ${total}`);
   }
 
-  // 获取数据集
-  const datasets = await getSelectionDatasets();
-
-  // 构建索引映射
-  const indexMap = new Map(
-    datasets.thsIndex
-      .filter(item => ['N', 'TH', 'I'].includes(item.type))
-      .map(item => [item.ts_code, item])
-  );
-
-  const hotMap = new Map(
-    datasets.conceptHot
-      .filter(item => normalizeName(item.ts_name))
-      .map(item => [normalizeName(item.ts_name), item])
-  );
-
-  const stockBasicMap = new Map(
-    datasets.stockBasic.map(item => [item.ts_code, item])
-  );
-
-  // 计算 IPO 行业匹配
-  const ipoIndustries = datasets.ipoRows
-    .map(row => stockBasicMap.get(row.ts_code))
-    .filter(Boolean)
-    .map(row => normalizeName(row.industry));
+  // 从数据库获取行业数据
+  const db = getDb();
+  
+  // 获取最新交易日
+  const tradeDateRow = db.prepare('SELECT MAX(trade_date) as trade_date FROM industry_moneyflow').get();
+  const tradeDate = tradeDateRow?.trade_date || new Date().toISOString().split('T')[0];
+  
+  // 获取行业资金流
+  const industryFlows = db.prepare(`
+    SELECT 
+      industry_code as ts_code,
+      industry_name as name,
+      net_mf_amount as net_amount,
+      avg_pct_change as pct_change,
+      stock_count as company_num,
+      industry_type as type
+    FROM industry_moneyflow
+    WHERE trade_date = ?
+  `).all(tradeDate);
+  
+  // 获取行业指数信息
+  const thsIndex = db.prepare('SELECT ts_code, name, type, count FROM industry_index').all();
+  const indexMap = new Map(thsIndex.filter(item => ['N', 'TH', 'I'].includes(item.type)).map(item => [item.ts_code, item]));
+  
+  // 获取行业热度（如果表存在）
+  let hotMap = new Map();
+  try {
+    const industryHot = db.prepare(`SELECT ts_code, ts_name, rank, hot FROM industry_hot WHERE trade_date = ?`).all(tradeDate);
+    hotMap = new Map(industryHot.filter(item => normalizeName(item.ts_name)).map(item => [normalizeName(item.ts_name), item]));
+  } catch (e) {
+    console.log('[getIndustryScoreRanking] industry_hot 表不存在或无数据');
+  }
+  
+  console.log('[getIndustryScoreRanking] 加载行业资金流', industryFlows.length, '条，行业指数', indexMap.size, '个，热度', hotMap.size, '个');
 
   // 计算所有行业的评分
-  const industries = datasets.conceptFlow
+  const industries = industryFlows
     .map(flow => {
       const index = indexMap.get(flow.ts_code);
       if (!index) return null;
 
       const name = normalizeName(flow.name || index.name);
       const hot = hotMap.get(name);
-      const ipoMatches = ipoIndustries.filter(
-        industry => industry && (name.includes(industry) || industry.includes(name))
-      ).length;
-
-      return scoreIndustry(flow, index, hot, ipoMatches, weights);
+      
+      // 构建兼容旧 scoreIndustry 函数的 flow 对象
+      const flowCompat = {
+        trade_date: tradeDate,
+        ts_code: flow.ts_code,
+        name: flow.name,
+        lead_stock: '',
+        close_price: 0,
+        pct_change: flow.pct_change || 0,
+        industry_index: flow.ts_code,
+        company_num: flow.company_num || 0,
+        pct_change_stock: 0,
+        net_buy_amount: 0,
+        net_sell_amount: 0,
+        net_amount: flow.net_amount || 0
+      };
+      
+      return scoreIndustry(flowCompat, index, hot, 0, weights);
     })
     .filter(Boolean)
     .sort((a, b) => {
@@ -255,11 +286,11 @@ async function getIndustryScoreRanking(customWeights = null) {
   return {
     success: true,
     generatedAt: new Date().toISOString(),
-    tradeDate: datasets.tradeDate,
+    tradeDate,
     weights,
     elapsed_ms: elapsed,
     total_industries: ranking.length,
-    ranking: ranking.slice(0, 50), // 返回 Top 50
+    ranking: ranking.slice(0, 50),
     top3: ranking.slice(0, 3).map(item => ({
       rank: item.rank,
       industry: item.name,

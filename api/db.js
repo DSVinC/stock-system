@@ -9,8 +9,10 @@
 
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
-const DB_PATH = '/Volumes/SSD500/openclaw/stock-system/stock_system.db';
+// 数据库路径：优先使用 .env 配置，回退到 SSD 主数据库路径
+const DB_PATH = process.env.DB_PATH || '/Volumes/SSD500/openclaw/stock-system/stock_system.db';
 
 // SQLITE_BUSY 错误码
 const SQLITE_BUSY = 5;

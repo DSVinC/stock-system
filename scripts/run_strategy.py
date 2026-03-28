@@ -127,13 +127,17 @@ def export_signals_to_db(signals: pd.DataFrame, db_path: str, strategy_id: str):
         CREATE TABLE IF NOT EXISTS strategy_signals (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             strategy_id TEXT NOT NULL,
+            strategy_name TEXT,
             date TEXT NOT NULL,
-            code TEXT NOT NULL,
+            ts_code TEXT NOT NULL,
             signal TEXT NOT NULL,
             qty INTEGER DEFAULT 0,
             price REAL NOT NULL,
             score REAL,
-            created_at TEXT NOT NULL
+            signal_strength TEXT,
+            metadata TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT
         )
     ''')
     
@@ -151,12 +155,12 @@ def export_signals_to_db(signals: pd.DataFrame, db_path: str, strategy_id: str):
                 date_str = str(date_val)
             
             cursor.execute('''
-                INSERT INTO strategy_signals (strategy_id, date, code, signal, qty, price, score, created_at)
+                INSERT INTO strategy_signals (strategy_id, date, ts_code, signal, qty, price, score, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 strategy_id,
                 date_str,
-                str(row.get('code', row.get('ts_code', 'UNKNOWN'))),
+                str(row.get('ts_code', row.get('code', 'UNKNOWN'))),
                 str(row.get('signal', 'HOLD')),
                 int(row.get('qty', row.get('position', 0))),
                 float(row.get('price', row.get('close', 0))),

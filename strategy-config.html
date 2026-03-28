@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A 股投资系统 | 策略配置</title>
+  <link rel="stylesheet" href="./pages/style.css">
+  <style>
+    .config-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    .config-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+    }
+    
+    .config-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    
+    .config-actions {
+      display: flex;
+      gap: 12px;
+    }
+    
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: var(--accent-strong);
+      transform: translateY(-1px);
+    }
+    
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-soft);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: var(--text);
+    }
+    
+    .config-section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .section-icon {
+      font-size: 20px;
+    }
+    
+    .weight-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+    }
+    
+    .weight-item {
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 12px;
+      padding: 16px;
+    }
+    
+    .weight-label {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-soft);
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+    }
+    
+    .weight-value {
+      color: var(--accent);
+      font-weight: 600;
+    }
+    
+    .slider {
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+      -webkit-appearance: none;
+    }
+    
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .slider::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+    
+    .weight-sum {
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid var(--accent);
+      border-radius: 12px;
+      padding: 16px;
+      margin-top: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .sum-label {
+      font-size: 14px;
+      color: var(--text-soft);
+    }
+    
+    .sum-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    
+    .sum-value.error {
+      color: var(--bad);
+    }
+    
+    .sum-value.success {
+      color: var(--good);
+    }
+    
+    .input-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+    
+    .input-item {
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 12px;
+      padding: 16px;
+    }
+    
+    .input-label {
+      font-size: 13px;
+      color: var(--text-soft);
+      margin-bottom: 8px;
+    }
+    
+    .input-field {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+      font-size: 14px;
+    }
+    
+    .input-field:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    
+    .config-list {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 24px;
+      margin-top: 30px;
+    }
+    
+    .config-list-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 16px;
+    }
+    
+    .config-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 12px;
+      margin-bottom: 12px;
+    }
+    
+    .config-item-info {
+      flex: 1;
+    }
+    
+    .config-item-name {
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+    
+    .config-item-version {
+      font-size: 12px;
+      color: var(--text-soft);
+    }
+    
+    .config-item-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-left: 16px;
+    }
+    
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+    
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-left: 8px;
+    }
+    
+    .badge-default {
+      background: rgba(56, 189, 248, 0.2);
+      color: var(--accent);
+    }
+    
+    .badge-active {
+      background: rgba(34, 197, 94, 0.2);
+      color: var(--good);
+    }
+    
+    .badge-inactive {
+      background: rgba(107, 114, 128, 0.2);
+      color: var(--text-soft);
+    }
+
+    .feedback-panel {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border: 1px solid rgba(56, 189, 248, 0.14);
+      border-radius: 12px;
+      background: rgba(56, 189, 248, 0.04);
+    }
+
+    .feedback-empty {
+      color: var(--text-soft);
+      font-size: 13px;
+    }
+
+    .feedback-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .feedback-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+
+    .feedback-status-no_data,
+    .feedback-confidence-none {
+      background: rgba(160, 160, 160, 0.18);
+      color: var(--text-soft);
+    }
+
+    .feedback-status-positive,
+    .feedback-confidence-high {
+      background: rgba(34, 197, 94, 0.18);
+      color: var(--good);
+    }
+
+    .feedback-status-mixed,
+    .feedback-confidence-medium {
+      background: rgba(245, 158, 11, 0.18);
+      color: #f59e0b;
+    }
+
+    .feedback-status-caution,
+    .feedback-confidence-low {
+      background: rgba(239, 68, 68, 0.18);
+      color: var(--bad);
+    }
+
+    .feedback-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+      gap: 8px;
+    }
+
+    .feedback-summary-item {
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      min-width: 0;
+    }
+
+    .feedback-summary-label {
+      font-size: 11px;
+      color: var(--text-soft);
+      margin-bottom: 4px;
+    }
+
+    .feedback-summary-value {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .feedback-summary-note {
+      margin-top: 10px;
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--text-soft);
+    }
+    
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px 24px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+      z-index: 1000;
+      animation: slideIn 0.3s ease;
+    }
+    
+    @keyframes slideIn {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+    
+    .toast.success {
+      border-color: var(--good);
+    }
+    
+    .toast.error {
+      border-color: var(--bad);
+    }
+  </style>
+</head>
+<body>
+  <div class="config-container">
+    <div class="config-header">
+      <h1 class="config-title">⚙️ 策略配置</h1>
+      <div class="config-actions">
+        <button class="btn btn-secondary" onclick="loadDefaultConfig()">📥 加载默认</button>
+        <button class="btn btn-secondary" onclick="resetConfig()">🔄 重置</button>
+        <button class="btn btn-primary" onclick="saveConfig()">💾 保存配置</button>
+      </div>
+    </div>
+
+    <!-- 四维度行业权重 -->
+    <div class="config-section">
+      <h2 class="section-title">
+        <span class="section-icon">📊</span>
+        四维度行业权重
+      </h2>
+      <div class="weight-grid">
+        <div class="weight-item">
+          <div class="weight-label">
+            <span>政策支持</span>
+            <span class="weight-value" id="policyValue">25%</span>
+          </div>
+          <input type="range" class="slider" id="policyWeight" min="0" max="100" value="25" oninput="updateWeightDisplay()">
+        </div>
+        <div class="weight-item">
+          <div class="weight-label">
+            <span>商业化显现 ⭐</span>
+            <span class="weight-value" id="commercializationValue">30%</span>
+          </div>
+          <input type="range" class="slider" id="commercializationWeight" min="0" max="100" value="30" oninput="updateWeightDisplay()">
+        </div>
+        <div class="weight-item">
+          <div class="weight-label">
+            <span>舆论热度 ⭐</span>
+            <span class="weight-value" id="sentimentValue">25%</span>
+          </div>
+          <input type="range" class="slider" id="sentimentWeight" min="0" max="100" value="25" oninput="updateWeightDisplay()">
+        </div>
+        <div class="weight-item">
+          <div class="weight-label">
+            <span>资本认可</span>
+            <span class="weight-value" id="capitalValue">20%</span>
+          </div>
+          <input type="range" class="slider" id="capitalWeight" min="0" max="100" value="20" oninput="updateWeightDisplay()">
+        </div>
+      </div>
+      <div class="weight-sum" id="weightSum">
+        <span class="sum-label">权重总和</span>
+        <span class="sum-value success" id="sumValue">100%</span>
+      </div>
+    </div>
+
+    <!-- 筛选阈值 -->
+    <div class="config-section">
+      <h2 class="section-title">
+        <span class="section-icon">🎯</span>
+        筛选阈值
+      </h2>
+      <div class="input-grid">
+        <div class="input-item">
+          <div class="input-label">营收增速下限 (%)</div>
+          <input type="number" class="input-field" id="revenueGrowthMin" value="20" step="1">
+        </div>
+        <div class="input-item">
+          <div class="input-label">毛利率下限 (%)</div>
+          <input type="number" class="input-field" id="grossMarginMin" value="25" step="1">
+        </div>
+        <div class="input-item">
+          <div class="input-label">热度前 N (%)</div>
+          <input type="number" class="input-field" id="sentimentTopPercentile" value="20" step="5">
+        </div>
+        <div class="input-item">
+          <div class="input-label">7 因子最低分</div>
+          <input type="number" class="input-field" id="sevenFactorMinScore" value="0.75" step="0.01" min="0" max="1">
+        </div>
+        <div class="input-item">
+          <div class="input-label">PE 上限</div>
+          <input type="number" class="input-field" id="peMax" value="60" step="5">
+        </div>
+        <div class="input-item">
+          <div class="input-label">PEG 上限</div>
+          <input type="number" class="input-field" id="pegMax" value="2" step="0.1">
+        </div>
+      </div>
+    </div>
+
+    <!-- 核心 - 卫星配置 -->
+    <div class="config-section">
+      <h2 class="section-title">
+        <span class="section-icon">🎯</span>
+        核心 - 卫星仓位
+      </h2>
+      <div class="weight-grid">
+        <div class="weight-item">
+          <div class="weight-label">
+            <span>核心仓比例</span>
+            <span class="weight-value" id="coreRatioValue">75%</span>
+          </div>
+          <input type="range" class="slider" id="coreRatio" min="50" max="90" value="75" oninput="updatePositionDisplay()">
+        </div>
+        <div class="weight-item">
+          <div class="weight-label">
+            <span>卫星仓比例</span>
+            <span class="weight-value" id="satelliteRatioValue">25%</span>
+          </div>
+          <input type="range" class="slider" id="satelliteRatio" min="10" max="50" value="25" oninput="updatePositionDisplay()">
+        </div>
+        <div class="weight-item">
+          <div class="weight-label">
+            <span>卫星仓股票数</span>
+            <span class="weight-value" id="satelliteCountValue">3</span>
+          </div>
+          <input type="range" class="slider" id="satelliteCount" min="1" max="5" value="3" step="1" oninput="updatePositionDisplay()">
+        </div>
+      </div>
+      <div class="weight-sum">
+        <span class="sum-label">仓位总和</span>
+        <span class="sum-value success" id="positionSumValue">100%</span>
+      </div>
+    </div>
+
+    <!-- 网格交易配置 -->
+    <div class="config-section">
+      <h2 class="section-title">
+        <span class="section-icon">📈</span>
+        网格交易参数
+      </h2>
+      <div class="input-grid">
+        <div class="input-item">
+          <div class="input-label">网格步长 (%)</div>
+          <input type="number" class="input-field" id="gridStep" value="1.2" step="0.1" min="0.5">
+        </div>
+        <div class="input-item">
+          <div class="input-label">价格区间</div>
+          <select class="input-field" id="gridPriceRange">
+            <option value="3_months">近 3 个月</option>
+            <option value="6_months">近 6 个月</option>
+            <option value="12_months">近 12 个月</option>
+          </select>
+        </div>
+        <div class="input-item">
+          <div class="input-label">单笔金额 (元)</div>
+          <input type="number" class="input-field" id="gridSingleAmount" value="30000" step="5000">
+        </div>
+        <div class="input-item">
+          <div class="input-label">趋势过滤</div>
+          <select class="input-field" id="gridTrendFilter">
+            <option value="1">启用</option>
+            <option value="0">禁用</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- 风控配置 -->
+    <div class="config-section">
+      <h2 class="section-title">
+        <span class="section-icon">🛡️</span>
+        风控参数
+      </h2>
+      <div class="input-grid">
+        <div class="input-item">
+          <div class="input-label">最大回撤 (%)</div>
+          <input type="number" class="input-field" id="maxDrawdown" value="-20" step="1">
+        </div>
+        <div class="input-item">
+          <div class="input-label">最小年化收益 (%)</div>
+          <input type="number" class="input-field" id="minAnnualReturn" value="15" step="1">
+        </div>
+        <div class="input-item">
+          <div class="input-label">最小胜率 (%)</div>
+          <input type="number" class="input-field" id="minWinRate" value="55" step="1">
+        </div>
+      </div>
+    </div>
+
+    <!-- 配置列表 -->
+    <div class="config-list">
+      <h3 class="config-list-title">💾 已保存的配置</h3>
+      <div id="configListContent">
+        <p style="color: var(--text-soft); text-align: center; padding: 40px;">加载中...</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentConfigId = null;
+    
+    // 初始化
+    document.addEventListener('DOMContentLoaded', () => {
+      loadConfigList();
+      loadDefaultConfig();
+    });
+    
+    // 更新权重显示
+    function updateWeightDisplay() {
+      const policy = parseInt(document.getElementById('policyWeight').value);
+      const commercialization = parseInt(document.getElementById('commercializationWeight').value);
+      const sentiment = parseInt(document.getElementById('sentimentWeight').value);
+      const capital = parseInt(document.getElementById('capitalWeight').value);
+      
+      document.getElementById('policyValue').textContent = policy + '%';
+      document.getElementById('commercializationValue').textContent = commercialization + '%';
+      document.getElementById('sentimentValue').textContent = sentiment + '%';
+      document.getElementById('capitalValue').textContent = capital + '%';
+      
+      const sum = policy + commercialization + sentiment + capital;
+      const sumEl = document.getElementById('sumValue');
+      const sumContainer = document.getElementById('weightSum');
+      
+      sumEl.textContent = sum + '%';
+      
+      if (sum >= 99 && sum <= 101) {
+        sumEl.className = 'sum-value success';
+        sumContainer.style.borderColor = 'var(--good)';
+      } else {
+        sumEl.className = 'sum-value error';
+        sumContainer.style.borderColor = 'var(--bad)';
+      }
+    }
+    
+    // 更新仓位显示
+    function updatePositionDisplay() {
+      const core = parseInt(document.getElementById('coreRatio').value);
+      const satellite = parseInt(document.getElementById('satelliteRatio').value);
+      const count = parseInt(document.getElementById('satelliteCount').value);
+      
+      document.getElementById('coreRatioValue').textContent = core + '%';
+      document.getElementById('satelliteRatioValue').textContent = satellite + '%';
+      document.getElementById('satelliteCountValue').textContent = count;
+      
+      const sum = core + satellite;
+      const sumEl = document.getElementById('positionSumValue');
+      
+      sumEl.textContent = sum + '%';
+      
+      if (sum >= 99 && sum <= 101) {
+        sumEl.className = 'sum-value success';
+      } else {
+        sumEl.className = 'sum-value error';
+      }
+    }
+    
+    // 加载默认配置
+    async function loadDefaultConfig() {
+      try {
+        const response = await fetch('/api/strategy-config/list?is_default=1&is_active=1');
+        const result = await response.json();
+        
+        if (result.success && Array.isArray(result.data) && result.data.length > 0) {
+          loadConfigIntoForm(result.data[0]);
+          showToast('已加载默认配置', 'success');
+        }
+      } catch (error) {
+        console.error('加载默认配置失败:', error);
+      }
+    }
+    
+    // 加载配置到表单
+    function loadConfigIntoForm(config) {
+      currentConfigId = config.id;
+      
+      // 四维度权重
+      document.getElementById('policyWeight').value = config.policy_weight * 100;
+      document.getElementById('commercializationWeight').value = config.commercialization_weight * 100;
+      document.getElementById('sentimentWeight').value = config.sentiment_weight * 100;
+      document.getElementById('capitalWeight').value = config.capital_weight * 100;
+      
+      // 筛选阈值
+      document.getElementById('revenueGrowthMin').value = config.revenue_growth_min * 100;
+      document.getElementById('grossMarginMin').value = config.gross_margin_min * 100;
+      document.getElementById('sentimentTopPercentile').value = config.sentiment_top_percentile * 100;
+      document.getElementById('sevenFactorMinScore').value = config.seven_factor_min_score;
+      document.getElementById('peMax').value = config.pe_max;
+      document.getElementById('pegMax').value = config.peg_max;
+      
+      // 核心 - 卫星配置
+      document.getElementById('coreRatio').value = config.core_ratio * 100;
+      document.getElementById('satelliteRatio').value = config.satellite_ratio * 100;
+      document.getElementById('satelliteCount').value = config.satellite_count;
+      
+      // 网格交易配置
+      document.getElementById('gridStep').value = config.grid_step * 100;
+      document.getElementById('gridPriceRange').value = config.grid_price_range;
+      document.getElementById('gridSingleAmount').value = config.grid_single_amount;
+      document.getElementById('gridTrendFilter').value = config.grid_trend_filter;
+      
+      // 风控配置
+      document.getElementById('maxDrawdown').value = config.max_drawdown * 100;
+      document.getElementById('minAnnualReturn').value = config.min_annual_return * 100;
+      document.getElementById('minWinRate').value = config.min_win_rate * 100;
+      
+      updateWeightDisplay();
+      updatePositionDisplay();
+    }
+    
+    // 保存配置
+    async function saveConfig() {
+      // 验证权重总和
+      const weightSum = parseInt(document.getElementById('policyWeight').value) +
+                       parseInt(document.getElementById('commercializationWeight').value) +
+                       parseInt(document.getElementById('sentimentWeight').value) +
+                       parseInt(document.getElementById('capitalWeight').value);
+      
+      if (weightSum < 99 || weightSum > 101) {
+        showToast('四维度权重总和必须为 100%', 'error');
+        return;
+      }
+      
+      const config = {
+        name: '策略配置 ' + new Date().toLocaleDateString('zh-CN'),
+        version: '1.0.0',
+        policy_weight: parseInt(document.getElementById('policyWeight').value) / 100,
+        commercialization_weight: parseInt(document.getElementById('commercializationWeight').value) / 100,
+        sentiment_weight: parseInt(document.getElementById('sentimentWeight').value) / 100,
+        capital_weight: parseInt(document.getElementById('capitalWeight').value) / 100,
+        revenue_growth_min: parseInt(document.getElementById('revenueGrowthMin').value) / 100,
+        gross_margin_min: parseInt(document.getElementById('grossMarginMin').value) / 100,
+        sentiment_top_percentile: parseInt(document.getElementById('sentimentTopPercentile').value) / 100,
+        seven_factor_min_score: parseFloat(document.getElementById('sevenFactorMinScore').value),
+        pe_max: parseFloat(document.getElementById('peMax').value),
+        peg_max: parseFloat(document.getElementById('pegMax').value),
+        core_ratio: parseInt(document.getElementById('coreRatio').value) / 100,
+        satellite_ratio: parseInt(document.getElementById('satelliteRatio').value) / 100,
+        satellite_count: parseInt(document.getElementById('satelliteCount').value),
+        grid_step: parseFloat(document.getElementById('gridStep').value) / 100,
+        grid_price_range: document.getElementById('gridPriceRange').value,
+        grid_single_amount: parseFloat(document.getElementById('gridSingleAmount').value),
+        grid_trend_filter: parseInt(document.getElementById('gridTrendFilter').value),
+        max_drawdown: parseInt(document.getElementById('maxDrawdown').value) / 100,
+        min_annual_return: parseInt(document.getElementById('minAnnualReturn').value) / 100,
+        min_win_rate: parseInt(document.getElementById('minWinRate').value) / 100
+      };
+      
+      try {
+        const response = await fetch('/api/strategy-config/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(currentConfigId ? { ...config, id: currentConfigId } : config)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          showToast(currentConfigId ? '配置更新成功' : '配置创建成功', 'success');
+          currentConfigId = result.data.id;
+          loadConfigList();
+        } else {
+          showToast(result.error || '保存失败', 'error');
+        }
+      } catch (error) {
+        showToast('保存失败：' + error.message, 'error');
+      }
+    }
+    
+    // 加载配置列表
+    async function loadConfigList() {
+      try {
+        const response = await fetch('/api/strategy-config/public');
+        const result = await response.json();
+        
+        if (result.success) {
+          const container = document.getElementById('configListContent');
+          
+          if (result.data.length === 0) {
+            container.innerHTML = '<p style="color: var(--text-soft); text-align: center; padding: 40px;">暂无配置</p>';
+            return;
+          }
+          
+          container.innerHTML = result.data.map(config => `
+            <div class="config-item">
+              <div class="config-item-info">
+                <div class="config-item-name">
+                  ${config.name}
+                  ${config.is_default ? '<span class="badge badge-default">默认</span>' : ''}
+                </div>
+                <div class="config-item-version">v${config.version} · ${config.description || '无描述'}</div>
+                ${renderPublicStrategyFeedback(config.feedback)}
+              </div>
+              <div class="config-item-actions">
+                <button class="btn btn-secondary btn-sm" onclick="loadConfig(${config.id})">加载</button>
+                ${!config.is_default ? `<button class="btn btn-secondary btn-sm" onclick="setDefault(${config.id})">设为默认</button>` : ''}
+                ${!config.is_default ? `<button class="btn btn-secondary btn-sm" onclick="deleteConfig(${config.id})">删除</button>` : ''}
+              </div>
+            </div>
+          `).join('');
+        }
+      } catch (error) {
+        console.error('加载配置列表失败:', error);
+      }
+    }
+    
+    // 加载指定配置
+    async function loadConfig(id) {
+      try {
+        const response = await fetch(`/api/strategy-config/${id}`);
+        const result = await response.json();
+        
+        if (result.success) {
+          loadConfigIntoForm(result.data);
+          showToast('配置已加载', 'success');
+        }
+      } catch (error) {
+        showToast('加载失败', 'error');
+      }
+    }
+    
+    // 设为默认
+    async function setDefault(id) {
+      try {
+        const response = await fetch('/api/strategy-config/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, is_default: true })
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+          showToast('已设为默认配置', 'success');
+          loadConfigList();
+        }
+      } catch (error) {
+        showToast('设置失败', 'error');
+      }
+    }
+    
+    // 删除配置
+    async function deleteConfig(id) {
+      if (!confirm('确定要删除这个配置吗？')) return;
+      
+      try {
+        const response = await fetch(`/api/strategy-config/${id}`, { method: 'DELETE' });
+        const result = await response.json();
+        
+        if (result.success) {
+          showToast('配置已删除', 'success');
+          loadConfigList();
+          if (currentConfigId === id) {
+            currentConfigId = null;
+            resetConfig();
+          }
+        }
+      } catch (error) {
+        showToast('删除失败', 'error');
+      }
+    }
+    
+    // 重置配置
+    function resetConfig() {
+      currentConfigId = null;
+      document.getElementById('policyWeight').value = 25;
+      document.getElementById('commercializationWeight').value = 30;
+      document.getElementById('sentimentWeight').value = 25;
+      document.getElementById('capitalWeight').value = 20;
+      document.getElementById('revenueGrowthMin').value = 20;
+      document.getElementById('grossMarginMin').value = 25;
+      document.getElementById('sentimentTopPercentile').value = 20;
+      document.getElementById('sevenFactorMinScore').value = 0.75;
+      document.getElementById('peMax').value = 60;
+      document.getElementById('pegMax').value = 2;
+      document.getElementById('coreRatio').value = 75;
+      document.getElementById('satelliteRatio').value = 25;
+      document.getElementById('satelliteCount').value = 3;
+      document.getElementById('gridStep').value = 1.2;
+      document.getElementById('gridPriceRange').value = '3_months';
+      document.getElementById('gridSingleAmount').value = 30000;
+      document.getElementById('gridTrendFilter').value = 1;
+      document.getElementById('maxDrawdown').value = -20;
+      document.getElementById('minAnnualReturn').value = 15;
+      document.getElementById('minWinRate').value = 55;
+      updateWeightDisplay();
+      updatePositionDisplay();
+    }
+    
+    // 显示提示
+    function showToast(message, type = 'success') {
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      
+      setTimeout(() => {
+        toast.remove();
+      }, 3000);
+    }
+
+    function formatFeedbackMetric(value, fallback = '暂无', digits = 0) {
+      if (value === null || value === undefined || value === '') {
+        return fallback;
+      }
+
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        return Number(value).toFixed(digits);
+      }
+
+      return String(value);
+    }
+
+    function renderPublicStrategyFeedback(feedback) {
+      if (!feedback) {
+        return '<div class="feedback-panel"><div class="feedback-empty">暂无执行反馈快照</div></div>';
+      }
+
+      const statusLabels = {
+        no_data: '暂无反馈',
+        positive: '正向反馈',
+        mixed: '混合反馈',
+        caution: '需警惕'
+      };
+
+      const confidenceLabels = {
+        none: '无样本',
+        low: '低',
+        medium: '中',
+        high: '高'
+      };
+
+      const summary = feedback.execution_summary_json || {};
+      const totalTrades = feedback.total_trades ?? summary.total_trades ?? 0;
+      const successfulTrades = feedback.successful_trades ?? summary.successful_trades ?? 0;
+      const failedTrades = feedback.failed_trades ?? summary.failed_trades ?? 0;
+      const totalPnl = feedback.total_pnl ?? summary.total_realized_pnl ?? 0;
+      const backtestScore = feedback.backtest_score ?? feedback.version_backtest_score ?? null;
+
+      const extraNotes = [];
+      if (Array.isArray(summary.event_types) && summary.event_types.length > 0) {
+        extraNotes.push(`事件类型: ${summary.event_types.join('、')}`);
+      }
+      if (Array.isArray(summary.ts_codes) && summary.ts_codes.length > 0) {
+        extraNotes.push(`标的: ${summary.ts_codes.join('、')}`);
+      }
+      if (summary.avg_return !== undefined && summary.avg_return !== null) {
+        extraNotes.push(`平均收益: ${Number(summary.avg_return).toFixed(2)}`);
+      }
+
+      return `
+        <div class="feedback-panel">
+          <div class="feedback-badges">
+            <span class="feedback-badge feedback-status-${feedback.execution_feedback_status || 'no_data'}">
+              执行状态: ${statusLabels[feedback.execution_feedback_status || 'no_data']}
+            </span>
+            <span class="feedback-badge feedback-confidence-${feedback.execution_feedback_confidence || 'none'}">
+              置信度: ${confidenceLabels[feedback.execution_feedback_confidence || 'none']}
+            </span>
+          </div>
+          <div class="feedback-summary">
+            <div class="feedback-summary-item">
+              <div class="feedback-summary-label">样本</div>
+              <div class="feedback-summary-value">${formatFeedbackMetric(totalTrades)}</div>
+            </div>
+            <div class="feedback-summary-item">
+              <div class="feedback-summary-label">成功</div>
+              <div class="feedback-summary-value">${formatFeedbackMetric(successfulTrades)}</div>
+            </div>
+            <div class="feedback-summary-item">
+              <div class="feedback-summary-label">失败</div>
+              <div class="feedback-summary-value">${formatFeedbackMetric(failedTrades)}</div>
+            </div>
+            <div class="feedback-summary-item">
+              <div class="feedback-summary-label">总盈亏</div>
+              <div class="feedback-summary-value">${formatFeedbackMetric(totalPnl)}</div>
+            </div>
+            <div class="feedback-summary-item">
+              <div class="feedback-summary-label">回测分</div>
+              <div class="feedback-summary-value">${formatFeedbackMetric(backtestScore, '暂无', 2)}</div>
+            </div>
+          </div>
+          ${extraNotes.length > 0 ? `<div class="feedback-summary-note">${extraNotes.join(' · ')}</div>` : ''}
+        </div>
+      `;
+    }
+  </script>
+</body>
+</html>

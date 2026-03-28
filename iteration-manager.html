@@ -1,0 +1,1637 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>策略自迭代管理器 - V5</title>
+  <style>
+    :root {
+      --bg-primary: #0f0f0f;
+      --bg-secondary: #1a1a1a;
+      --text-primary: #ffffff;
+      --text-secondary: #a0a0a0;
+      --accent: #667eea;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+    .container { max-width: 1400px; margin: 0 auto; }
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    .header h1 { font-size: 32px; margin-bottom: 8px; }
+    .header p { color: var(--text-secondary); }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+    .card {
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      padding: 24px;
+    }
+    .card-title {
+      font-size: 18px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .status-idle { background: var(--text-secondary); color: var(--bg-primary); }
+    .status-running { background: var(--accent); color: white; animation: pulse 2s infinite; }
+    .status-success { background: var(--success); color: white; }
+    .status-error { background: var(--danger); color: white; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: var(--bg-primary);
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 16px 0;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--success));
+      width: 0%;
+      transition: width 0.5s ease;
+    }
+    .iteration-log {
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 12px;
+      color: var(--text-secondary);
+      background: var(--bg-primary);
+      padding: 16px;
+      border-radius: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+      line-height: 1.6;
+    }
+    .log-entry { margin-bottom: 4px; }
+    .log-entry.success { color: var(--success); }
+    .log-entry.error { color: var(--danger); }
+    .log-entry.info { color: var(--accent); }
+    .button {
+      background: linear-gradient(135deg, var(--accent), #764ba2);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-right: 12px;
+      transition: opacity 0.2s;
+    }
+    .button:hover { opacity: 0.9; }
+    .button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .button-secondary {
+      background: var(--bg-primary);
+      border: 1px solid var(--text-secondary);
+    }
+    .strategy-item {
+      padding: 16px;
+      background: var(--bg-primary);
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+    .strategy-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .strategy-name { font-weight: 600; }
+    .strategy-stats { display: flex; gap: 16px; font-size: 13px; color: var(--text-secondary); }
+    .metric { display: flex; flex-direction: column; gap: 4px; }
+    .metric-label { font-size: 11px; color: var(--text-secondary); }
+    .metric-value { font-size: 16px; font-weight: 600; color: var(--text-primary); }
+    .version-list { margin-top: 12px; }
+    .version-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: var(--bg-secondary);
+      border-radius: 6px;
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+    .version-score {
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    .exec-summary {
+      margin-top: 6px;
+      font-size: 11px;
+      color: var(--text-secondary);
+      border-top: 1px solid rgba(255,255,255,0.1);
+      padding-top: 6px;
+    }
+    .exec-summary-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 2px;
+    }
+    .exec-label {
+      opacity: 0.7;
+    }
+    .exec-value {
+      font-weight: 500;
+      margin-right: 12px;
+    }
+    .exec-positive { color: var(--success); }
+    .exec-negative { color: var(--danger); }
+    .exec-warning { color: var(--warning); }
+    .score-high { background: var(--success); color: white; }
+    .score-medium { background: var(--warning); color: black; }
+    .score-low { background: var(--danger); color: white; }
+    .feedback-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+      margin-right: 6px;
+    }
+    .feedback-status-no_data { background: rgba(160, 160, 160, 0.2); color: var(--text-secondary); }
+    .feedback-status-positive { background: rgba(16, 185, 129, 0.2); color: var(--success); }
+    .feedback-status-mixed { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
+    .feedback-status-caution { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
+    .feedback-confidence-none { background: rgba(160, 160, 160, 0.2); color: var(--text-secondary); }
+    .feedback-confidence-low { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
+    .feedback-confidence-medium { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
+    .feedback-confidence-high { background: rgba(16, 185, 129, 0.2); color: var(--success); }
+    .publish-btn {
+      background: linear-gradient(135deg, var(--success), #059669);
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-left: 12px;
+      white-space: nowrap;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .publish-btn:hover { opacity: 0.9; transform: scale(1.02); }
+    .publish-btn:active { transform: scale(0.98); }
+    .publish-btn:disabled {
+      background: #e5e7eb;
+      color: #9ca3af;
+      cursor: not-allowed;
+      transform: none;
+      opacity: 1;
+    }
+    .config-section { margin-bottom: 24px; }
+    .config-title {
+      font-size: 16px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+    .slider-label { min-width: 120px; font-size: 14px; }
+    .slider-input { flex: 1; }
+    .slider-value { min-width: 50px; text-align: right; font-weight: 600; }
+    .input-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .input-item { display: flex; flex-direction: column; gap: 4px; }
+    .input-item label { font-size: 12px; color: var(--text-secondary); }
+    .input-item input {
+      background: var(--bg-primary);
+      border: 1px solid var(--text-secondary);
+      border-radius: 6px;
+      padding: 8px 12px;
+      color: var(--text-primary);
+      font-size: 14px;
+    }
+    .alert {
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 14px;
+    }
+    .alert-info { background: rgba(102, 126, 234, 0.2); border-left: 4px solid var(--accent); }
+    .alert-warning { background: rgba(245, 158, 11, 0.2); border-left: 4px solid var(--warning); }
+    .research-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      margin-top: 8px;
+    }
+    .research-summary-item {
+      background: var(--bg-primary);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 14px 16px;
+      min-height: 92px;
+    }
+    .research-summary-label {
+      display: block;
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+      letter-spacing: 0.02em;
+    }
+    .research-summary-value {
+      font-size: 14px;
+      color: var(--text-primary);
+      line-height: 1.6;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+    .research-summary-stocks {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .research-summary-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(102, 126, 234, 0.16);
+      color: #dbe4ff;
+      font-size: 12px;
+    }
+    .research-summary-empty {
+      color: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- 页面头部 -->
+    <div class="header">
+      <h1>🚀 策略自迭代管理器</h1>
+      <p>研究流程第二步：参数优化与版本管理，优化结果沉淀至策略库供执行流程调用</p>
+    </div>
+
+    <!-- 当前任务输入摘要 -->
+    <div class="card" style="margin-bottom: 24px;">
+      <div class="config-title">
+        <span>🔎</span>
+        <span>当前任务输入摘要</span>
+      </div>
+      <div id="researchInputSummary" class="research-summary">
+        <div class="research-summary-item">
+          <span class="research-summary-label">股票池</span>
+          <div class="research-summary-value research-summary-empty">等待从 URL 导入 stocks</div>
+        </div>
+        <div class="research-summary-item">
+          <span class="research-summary-label">时间区间</span>
+          <div class="research-summary-value research-summary-empty">等待从 URL 导入 startDate / endDate</div>
+        </div>
+        <div class="research-summary-item">
+          <span class="research-summary-label">并发任务</span>
+          <div class="research-summary-value research-summary-empty">等待从 URL 导入 parallelTasks</div>
+        </div>
+        <div class="research-summary-item">
+          <span class="research-summary-label">研究配置</span>
+          <div class="research-summary-value research-summary-empty">等待从 URL 导入 config</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 控制区 -->
+    <div class="card" style="margin-bottom: 24px;">
+      <div class="config-section">
+        <div class="config-title">
+          <span>📋</span>
+          <span>选择策略</span>
+        </div>
+        <select id="strategySelect" class="form-select" style="width: 100%; padding: 12px; background: var(--bg-primary); border: 1px solid var(--text-secondary); border-radius: 8px; color: var(--text-primary); font-size: 14px;">
+          <option value="double_ma">双均线策略</option>
+          <option value="rsi">RSI 超买超卖</option>
+          <option value="macd">MACD 金叉死叉</option>
+          <option value="bollinger">布林带突破</option>
+          <option value="seven_factor">四维度七因子策略</option>
+        </select>
+      </div>
+
+      <div class="config-section">
+        <div class="config-title">
+          <span>⚙️</span>
+          <span>迭代配置</span>
+        </div>
+        <div class="input-row">
+          <div class="input-item">
+            <label>优化后端</label>
+            <select id="optimizationBackend" class="form-select" style="width: 100%; padding: 12px; background: var(--bg-primary); border: 1px solid var(--text-secondary); border-radius: 8px; color: var(--text-primary); font-size: 14px;">
+              <option value="heuristic">heuristic（默认快速模式）</option>
+              <option value="optuna">optuna（真实优化模式）</option>
+            </select>
+          </div>
+          <div class="input-item">
+            <label>最大迭代次数</label>
+            <input type="number" id="maxIterations" value="20" min="1" max="100">
+          </div>
+          <div class="input-item">
+            <label>评分阈值</label>
+            <input type="number" id="scoreThreshold" value="70" min="0" max="100">
+          </div>
+          <div class="input-item">
+            <label>并发任务数</label>
+            <input type="number" id="parallelTasks" value="4" min="1" max="10">
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 12px; margin-top: 20px; align-items: center; flex-wrap: wrap;">
+        <button class="button" id="startBtn" onclick="startIteration()">🚀 开始自迭代</button>
+        <button class="button button-secondary" id="stopBtn" onclick="stopIteration()" disabled>⏹️ 停止</button>
+        <select id="reportFormatSelect" class="form-select" style="width: 160px; padding: 12px; background: var(--bg-primary); border: 1px solid var(--text-secondary); border-radius: 8px; color: var(--text-primary); font-size: 14px;">
+          <option value="markdown">Markdown 报告 (.md)</option>
+          <option value="html">HTML 报告 (.html)</option>
+        </select>
+        <button class="button button-secondary" id="exportReportBtn" onclick="exportIterationReport()" disabled>🧾 导出报告</button>
+        <button class="button button-secondary" onclick="window.location.href='backtest.html'">← 返回回测研究</button>
+      </div>
+    </div>
+
+    <!-- 进度和状态 -->
+    <div class="grid">
+      <!-- 进度卡片 -->
+      <div class="card">
+        <div class="card-title">
+          <span>📊</span>
+          <span>迭代进度</span>
+          <span class="status-badge status-idle" id="statusBadge">空闲</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 13px; color: var(--text-secondary);">
+          <span>已完成：<span id="completedCount">0</span> / <span id="totalCount">20</span></span>
+          <span>预计剩余：<span id="timeRemaining">--</span></span>
+        </div>
+      </div>
+
+      <!-- 当前最佳配置 -->
+      <div class="card">
+        <div class="card-title">
+          <span>🏆</span>
+          <span>当前最佳配置</span>
+        </div>
+        <div id="bestConfig">
+          <div class="strategy-item">
+            <div class="strategy-header">
+              <span class="strategy-name">暂无配置</span>
+            </div>
+            <div class="strategy-stats">
+              <div class="metric">
+                <span class="metric-label">综合评分</span>
+                <span class="metric-value">--</span>
+              </div>
+              <div class="metric">
+                <span class="metric-label">夏普比率</span>
+                <span class="metric-value">--</span>
+              </div>
+              <div class="metric">
+                <span class="metric-label">最大回撤</span>
+                <span class="metric-value">--</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 策略版本历史 -->
+    <div class="card" style="margin-top: 24px;">
+      <div class="card-title">
+        <span>📚</span>
+        <span>策略版本历史</span>
+      </div>
+      <!-- 筛选控件 -->
+      <div style="display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <label style="font-size: 13px; color: var(--text-secondary);">反馈状态:</label>
+          <select id="feedbackStatusFilter" style="padding: 6px 12px; background: var(--bg-primary); border: 1px solid var(--text-secondary); border-radius: 6px; color: var(--text-primary); font-size: 13px;">
+            <option value="all">全部</option>
+            <option value="no_data">暂无反馈</option>
+            <option value="positive">正向反馈</option>
+            <option value="mixed">混合反馈</option>
+            <option value="caution">需警惕</option>
+          </select>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <label style="font-size: 13px; color: var(--text-secondary);">置信度:</label>
+          <select id="feedbackConfidenceFilter" style="padding: 6px 12px; background: var(--bg-primary); border: 1px solid var(--text-secondary); border-radius: 6px; color: var(--text-primary); font-size: 13px;">
+            <option value="all">全部</option>
+            <option value="none">无样本</option>
+            <option value="low">低</option>
+            <option value="medium">中</option>
+            <option value="high">高</option>
+          </select>
+        </div>
+      </div>
+      <div class="version-list" id="versionList">
+        <div class="version-item">
+          <span>暂无版本记录</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 迭代日志 -->
+    <div class="card" style="margin-top: 24px;">
+      <div class="card-title">
+        <span>📝</span>
+        <span>迭代日志</span>
+      </div>
+      <div class="iteration-log" id="iterationLog">
+        <div class="log-entry info">等待开始迭代...</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let isRunning = false;
+    let currentTaskId = null;
+    let pollInterval = null;
+    let radarChart = null;
+    const ITERATION_TASK_STORAGE_KEYS = {
+      current: 'currentTaskId',
+      last: 'lastIterationTaskId'
+    };
+
+    // 版本历史筛选相关
+    let currentVersions = [];  // 保存原始版本数据
+    let currentStatusFilter = 'all';  // 当前状态筛选值
+    let currentConfidenceFilter = 'all';  // 当前置信度筛选值
+
+    function getIterationTaskStorage() {
+      return window.localStorage || localStorage;
+    }
+
+    function persistCurrentTaskId(taskId) {
+      const storage = getIterationTaskStorage();
+      if (!storage) return;
+
+      if (taskId) {
+        storage.setItem(ITERATION_TASK_STORAGE_KEYS.current, taskId);
+        storage.setItem(ITERATION_TASK_STORAGE_KEYS.last, taskId);
+      } else {
+        storage.removeItem(ITERATION_TASK_STORAGE_KEYS.current);
+        storage.removeItem(ITERATION_TASK_STORAGE_KEYS.last);
+      }
+    }
+
+    function clearIterationTaskCache() {
+      persistCurrentTaskId(null);
+    }
+
+    function getPersistedIterationTaskId() {
+      const storage = getIterationTaskStorage();
+      if (!storage) return null;
+
+      return storage.getItem(ITERATION_TASK_STORAGE_KEYS.last) ||
+        storage.getItem(ITERATION_TASK_STORAGE_KEYS.current);
+    }
+
+    function getIterationBadgeState(status) {
+      if (status === 'running' || status === 'pending') {
+        return 'running';
+      }
+
+      if (status === 'completed') {
+        return 'success';
+      }
+
+      if (status === 'failed') {
+        return 'error';
+      }
+
+      if (status === 'stopped') {
+        return 'stopped';
+      }
+
+      return 'idle';
+    }
+
+    function setIterationTaskControls(isTaskRunning) {
+      isRunning = isTaskRunning;
+      document.getElementById('startBtn').disabled = isTaskRunning;
+      document.getElementById('stopBtn').disabled = !isTaskRunning;
+      if (typeof updateReportExportButtonState === 'function') {
+        updateReportExportButtonState();
+      }
+    }
+
+    function updateReportExportButtonState() {
+      const exportBtn = document.getElementById('exportReportBtn');
+      if (!exportBtn) return;
+
+      const taskId = currentTaskId || getPersistedIterationTaskId();
+      exportBtn.disabled = !taskId;
+    }
+
+    function getReportTaskId() {
+      return currentTaskId || getPersistedIterationTaskId();
+    }
+
+    async function exportIterationReport() {
+      const taskId = getReportTaskId();
+      if (!taskId) {
+        addLog('⚠️ 当前没有可导出的任务报告', 'warning');
+        return;
+      }
+
+      const formatSelect = document.getElementById('reportFormatSelect');
+      const format = formatSelect && formatSelect.value === 'html' ? 'html' : 'markdown';
+
+      try {
+        addLog(`🧾 正在导出报告: ${taskId} (${format})`, 'info');
+        const response = await fetch(`/api/iteration/report/${taskId}?format=${format}`);
+        const result = await response.json();
+        const reportContent = format === 'html' ? result.data?.html : result.data?.markdown;
+
+        if (!response.ok || !result.success || !reportContent) {
+          throw new Error(result.error || '导出报告失败');
+        }
+
+        const fileName = result.data.fileName || `${taskId}_report.${format === 'html' ? 'html' : 'md'}`;
+        const mimeType = format === 'html' ? 'text/html;charset=utf-8' : 'text/markdown;charset=utf-8';
+        const blob = new Blob([reportContent], { type: mimeType });
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = fileName;
+        link.click();
+        URL.revokeObjectURL(blobUrl);
+
+        addLog(`✅ 报告已导出: ${fileName}`, 'success');
+      } catch (error) {
+        addLog(`❌ 导出失败: ${error.message}`, 'error');
+      }
+    }
+
+    // 从 URL 参数获取初始配置
+    function safeParseConfig(rawConfig) {
+      if (!rawConfig) return {};
+
+      try {
+        return JSON.parse(rawConfig);
+      } catch (error) {
+        return {
+          __raw: rawConfig,
+          __parseError: error.message
+        };
+      }
+    }
+
+    function getUrlParams() {
+      const params = new URLSearchParams(window.location.search);
+      return {
+        strategyType: params.get('strategyType') || 'double_ma',
+        stocks: params.get('stocks') ? params.get('stocks').split(',') : [],
+        startDate: params.get('startDate') || '',
+        endDate: params.get('endDate') || '',
+        parallelTasks: params.get('parallelTasks'),
+        optimizationBackend: params.get('optimizationBackend') || '',
+        config: safeParseConfig(params.get('config')),
+        rawConfig: params.get('config') || ''
+      };
+    }
+
+    function getSelectedOptimizationBackend() {
+      const select = document.getElementById('optimizationBackend');
+      if (!select || select.value !== 'optuna') {
+        return 'heuristic';
+      }
+
+      return 'optuna';
+    }
+
+    function applyOptimizationBackendToUI(optimizationBackend) {
+      const select = document.getElementById('optimizationBackend');
+      const normalized = optimizationBackend === 'optuna' ? 'optuna' : optimizationBackend === 'heuristic' ? 'heuristic' : '';
+      if (!select || !normalized) {
+        return;
+      }
+
+      select.value = normalized;
+    }
+
+    function formatResearchConfig(config) {
+      if (!config || Object.keys(config).length === 0) {
+        return '{}';
+      }
+
+      if (config.__parseError) {
+        return config.__raw || '{}';
+      }
+
+      return JSON.stringify(config, null, 2);
+    }
+
+    function normalizeTaskInputSummary(params) {
+      const summary = params || {};
+      const config = summary.config && typeof summary.config === 'object' && !Array.isArray(summary.config)
+        ? summary.config
+        : {};
+      const optimizationBackend = summary.optimizationBackend || '';
+
+      return {
+        stocks: Array.isArray(summary.stocks) ? summary.stocks.filter(Boolean) : [],
+        startDate: summary.startDate || '',
+        endDate: summary.endDate || '',
+        parallelTasks: summary.parallelTasks ?? null,
+        optimizationBackend,
+        config,
+        rawConfig: summary.rawConfig || (Object.keys(config).length > 0 ? JSON.stringify(config) : '')
+      };
+    }
+
+    function renderResearchInputSummary(params) {
+      const container = document.getElementById('researchInputSummary');
+      if (!container) return;
+
+      const summary = typeof normalizeTaskInputSummary === 'function'
+        ? normalizeTaskInputSummary(params)
+        : (() => {
+            const summary = params || {};
+            const config = summary.config && typeof summary.config === 'object' && !Array.isArray(summary.config)
+              ? summary.config
+              : {};
+
+            return {
+              stocks: Array.isArray(summary.stocks) ? summary.stocks.filter(Boolean) : [],
+              startDate: summary.startDate || '',
+              endDate: summary.endDate || '',
+              parallelTasks: summary.parallelTasks ?? null,
+              optimizationBackend: summary.optimizationBackend || '',
+              config,
+              rawConfig: summary.rawConfig || (Object.keys(config).length > 0 ? JSON.stringify(config) : '')
+            };
+          })();
+
+      const stocksHtml = summary.stocks.length
+        ? `<div class="research-summary-stocks">${summary.stocks.map(stock => `<span class="research-summary-chip">${stock}</span>`).join('')}</div>`
+        : '<div class="research-summary-value research-summary-empty">未导入股票</div>';
+
+      const timeRangeHtml = summary.startDate && summary.endDate
+        ? `<div class="research-summary-value">${summary.startDate} → ${summary.endDate}</div>`
+        : '<div class="research-summary-value research-summary-empty">未导入时间区间</div>';
+
+      const parallelTasksHtml = summary.parallelTasks !== null && summary.parallelTasks !== undefined
+        ? `<div class="research-summary-value">${summary.parallelTasks} 个并发任务</div>`
+        : '<div class="research-summary-value research-summary-empty">未导入并发任务数</div>';
+
+      const optimizationBackendHtml = summary.optimizationBackend
+        ? `<div class="research-summary-value">${summary.optimizationBackend === 'optuna' ? 'optuna（真实优化模式）' : 'heuristic（默认快速模式）'}</div>`
+        : '<div class="research-summary-value research-summary-empty">未导入优化后端</div>';
+
+      const configHtml = summary.rawConfig || Object.keys(summary.config).length > 0
+        ? `<div class="research-summary-value">${formatResearchConfig(summary.config)}</div>`
+        : '<div class="research-summary-value research-summary-empty">未导入研究配置</div>';
+
+      container.innerHTML = `
+        <div class="research-summary-item">
+          <span class="research-summary-label">股票池</span>
+          <div class="research-summary-value">${summary.stocks.length} 只股票</div>
+          ${stocksHtml}
+        </div>
+        <div class="research-summary-item">
+          <span class="research-summary-label">时间区间</span>
+          ${timeRangeHtml}
+        </div>
+        <div class="research-summary-item">
+          <span class="research-summary-label">并发任务</span>
+          ${parallelTasksHtml}
+        </div>
+        <div class="research-summary-item">
+          <span class="research-summary-label">优化后端</span>
+          ${optimizationBackendHtml}
+        </div>
+        <div class="research-summary-item">
+          <span class="research-summary-label">研究配置</span>
+          ${configHtml}
+        </div>
+      `;
+    }
+
+    // 初始化页面
+    async function initPage() {
+      const params = getUrlParams();
+
+      // 设置策略选择
+      if (params.strategyType) {
+        document.getElementById('strategySelect').value = params.strategyType;
+      }
+
+      if (params.parallelTasks !== null && params.parallelTasks !== undefined && params.parallelTasks !== '') {
+        const parallelTasksInput = document.getElementById('parallelTasks');
+        if (parallelTasksInput) {
+          parallelTasksInput.value = params.parallelTasks;
+        }
+      }
+
+      if (params.optimizationBackend === 'optuna' || params.optimizationBackend === 'heuristic') {
+        applyOptimizationBackendToUI(params.optimizationBackend);
+      }
+
+      renderResearchInputSummary(params);
+
+      // 加载版本历史
+      loadVersionHistory(params.strategyType || 'double_ma');
+
+      if (typeof restoreLastIterationTaskFromStorage === 'function') {
+        await restoreLastIterationTaskFromStorage();
+      }
+
+      // 如果有传入参数，显示提示
+      if (params.stocks.length > 0) {
+        addLog(`📥 从回测页导入配置: ${params.stocks.length} 只股票`, 'info');
+      }
+    }
+
+    async function restoreLastIterationTaskFromStorage() {
+      const taskId = getPersistedIterationTaskId();
+      if (!taskId) return;
+
+      try {
+        const response = await fetch(`/api/iteration/status/${taskId}`);
+        if (!response.ok) {
+          clearIterationTaskCache();
+          addLog(`⚠️ 恢复任务失败，已清理缓存 (HTTP ${response.status})`, 'warning');
+          return;
+        }
+
+        const result = await response.json();
+        if (!result.success || !result.task) {
+          clearIterationTaskCache();
+          addLog('⚠️ 恢复任务失败，已清理缓存', 'warning');
+          return;
+        }
+
+        const task = result.task;
+        currentTaskId = task.taskId || taskId;
+        persistCurrentTaskId(currentTaskId);
+
+        const restoredBackend = task?.inputSummary?.optimizationBackend || task?.optimizationBackend;
+        if (restoredBackend === 'optuna' || restoredBackend === 'heuristic') {
+          applyOptimizationBackendToUI(restoredBackend);
+        }
+
+        renderResearchInputSummary(task.inputSummary || task);
+        document.getElementById('totalCount').textContent = task.maxIterations ?? document.getElementById('totalCount').textContent;
+        updateProgress(task.currentIteration || 0, task.maxIterations || 1);
+        if (typeof task.bestScore !== 'undefined' || task.resultSummary) {
+          updateBestConfig(task.bestScore, task.bestParams || {}, task.resultSummary, task.status);
+        }
+
+        updateStatusBadge(getIterationBadgeState(task.status));
+        setIterationTaskControls(task.status === 'running' || task.status === 'pending');
+
+        if (task.status === 'running' || task.status === 'pending') {
+          startPolling();
+        }
+
+        addLog(`✅ 已恢复最近任务: ${currentTaskId}`, 'success');
+      } catch (error) {
+        console.error('恢复迭代任务失败:', error);
+      }
+    }
+
+    // 开始迭代 - 调用真实 API
+    async function startIteration() {
+      if (isRunning) return;
+
+      const strategyType = document.getElementById('strategySelect').value;
+      const maxIterations = parseInt(document.getElementById('maxIterations').value);
+      const scoreThreshold = parseInt(document.getElementById('scoreThreshold').value);
+      const parallelTasks = parseInt(document.getElementById('parallelTasks').value);
+      const optimizationBackend = typeof getSelectedOptimizationBackend === 'function'
+        ? getSelectedOptimizationBackend()
+        : (() => {
+            const select = document.getElementById('optimizationBackend');
+            return select && select.value === 'optuna' ? 'optuna' : 'heuristic';
+          })();
+
+      // 获取 URL 参数中的配置
+      const urlParams = getUrlParams();
+      const stocks = urlParams.stocks;
+      const startDate = urlParams.startDate;
+      const endDate = urlParams.endDate;
+      const config = urlParams.config || {};
+
+      if (!stocks.length || !startDate || !endDate) {
+        addLog('❌ 请先通过 URL 导入 stocks/startDate/endDate 后再启动', 'error');
+        return;
+      }
+
+      // 更新 UI 状态
+      isRunning = true;
+      document.getElementById('startBtn').disabled = true;
+      document.getElementById('stopBtn').disabled = false;
+      document.getElementById('totalCount').textContent = maxIterations;
+      updateStatusBadge('running');
+      addLog('🚀 启动自迭代任务...', 'info');
+
+      try {
+        // 调用真实 API
+        const response = await fetch('/api/iteration/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            strategyType,
+            config,
+            maxIterations,
+            scoreThreshold,
+            parallelTasks,
+            optimizationBackend,
+            stocks,
+            startDate,
+            endDate
+          })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          currentTaskId = result.taskId;
+          persistCurrentTaskId(currentTaskId);
+          addLog(`✅ 任务已创建: ${currentTaskId}`, 'success');
+
+          // 开始轮询状态
+          startPolling();
+        } else {
+          throw new Error(result.error || '启动失败');
+        }
+      } catch (error) {
+        addLog(`❌ 启动失败: ${error.message}`, 'error');
+        isRunning = false;
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('stopBtn').disabled = true;
+        updateStatusBadge('error');
+      }
+    }
+
+    // 停止迭代
+    async function stopIteration() {
+      if (!currentTaskId) return;
+
+      try {
+        const response = await fetch(`/api/iteration/stop/${currentTaskId}`, {
+          method: 'POST'
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          if (result.task) {
+            updateTaskStatus(result.task);
+          } else {
+            addLog('⏹️ 任务已停止', 'warning');
+            finishIteration('stopped');
+          }
+        }
+      } catch (error) {
+        addLog(`❌ 停止失败: ${error.message}`, 'error');
+      }
+    }
+
+    // 开始轮询状态
+    function startPolling() {
+      if (pollInterval) clearInterval(pollInterval);
+
+      pollInterval = setInterval(async () => {
+        if (!currentTaskId) return;
+
+        try {
+          const response = await fetch(`/api/iteration/status/${currentTaskId}`);
+          const result = await response.json();
+
+          if (result.success) {
+            updateTaskStatus(result.task);
+          }
+        } catch (error) {
+          console.error('轮询失败:', error);
+        }
+      }, 2000); // 每 2 秒轮询一次
+    }
+
+    // 停止轮询
+    function stopPolling() {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
+    }
+
+    // 更新任务状态
+    function updateTaskStatus(task) {
+      const optimizationBackend = task?.inputSummary?.optimizationBackend || task?.optimizationBackend;
+      if (optimizationBackend === 'optuna' || optimizationBackend === 'heuristic') {
+        applyOptimizationBackendToUI(optimizationBackend);
+      }
+
+      renderResearchInputSummary(task.inputSummary || task);
+
+      // 更新进度
+      updateProgress(task.currentIteration, task.maxIterations);
+
+      // 更新最佳配置
+      if (typeof task.bestScore !== 'undefined' || task.resultSummary) {
+        updateBestConfig(task.bestScore, task.bestParams || {}, task.resultSummary, task.status);
+      }
+
+      // 添加日志
+      if (task.history && task.history.length > 0) {
+        const latest = task.history[task.history.length - 1];
+        if (!latest.logged) {
+          addLog(`第 ${latest.iteration} 轮: 得分 ${latest.score?.toFixed(1) || '--'}`, latest.error ? 'error' : 'info');
+          latest.logged = true;
+        }
+      }
+
+      // 检查任务完成
+      if (task.status === 'completed') {
+        addLog(`✅ 迭代完成！最终得分: ${task.bestScore?.toFixed(1)}`, 'success');
+        finishIteration('success');
+        loadVersionHistory(task.strategyType);
+      } else if (task.status === 'failed' || task.status === 'stopped') {
+        addLog(`⏹️ 任务${task.status === 'failed' ? '失败' : '已停止'}`, task.status === 'failed' ? 'error' : 'warning');
+        finishIteration(getIterationBadgeState(task.status));
+      }
+    }
+
+    // 完成迭代
+    function finishIteration(finalStatus = 'success') {
+      stopPolling();
+      isRunning = false;
+      document.getElementById('startBtn').disabled = false;
+      document.getElementById('stopBtn').disabled = true;
+      if (typeof updateReportExportButtonState === 'function') {
+        updateReportExportButtonState();
+      }
+      updateStatusBadge(finalStatus);
+    }
+
+    // 更新状态徽章
+    function updateStatusBadge(status) {
+      const badge = document.getElementById('statusBadge');
+      badge.className = 'status-badge';
+
+      switch (status) {
+        case 'running':
+          badge.textContent = '运行中';
+          badge.classList.add('status-running');
+          break;
+        case 'success':
+          badge.textContent = '完成';
+          badge.classList.add('status-success');
+          break;
+        case 'error':
+          badge.textContent = '错误';
+          badge.classList.add('status-error');
+          break;
+        case 'stopped':
+          badge.textContent = '已停止';
+          badge.classList.add('status-idle');
+          break;
+        default:
+          badge.textContent = '空闲';
+          badge.classList.add('status-idle');
+      }
+    }
+
+    // 更新进度
+    function updateProgress(current, total) {
+      const currentNum = Number.isFinite(Number(current)) ? Number(current) : 0;
+      const totalNum = Number.isFinite(Number(total)) ? Number(total) : 0;
+      const denominator = totalNum > 0 ? totalNum : Math.max(currentNum, 1);
+      const rawPercent = (currentNum / denominator) * 100;
+      const percent = Math.max(0, Math.min(100, rawPercent));
+
+      document.getElementById('progressFill').style.width = percent + '%';
+      document.getElementById('completedCount').textContent = String(currentNum);
+    }
+
+    function formatResultReason(reason) {
+      const value = String(reason || '').trim();
+      if (!value) return '';
+
+      if (value === 'manual_stop') return '手动停止任务';
+      if (value === 'timeout') return '任务执行超时';
+
+      return value;
+    }
+
+    // 更新最佳配置
+    function updateBestConfig(score, params, resultSummary, taskStatus) {
+      const container = document.getElementById('bestConfig');
+      const summaryScore = resultSummary && Number.isFinite(Number(resultSummary.bestScore))
+        ? Number(resultSummary.bestScore)
+        : null;
+      const scoreSource = summaryScore !== null ? summaryScore : score;
+      const hasScore = Number.isFinite(Number(scoreSource));
+      const scoreValue = hasScore ? Number(scoreSource).toFixed(1) : '--';
+      const normalizedParams = params && typeof params === 'object' ? params : {};
+      const paramEntries = Object.entries(normalizedParams).filter(([key, value]) => {
+        if (key === 'metrics') return false;
+        return value !== null && value !== undefined && typeof value !== 'object' && !Array.isArray(value);
+      });
+      const paramsSummary = paramEntries.length > 0
+        ? paramEntries.map(([key, value]) => `${key}: ${value}`).join('，')
+        : '暂无可展示参数';
+      const resultSummaryHtml = (() => {
+        const summary = resultSummary && typeof resultSummary === 'object' ? resultSummary : null;
+        if (!summary || Object.keys(summary).length === 0) return '';
+
+        const currentStatus = summary.currentStatus || taskStatus || '--';
+        const finalStatus = summary.finalStatus || summary.status || taskStatus || '--';
+        const bestScoreSummary = Number.isFinite(Number(summary.bestScore)) ? Number(summary.bestScore).toFixed(1) : '--';
+        const completedAt = summary.completedAt || summary.completed_time || summary.stoppedAt || summary.stopped_time || summary.finishedAt || summary.finished_at || '';
+        const requestedTrials = Number.isFinite(Number(summary.requestedTrials)) ? Number(summary.requestedTrials) : null;
+        const completedTrials = Number.isFinite(Number(summary.completedTrials))
+          ? Number(summary.completedTrials)
+          : Number.isFinite(Number(summary.trialCount))
+            ? Number(summary.trialCount)
+            : null;
+        const reasonFormatter = typeof formatResultReason === 'function'
+          ? formatResultReason
+          : (value) => String(value || '').trim();
+        const reason = reasonFormatter(summary.errorReason || summary.stopReason || summary.reason || summary.message || '');
+        const nextAction = summary.nextActionSuggestion && typeof summary.nextActionSuggestion === 'object'
+          ? summary.nextActionSuggestion
+          : null;
+        const deploymentReadiness = summary.deploymentReadiness && typeof summary.deploymentReadiness === 'object'
+          ? summary.deploymentReadiness
+          : null;
+        const readinessChecks = deploymentReadiness && Array.isArray(deploymentReadiness.checks)
+          ? deploymentReadiness.checks
+          : [];
+        const readinessCheckText = readinessChecks.length > 0
+          ? readinessChecks.map(check => `${check.title || check.id || '--'}: ${check.status || '--'}`).join('；')
+          : '';
+        const timeLabel = completedAt
+          ? (finalStatus === 'completed' ? '完成时间' : '停止时间')
+          : '';
+        const reasonLabel = summary.errorReason ? '错误原因' : '停止原因';
+
+        return `
+        <div class="strategy-item" style="margin-top: 12px;">
+          <div class="strategy-header">
+            <span class="strategy-name">任务结果摘要</span>
+          </div>
+          <div class="strategy-stats">
+            <div class="metric">
+              <span class="metric-label">当前状态</span>
+              <span class="metric-value">${currentStatus}</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">最终状态</span>
+              <span class="metric-value">${finalStatus}</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">最佳得分</span>
+              <span class="metric-value">${bestScoreSummary}</span>
+            </div>
+            ${requestedTrials !== null ? `
+            <div class="metric">
+              <span class="metric-label">计划试验数</span>
+              <span class="metric-value">${requestedTrials}</span>
+            </div>` : ''}
+            ${completedTrials !== null ? `
+            <div class="metric">
+              <span class="metric-label">完成试验数</span>
+              <span class="metric-value">${completedTrials}</span>
+            </div>` : ''}
+            ${completedAt ? `
+            <div class="metric">
+              <span class="metric-label">${timeLabel || '完成/停止时间'}</span>
+              <span class="metric-value">${completedAt}</span>
+            </div>` : ''}
+            ${reason ? `
+            <div class="metric">
+              <span class="metric-label">${reasonLabel}</span>
+              <span class="metric-value">${reason}</span>
+            </div>` : ''}
+            ${deploymentReadiness ? `
+            <div class="metric">
+              <span class="metric-label">实盘就绪</span>
+              <span class="metric-value">${deploymentReadiness.readyForLive ? '是' : '否'}</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">待处理项</span>
+              <span class="metric-value">失败 ${deploymentReadiness.failedCount ?? 0} / 待补齐 ${deploymentReadiness.pendingCount ?? 0}</span>
+            </div>
+            ${readinessCheckText ? `
+            <div class="metric">
+              <span class="metric-label">检查清单</span>
+              <span class="metric-value">${readinessCheckText}</span>
+            </div>` : ''}` : ''}
+            ${nextAction ? `
+            <div class="metric">
+              <span class="metric-label">下一步建议</span>
+              <span class="metric-value">${nextAction.title || '--'}</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">建议原因</span>
+              <span class="metric-value">${nextAction.reason || '--'}</span>
+            </div>` : ''}
+          </div>
+        </div>
+      `;
+      })();
+      container.innerHTML = `
+        <div class="strategy-item">
+          <div class="strategy-header">
+            <span class="strategy-name">最佳结果</span>
+            <span class="version-score ${hasScore && Number(score) >= 80 ? 'score-high' : hasScore && Number(score) >= 60 ? 'score-medium' : 'score-low'}">${scoreValue}</span>
+          </div>
+          <div class="strategy-stats">
+            <div class="metric">
+              <span class="metric-label">最佳得分</span>
+              <span class="metric-value">${scoreValue}</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">参数摘要</span>
+              <span class="metric-value">${paramsSummary}</span>
+            </div>
+          </div>
+          <pre style="margin-top: 8px; font-size: 11px; color: var(--text-secondary); white-space: pre-wrap;">${JSON.stringify(normalizedParams, null, 2)}</pre>
+        </div>
+        ${resultSummaryHtml}
+      `;
+
+      // 更新雷达图
+      if (normalizedParams.metrics) {
+        updateRadarChart(normalizedParams.metrics);
+      }
+    }
+
+    // 加载版本历史
+    async function loadVersionHistory(strategyType) {
+      try {
+        const response = await fetch(`/api/iteration/versions/${strategyType}`);
+        const result = await response.json();
+
+        if (result.success && result.versions.length > 0) {
+          currentVersions = result.versions;  // 保存原始数据
+          applyVersionFilters();  // 应用筛选后渲染
+        } else {
+          currentVersions = [];
+          document.getElementById('versionList').innerHTML = `
+            <div class="version-item">
+              <span style="color: var(--text-secondary);">暂无版本记录</span>
+            </div>
+          `;
+        }
+      } catch (error) {
+        console.error('加载版本历史失败:', error);
+      }
+    }
+
+    // 应用版本筛选
+    function applyVersionFilters() {
+      const statusFilter = document.getElementById('feedbackStatusFilter').value;
+      const confidenceFilter = document.getElementById('feedbackConfidenceFilter').value;
+
+      let filtered = currentVersions.slice();  // 复制原始数据
+
+      // 按状态筛选
+      if (statusFilter !== 'all') {
+        filtered = filtered.filter(v => (v.execution_feedback_status || 'no_data') === statusFilter);
+      }
+
+      // 按置信度筛选
+      if (confidenceFilter !== 'all') {
+        filtered = filtered.filter(v => (v.execution_feedback_confidence || 'none') === confidenceFilter);
+      }
+
+      // 渲染筛选后的列表
+      renderVersionList(filtered);
+    }
+
+    // 格式化执行反馈摘要（研究流）
+    function formatExecutionSummary(summary) {
+      const s = summary || {};
+      const defaults = {
+        simulated_trade_count: 0,
+        position_closed_count: 0,
+        win_rate: 0,
+        total_realized_pnl: 0,
+        avg_realized_return: 0,
+        avg_holding_days: 0,
+        trigger_failure_count: 0,
+        trigger_failure_rate: 0
+      };
+      const data = { ...defaults, ...s };
+
+      const formatPercent = (v) => (v * 100).toFixed(1) + '%';
+      const formatMoney = (v) => (v >= 0 ? '+' : '') + v.toFixed(2);
+
+      return `
+        <div class="exec-summary">
+          <div class="exec-summary-row">
+            <span class="exec-label">模拟交易:</span>
+            <span class="exec-value">${data.simulated_trade_count}笔</span>
+            <span class="exec-label">平仓:</span>
+            <span class="exec-value">${data.position_closed_count}笔</span>
+            <span class="exec-label">胜率:</span>
+            <span class="exec-value ${data.win_rate >= 0.5 ? 'exec-positive' : 'exec-negative'}">${formatPercent(data.win_rate)}</span>
+          </div>
+          <div class="exec-summary-row">
+            <span class="exec-label">累计收益:</span>
+            <span class="exec-value ${data.total_realized_pnl >= 0 ? 'exec-positive' : 'exec-negative'}">${formatMoney(data.total_realized_pnl)}</span>
+            <span class="exec-label">平均收益:</span>
+            <span class="exec-value ${data.avg_realized_return >= 0 ? 'exec-positive' : 'exec-negative'}">${formatPercent(data.avg_realized_return)}</span>
+            <span class="exec-label">持仓天数:</span>
+            <span class="exec-value">${data.avg_holding_days.toFixed(1)}天</span>
+          </div>
+          <div class="exec-summary-row">
+            <span class="exec-label">触发失败:</span>
+            <span class="exec-value ${data.trigger_failure_count > 0 ? 'exec-warning' : ''}">${data.trigger_failure_count}次</span>
+            <span class="exec-label">失败率:</span>
+            <span class="exec-value ${data.trigger_failure_rate > 0.1 ? 'exec-warning' : ''}">${formatPercent(data.trigger_failure_rate)}</span>
+          </div>
+        </div>
+      `;
+    }
+
+    // 格式化执行反馈标签
+    function formatExecutionFeedbackBadges(version) {
+      const status = version.execution_feedback_status || 'no_data';
+      const confidence = version.execution_feedback_confidence || 'none';
+
+      const statusLabels = {
+        no_data: '暂无反馈',
+        positive: '正向反馈',
+        mixed: '混合反馈',
+        caution: '需警惕'
+      };
+
+      const confidenceLabels = {
+        none: '无样本',
+        low: '低',
+        medium: '中',
+        high: '高'
+      };
+
+      return `
+        <span class="feedback-badge feedback-status-${status}">${statusLabels[status]}</span>
+        <span class="feedback-badge feedback-confidence-${confidence}">置信度: ${confidenceLabels[confidence]}</span>
+      `;
+    }
+
+    // 渲染版本列表
+    function renderVersionList(versions) {
+      const container = document.getElementById('versionList');
+      container.innerHTML = versions.map((v, index) => {
+        // 已发布状态
+        const isPublished = v.is_published_to_library === true;
+        const publishedId = v.published_strategy_config_id;
+
+        // 发布按钮渲染
+        let publishBtn;
+        if (isPublished) {
+          // 已发布：禁用按钮，显示已发布状态
+          const titleText = publishedId
+            ? `已发布到策略库 (ID: ${publishedId})`
+            : '已发布到策略库';
+          publishBtn = `<button class="publish-btn" disabled title="${titleText}">✅ 已发布</button>`;
+        } else {
+          // 未发布：可点击发布按钮
+          publishBtn = `<button class="publish-btn" onclick="event.stopPropagation(); publishVersion('${v.version_id}', '${v.strategy_name || '未命名'}')" title="发布到策略库">📤 发布</button>`;
+        }
+
+        return `
+          <div class="version-item" onclick="compareVersions('${v.version_id}')">
+            <div style="flex: 1;">
+              <div style="display: flex; align-items: center; margin-bottom: 4px;">
+                <span style="font-weight: 600;">V${versions.length - index}</span>
+                <span style="color: var(--text-secondary); margin-left: 8px;">${v.strategy_name || '未命名'}</span>
+                <span style="color: var(--text-secondary); margin-left: 8px; font-size: 11px;">${v.created_at?.split('T')[0] || ''}</span>
+                <span class="version-score ${(v.backtest_score || 0) >= 80 ? 'score-high' : (v.backtest_score || 0) >= 60 ? 'score-medium' : 'score-low'}" style="margin-left: auto;">
+                  ${(v.backtest_score || 0).toFixed(1)}
+                </span>
+              </div>
+              <div style="margin-bottom: 4px;">
+                ${formatExecutionFeedbackBadges(v)}
+              </div>
+              ${formatExecutionSummary(v.execution_summary)}
+            </div>
+            ${publishBtn}
+          </div>
+        `;
+      }).join('');
+    }
+
+    // 发布版本到策略库
+    async function publishVersion(versionId, versionName) {
+      if (!versionId) {
+        addLog('❌ 缺少版本ID', 'error');
+        return;
+      }
+
+      // 确认提示
+      const confirmed = confirm(`确定要将「${versionName}」发布到策略库？\n\n发布后将自动公开，供执行流程使用。`);
+      if (!confirmed) return;
+
+      addLog(`📤 正在发布版本 ${versionName} 到策略库...`, 'info');
+
+      try {
+        const response = await fetch('/api/strategy-config/publish-version', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ version_id: versionId })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          const strategyConfigId = result.data?.strategy_config?.id;
+          const successMessage = strategyConfigId
+            ? `✅ 发布成功！策略ID: ${strategyConfigId}`
+            : '✅ 发布成功！已同步到策略库';
+          addLog(successMessage, 'success');
+          // 刷新版本列表（更新发布状态）
+          const strategyType = document.getElementById('strategySelect').value;
+          loadVersionHistory(strategyType);
+        } else {
+          addLog(`❌ 发布失败: ${result.error || '未知错误'}`, 'error');
+        }
+      } catch (error) {
+        addLog(`❌ 发布失败: ${error.message}`, 'error');
+      }
+    }
+
+    // 对比版本
+    let selectedVersions = [];
+    function compareVersions(versionId) {
+      const index = selectedVersions.indexOf(versionId);
+      if (index > -1) {
+        selectedVersions.splice(index, 1);
+      } else if (selectedVersions.length < 3) {
+        selectedVersions.push(versionId);
+      }
+
+      if (selectedVersions.length >= 2) {
+        doCompare();
+      }
+    }
+
+    async function doCompare() {
+      if (selectedVersions.length < 2) return;
+
+      try {
+        const response = await fetch(`/api/iteration/compare?versionIds=${selectedVersions.join(',')}`);
+        const result = await response.json();
+
+        if (result.success) {
+          addLog(`📊 版本对比完成，最佳版本得分: ${result.comparison.best?.backtest_score?.toFixed(1)}`, 'info');
+
+          // 更新雷达图显示对比
+          if (result.comparison.versions.length > 0) {
+            updateComparisonRadar(result.comparison.versions);
+            // 渲染执行反馈对比结果
+            renderCompareFeedback(result.comparison.versions);
+          }
+        }
+      } catch (error) {
+        addLog(`❌ 版本对比失败: ${error.message}`, 'error');
+      }
+
+      selectedVersions = [];
+    }
+
+    // 添加日志
+    function addLog(message, type = 'info') {
+      const log = document.getElementById('iterationLog');
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      const timestamp = new Date().toLocaleTimeString('zh-CN');
+      entry.textContent = `[${timestamp}] ${message}`;
+      log.appendChild(entry);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    // 更新雷达图
+    function updateRadarChart(metrics) {
+      if (!radarChart) return;
+
+      const data = [
+        normalizeScore(metrics.sharpeRatio, 0, 3),
+        normalizeScore(100 - (metrics.maxDrawdown || 0) * 100, 0, 100),
+        normalizeScore(metrics.calmarRatio, 0, 5),
+        normalizeScore(metrics.profitLossRatio, 0, 3),
+        normalizeScore(metrics.winRate || 0, 0, 100),
+        normalizeScore(metrics.totalReturn || 0, -50, 100),
+        normalizeScore(metrics.turnover || 50, 0, 100)
+      ];
+
+      radarChart.data.datasets[0].data = data;
+      radarChart.update();
+    }
+
+    // 更新对比雷达图
+    function updateComparisonRadar(versions) {
+      if (!radarChart) return;
+
+      const colors = [
+        'rgba(102, 126, 234, 0.6)',
+        'rgba(16, 185, 129, 0.6)',
+        'rgba(245, 158, 11, 0.6)'
+      ];
+
+      radarChart.data.datasets = versions.map((v, i) => ({
+        label: v.strategy_name || `版本 ${i + 1}`,
+        data: [
+          normalizeScore(v.sharpe_ratio || 0, 0, 3),
+          normalizeScore(100 - (v.max_drawdown || 0) * 100, 0, 100),
+          normalizeScore(v.calmar_ratio || 0, 0, 5),
+          normalizeScore(v.profit_loss_ratio || 0, 0, 3),
+          normalizeScore(v.win_rate || 0, 0, 100),
+          normalizeScore(v.total_return || 0, -50, 100),
+          50 // 默认换手率
+        ],
+        backgroundColor: colors[i].replace('0.6', '0.2'),
+        borderColor: colors[i],
+        pointBackgroundColor: colors[i]
+      }));
+
+      radarChart.update();
+    }
+
+    // 渲染版本对比执行反馈
+    function renderCompareFeedback(versions) {
+      const container = document.getElementById('compareFeedbackContent');
+      if (!versions || versions.length === 0) {
+        container.innerHTML = '<div style="color: var(--text-secondary);">选择两个以上版本进行对比</div>';
+        return;
+      }
+
+      container.innerHTML = versions.map((v, i) => {
+        const strategyName = v.strategy_name || `版本 ${i + 1}`;
+        const status = v.execution_feedback_status || 'no_data';
+        const confidence = v.execution_feedback_confidence || 'none';
+        const summary = v.execution_summary || {};
+
+        const statusLabels = {
+          no_data: '暂无反馈',
+          positive: '正向反馈',
+          mixed: '混合反馈',
+          caution: '需警惕'
+        };
+
+        const confidenceLabels = {
+          none: '无样本',
+          low: '低',
+          medium: '中',
+          high: '高'
+        };
+
+        return `
+          <div class="strategy-item" style="margin-bottom: 16px;">
+            <div class="strategy-header">
+              <span class="strategy-name">${strategyName}</span>
+              <span class="version-score ${(v.backtest_score || 0) >= 80 ? 'score-high' : (v.backtest_score || 0) >= 60 ? 'score-medium' : 'score-low'}">
+                ${(v.backtest_score || 0).toFixed(1)}
+              </span>
+            </div>
+            <div style="margin-bottom: 8px;">
+              <span class="feedback-badge feedback-status-${status}">执行状态: ${statusLabels[status]}</span>
+              <span class="feedback-badge feedback-confidence-${confidence}">置信度: ${confidenceLabels[confidence]}</span>
+            </div>
+            ${formatExecutionSummary(summary)}
+          </div>
+        `;
+      }).join('');
+    }
+
+    // 归一化评分到 0-100
+    function normalizeScore(value, min, max) {
+      return Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100));
+    }
+
+    // 页面加载完成
+    document.addEventListener('DOMContentLoaded', () => {
+      void initPage();
+      addLog('✅ 页面加载完成，准备就绪', 'info');
+
+      // 筛选事件监听
+      document.getElementById('feedbackStatusFilter').addEventListener('change', applyVersionFilters);
+      document.getElementById('feedbackConfidenceFilter').addEventListener('change', applyVersionFilters);
+    });
+
+    // 监听策略选择变化
+    document.getElementById('strategySelect').addEventListener('change', (e) => {
+      loadVersionHistory(e.target.value);
+    });
+  </script>
+
+  <!-- 评分雷达图面板 -->
+  <div class="card" style="margin-top: 24px;">
+    <div class="card-title">
+      <span>📊</span>
+      <span>评分雷达图</span>
+      <span style="margin-left: auto; font-size: 12px; color: var(--text-secondary);">7 项核心指标</span>
+    </div>
+    <div style="display: flex; justify-content: center;">
+      <canvas id="scoreRadar" width="450" height="400"></canvas>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 16px; margin-top: 16px; font-size: 12px; color: var(--text-secondary);">
+      <span>📊 夏普比率</span>
+      <span>📉 最大回撤</span>
+      <span>📈 卡玛比率</span>
+      <span>💰 盈亏比</span>
+      <span>🎯 胜率</span>
+      <span>💵 总收益</span>
+      <span>🔄 换手率</span>
+    </div>
+  </div>
+
+  <!-- 版本对比执行反馈面板 -->
+  <div class="card" style="margin-top: 24px;" id="compareFeedbackPanel">
+    <div class="card-title">
+      <span>📋</span>
+      <span>版本对比执行反馈</span>
+    </div>
+    <div id="compareFeedbackContent">
+      <div style="color: var(--text-secondary);">选择两个以上版本进行对比</div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    // 初始化雷达图 - 7 个指标
+    function initRadarChart() {
+      const ctx = document.getElementById('scoreRadar').getContext('2d');
+      radarChart = new Chart(ctx, {
+        type: 'radar',
+        data: {
+          labels: ['夏普比率', '最大回撤', '卡玛比率', '盈亏比', '胜率', '总收益', '换手率'],
+          datasets: [{
+            label: '当前配置',
+            data: [0, 0, 0, 0, 0, 0, 0],
+            backgroundColor: 'rgba(102, 126, 234, 0.2)',
+            borderColor: 'rgba(102, 126, 234, 1)',
+            pointBackgroundColor: 'rgba(102, 126, 234, 1)',
+            pointBorderColor: '#fff',
+            pointHoverBackgroundColor: '#fff',
+            pointHoverBorderColor: 'rgba(102, 126, 234, 1)'
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            r: {
+              min: 0,
+              max: 100,
+              ticks: { stepSize: 20, color: 'rgba(255,255,255,0.5)' },
+              grid: { color: 'rgba(255,255,255,0.1)' },
+              angleLines: { color: 'rgba(255,255,255,0.1)' },
+              pointLabels: { color: 'rgba(255,255,255,0.8)', font: { size: 12 } }
+            }
+          },
+          plugins: {
+            legend: { labels: { color: 'rgba(255,255,255,0.8)' } }
+          }
+        }
+      });
+    }
+
+    // 页面加载初始化雷达图
+    window.addEventListener('load', initRadarChart);
+  </script>
+</body>
+</html>

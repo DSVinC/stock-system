@@ -177,6 +177,81 @@ openclaw skills info sina-ashare-mcp
 
 ## 开发流程
 
+### API 契约保障流程（2026-03-26 新增）
+
+**适用范围**：所有涉及前后端交互的功能开发
+
+**核心口诀**：无契约不开发，无验证不提交，无签字不通过
+
+**问题背景**：前后端接口契约不一致（参数名、字段名、DOM ID 对不上）重复发生 15+ 次，损失 12 小时 +2.5 天。根因是"靠自觉"没有"靠机制"。
+
+#### 三层保障
+
+**第一层：契约先行（开发前）**
+```bash
+# 1. 创建契约文档
+mkdir -p docs/api-contracts
+vim docs/api-contracts/{feature-name}.md
+
+# 2. 定义内容（模板见 docs/api-contracts/TEMPLATE.md）
+# - 请求参数（字段名、类型、前端来源）
+# - 返回结构（字段名、类型、前端用途）
+# - DOM 元素清单（ID、类型、用途）
+# - 数据类型转换（如百分制→小数）
+
+# 3. 双方签字确认（开发 + 验收）
+```
+
+**第二层：契约验证（开发中）**
+```bash
+# 运行验证脚本
+bash scripts/verify-api-contract.sh {api-name}
+
+# 自动检查：
+# - 前后端参数名对比
+# - DOM ID 是否存在
+# - 返回字段是否映射
+```
+
+**第三层：契约验收（验收时）**
+```bash
+# 验收员填写契约检查清单
+# docs/runtime/{task-id}_CONTRACT_CHECK.md
+
+# 验证：
+# - 打断点验证参数实际传递
+# - 改变输入参数，输出结果有预期变化
+# - 验收报告契约检查签字（连带责任）
+```
+
+#### 任务 DoD（完成定义）
+
+- [ ] 契约文档创建 (`docs/api-contracts/{name}.md`)
+- [ ] 契约验证通过 (`scripts/verify-api-contract.sh`)
+- [ ] 契约检查报告 (`docs/runtime/{id}_CONTRACT_CHECK.md`)
+- [ ] 功能开发完成
+- [ ] 自测通过
+- [ ] 验收通过
+- [ ] todo.db 同步
+
+#### 违规处理
+
+| 违规类型 | 处理方式 |
+|----------|----------|
+| 未创建契约文档就开发 | 任务打回，重新走流程 |
+| 未通过契约验证就提交 | 验收拒绝，记录违规 |
+| 验收未检查契约就签字 | 验收员连带责任 |
+| 同一问题重复发生 3 次 | 升级为主人决策 |
+
+#### 相关文件
+
+- 强制规范：`docs/API_CONTRACT_FLOW.md`
+- 契约模板：`docs/api-contracts/TEMPLATE.md`
+- 验证脚本：`scripts/verify-api-contract.sh`
+- 项目教训：`docs/PROJECT_LESSONS.md`（搜索"契约"）
+
+---
+
 ### PR 工作流程
 
 本项目采用 Git 分支 + Codex 审查的 PR 流程：
@@ -274,6 +349,18 @@ Codex 会自动检查：
 项目进度日志：`memory/project/stock_system/`
 
 ## 开发状态
+
+### 当前口径（2026-03-28）
+
+- **唯一进度真源**：`docs/PROJECT_PROGRESS.md`
+- **任务实时状态**：`docs/runtime/{TASK_ID}_STATUS.md`
+- **V4 口径**：已完成并验收（细节见 `docs/PROJECT_PROGRESS.md`）
+- **V5 口径**：框架与链路已落地，规划文档 `docs/tasks/TASK_V5_000.md` 仍保留 `pending` 规划态说明
+- **默认测试入口**：`node tests/run-all-tests.js` 当前 **50/50 通过**
+
+> 说明：README 只保留高层状态，避免与运行时文档出现双口径。详细任务完成度请直接查看 `docs/PROJECT_PROGRESS.md`。
+
+---
 
 ### V3.0 开发进度（2026-03-24 16:10 更新）
 

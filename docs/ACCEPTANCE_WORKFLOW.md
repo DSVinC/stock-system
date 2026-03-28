@@ -185,14 +185,31 @@
 
 **动作**:
 1. 更新验收报告结论为「通过」
-2. 更新任务状态为 `done`
-3. 合并代码（如适用）
-4. 通知项目经理和主人
+2. 更新任务状态为 `done`（`docs/runtime/TASK_{ID}_STATUS.md`）
+3. **同步 todo.db 状态**（🔴 新增 - 必须执行）
+4. 合并代码（如适用）
+5. 通知项目经理和主人
+
+**todo.db 同步命令**:
+```bash
+export TODO_DB=/Users/vvc/.openclaw/workspace/tasks/todo.db
+bash skills/todo-management-1-1-2/scripts/todo.sh entry status <ID> --status=done
+# 或使用 task_code
+bash skills/todo-management-1-1-2/scripts/todo.sh entry status 523-0-020 --status=done
+```
 
 **最终输出**:
 - 验收报告（结论：通过）
 - 所有修复报告（如有）
-- 任务状态：`done`
+- 任务状态：`done`（项目内 + todo.db 双重确认）
+- todo.db 同步确认记录（验收报告中记录同步命令和结果）
+
+**✅ 任务关闭检查清单**（新增）:
+- [ ] 验收报告结论为「通过」
+- [ ] 项目内状态文件已更新（`docs/runtime/TASK_{ID}_STATUS.md`）
+- [ ] **todo.db 状态已同步**（执行 `todo entry status` 命令）
+- [ ] 经验已记录（如适用，`docs/PROJECT_LESSONS.md`）
+- [ ] 代码已合并（如适用）
 
 ---
 

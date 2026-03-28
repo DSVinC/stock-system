@@ -5,8 +5,16 @@
   "main": "server.js",
   "scripts": {
     "start": "node api/server.js",
-    "test": "bash test/acceptance-test.sh",
-    "test:integration": "bash test/integration-test.sh",
+    "test": "node tests/run-all-tests.js",
+    "test:unit": "node tests/run-all-tests.js --unit",
+    "test:integration": "node tests/run-all-tests.js --integration",
+    "test:perf": "node tests/run-all-tests.js --perf",
+    "test:acceptance": "node tests/run-all-tests.js --acceptance",
+    "test:decision": "node tests/test-decision-engine.js",
+    "test:backtest": "node tests/test-backtest-integration.js",
+    "test:flow": "node tests/test-full-flow.js",
+    "test:performance": "node tests/test-performance.js",
+    "test:accept": "node tests/test-acceptance.js",
     "update:industry": "node scripts/update_valuation_data.mjs --type=industry",
     "update:pe": "node scripts/update_valuation_data.mjs --type=pe",
     "update:atr": "node scripts/update_valuation_data.mjs --type=atr"
@@ -17,7 +25,8 @@
     "dotenv": "^16.6.1",
     "express": "^4.18.2",
     "sqlite": "^5.1.1",
-    "sqlite3": "^5.1.7"
+    "sqlite3": "^5.1.7",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "playwright": "^1.58.2"

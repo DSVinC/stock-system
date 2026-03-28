@@ -22,7 +22,8 @@ const {
   findLatestTradeDate,
 } = marketDataModule;
 
-const SINA_SCRIPT_DIR = '/Users/vvc/.openclaw/workspace/skills/sina-ashare-mcp/scripts';
+// 已移除收费 MCP 依赖，改用免费新浪 API
+// const SINA_SCRIPT_DIR = '/Users/vvc/.openclaw/workspace/skills/sina-ashare-mcp/scripts';
 
 function parseArgs(argv) {
   const options = {
@@ -69,13 +70,15 @@ function assertEnv(key) {
 }
 
 async function checkLocalDependency() {
-  const required = [
-    path.join(SINA_SCRIPT_DIR, 'quote.cjs'),
-    path.join(SINA_SCRIPT_DIR, 'search-symbol.cjs'),
-  ];
-
-  for (const file of required) {
-    await access(file);
+  // 测试免费新浪 API 是否可用
+  const sinaFreeApi = await import('../lib/sina-free-api.js');
+  try {
+    const quote = await sinaFreeApi.default.getQuote('sh600519');
+    if (!quote.price) {
+      throw new Error('免费新浪 API 返回数据异常');
+    }
+  } catch (error) {
+    throw new Error(`免费新浪 API 测试失败：${error.message}`);
   }
 }
 
@@ -122,7 +125,7 @@ async function main() {
     FEISHU_APP_ID: assertEnv('FEISHU_APP_ID'),
     FEISHU_APP_SECRET: assertEnv('FEISHU_APP_SECRET'),
     FEISHU_OPEN_ID: assertEnv('FEISHU_OPEN_ID'),
-    sinaAsharesMcpScripts: true,
+    freeSinaApi: true,
   };
   printSection('依赖检查', envSummary);
 
@@ -145,7 +148,7 @@ async function main() {
     context = await buildOrderContext(order, dependencies, new Map());
   } catch (error) {
     if (String(error.message).includes('Exec SecretRef did not resolve')) {
-      throw new Error('新浪实时行情脚本可执行，但其依赖的 SecretRef/Keychain 凭据未解析成功。请先修复 sina-ashare-mcp 的本机凭据配置，再重新验收。');
+      throw new Error('依赖配置错误，请检查 .env 或 Keychain 配置');
     }
     throw error;
   }

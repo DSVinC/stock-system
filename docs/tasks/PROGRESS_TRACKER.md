@@ -18,7 +18,7 @@
 **前置任务（已完成）**:
 | 任务 ID | 任务名称 | 状态 | 完成时间 |
 |---------|----------|------|----------|
-| `TASK_ANALYZE_STRUCT_002` | stock_analyzer.py 结构化改造 | ✅ 完成 | 2026-03-22 |
+| `TASK_ANALYZE_STRUCT_002` | stock_analyzer.py 结构化改造 | ✅ 完成 (Gemini 验收) | 2026-03-25 |
 | `TASK_ANALYZE_STRUCT_003` | analysis.js API 适配 | ✅ 完成 | 2026-03-22 |
 | `TASK_ANALYZE_STRUCT_004` | 方向股列表界面适配 | ✅ 完成 | 2026-03-22 |
 | `TASK_CONDITIONAL_UI_001` | 条件单管理界面 | ✅ 完成 | 2026-03-22 |

@@ -12,8 +12,8 @@
 
 const { createRequire } = require('node:module');
 
-const workspaceRequire = createRequire('/Users/vvc/.openclaw/workspace/skills/sina-ashare-mcp/package.json');
-const express = workspaceRequire('express');
+const express = require('express');
+// express already required above
 
 const {
   MarketDataError,
