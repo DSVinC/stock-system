@@ -185,6 +185,7 @@ async function main() {
     const iterationManagerScripts = [
       './test/iteration-manager-input-summary.test.js',
       './test/iteration-manager-research-input.test.js',
+      './test/iteration-manager-optuna-medium-trials.test.js',
       './test/iteration-manager-task-run-snapshot.test.js',
       './test/iteration-manager-recovery.test.js',
       './test/iteration-manager-result-summary-snapshot.test.js',

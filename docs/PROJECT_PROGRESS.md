@@ -1,6 +1,6 @@
 # 股票系统 - 项目进度总览
 
-**最后更新**: 2026-03-28 09:37  
+**最后更新**: 2026-03-28 09:44  
 **项目经理**: Codex  
 **程序员**: subagent / Claude Code（按任务分配）  
 **验收员**: Codex / Gemini CLI（按任务分配）  
@@ -67,7 +67,7 @@
 | **TASK_FLOW_REFACTOR_032A** | **文档口径收口：README 与 PROJECT_PROGRESS 统一到单一真源** | **P0** | **🟢 done** | **Codex** | **100%** |
 | **TASK_FLOW_REFACTOR_033A** | **V5 深化任务登记：未做项拆解并纳入三保险跟踪** | **P0** | **🟢 done** | **Codex** | **100%** |
 | **TASK_FLOW_REFACTOR_033B** | **V5_007 深化：Optuna 结果结构化沉淀（trial 维度）** | **P0** | **🟢 done** | **Codex** | **100%** |
-| **TASK_FLOW_REFACTOR_033C** | **V5_007 深化：中等规模 trial 回归与稳定性验证** | **P0** | **⚪ pending** | **待分配** | **0%** |
+| **TASK_FLOW_REFACTOR_033C** | **V5_007 深化：中等规模 trial 回归与稳定性验证** | **P0** | **🟢 done** | **Codex** | **100%** |
 | **TASK_FLOW_REFACTOR_033D** | **V5 研究→策略库闭环增强：优化结果发布口径统一** | **P1** | **⚪ pending** | **待分配** | **0%** |
 | TASK_P0_001 | 黑天鹅检测模块 | P0 | 🟢 accepted | 灵爪 | 100% |
 | TASK_P0_002 | 舆情因子计算模块 | P0 | 🟢 accepted | 灵爪 | 100% |
@@ -123,6 +123,7 @@
 所有 P0/P1 任务已完成并验收通过。
 
 **最新完成** (2026-03-28):
+- TASK_FLOW_REFACTOR_033C: 已新增中等规模 Optuna trial 回归（40/55/80）并纳入默认总测，验证 resultSummary trial 字段稳定，默认总测提升到 43/43
 - TASK_FLOW_REFACTOR_033B: 已将 Optuna trial 维度信息（计划试验数/完成试验数）沉淀到 resultSummary，页面结果摘要已展示并通过总测 42/42
 - TASK_FLOW_REFACTOR_033A: 已完成 V5 未闭环项拆解，并纳入 runtime/PROJECT_PROGRESS/memory 三保险持续跟踪
 - TASK_FLOW_REFACTOR_032A: README 已改为“进度真源在 PROJECT_PROGRESS/runtime”，移除 V4/V5 旧完成口径冲突
@@ -624,6 +625,7 @@
 
 ## 📝 最近事件
 
+*2026-03-28 09:44* - TASK_FLOW_REFACTOR_033C 完成，新增中等规模 trial 稳定性回归并接入默认总测，当前 43/43 全通过
 *2026-03-28 09:37* - TASK_FLOW_REFACTOR_033B 完成，Optuna trial 维度结果已结构化沉淀并展示，默认总测保持 42/42
 *2026-03-28 09:33* - TASK_FLOW_REFACTOR_033A 完成，V5 深化未做项已拆解并登记到三保险
 *2026-03-28 09:19* - TASK_FLOW_REFACTOR_032A 完成，README 与运行时进度口径已统一
