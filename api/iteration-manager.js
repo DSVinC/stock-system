@@ -71,9 +71,7 @@ function buildTaskResponse(task) {
     config: task.config,
     parallelTasks: task.parallelTasks ?? null
   };
-  if (optimizationBackend === 'optuna') {
-    inputSummary.optimizationBackend = optimizationBackend;
-  }
+  inputSummary.optimizationBackend = optimizationBackend;
 
   const resultSummary = task.resultSummary || buildTaskResultSummary(task);
   const history = Array.isArray(task.history)
@@ -95,7 +93,7 @@ function buildTaskResponse(task) {
     resultSummary,
     history,
     createdAt: task.createdAt || task.created_at || new Date().toISOString(),
-    ...(optimizationBackend === 'optuna' ? { optimizationBackend } : {}),
+    optimizationBackend,
     ...(task.error ? { error: task.error } : {}),
     ...(task.completedAt ? { completedAt: task.completedAt } : {}),
     ...(task.stoppedAt ? { stoppedAt: task.stoppedAt } : {})
@@ -106,7 +104,7 @@ function buildTaskResultSummary(task) {
   const optimizationBackend = normalizeOptimizationBackend(task.optimizationBackend || task.inputSummary?.optimizationBackend);
   return {
     status: task.status || null,
-    optimizationBackend: optimizationBackend === 'optuna' ? optimizationBackend : undefined,
+    optimizationBackend,
     bestScore: task.bestScore ?? null,
     bestParams: task.bestParams ?? null,
     finishedAt: task.completedAt || task.finishedAt || null,
@@ -204,6 +202,8 @@ async function loadIterationTaskRun(taskId) {
   const bestParams = safeJsonParse(row.best_params_json, null);
   const resultSummary = safeJsonParse(row.result_summary_json, {});
   const optimizationBackend = normalizeOptimizationBackend(inputSummary.optimizationBackend || resultSummary.optimizationBackend);
+  inputSummary.optimizationBackend = optimizationBackend;
+  resultSummary.optimizationBackend = optimizationBackend;
 
   return {
     taskId: row.task_id,
@@ -219,7 +219,7 @@ async function loadIterationTaskRun(taskId) {
     history: Array.isArray(resultSummary.history) ? resultSummary.history.slice(-10) : [],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    ...(optimizationBackend === 'optuna' ? { optimizationBackend } : {}),
+    optimizationBackend,
     ...(resultSummary.error ? { error: resultSummary.error } : {}),
     ...(resultSummary.completedAt ? { completedAt: resultSummary.completedAt } : {}),
     ...(resultSummary.stoppedAt ? { stoppedAt: resultSummary.stoppedAt } : {})
@@ -275,9 +275,7 @@ router.post('/start', async (req, res) => {
         endDate,
         config: config || {},
         parallelTasks: parallelTasks ?? null,
-        ...(normalizedOptimizationBackend === 'optuna'
-          ? { optimizationBackend: normalizedOptimizationBackend }
-          : {})
+        optimizationBackend: normalizedOptimizationBackend
       },
       maxIterations,
       scoreThreshold,
