@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const assert = require('assert');
-const http = require('http');
+const { EventEmitter } = require('events');
 
 function createMockDb() {
   const rows = new Map();
@@ -56,75 +56,84 @@ function createMockDb() {
   };
 }
 
-function requestJson({ port, method, path, body }) {
-  return new Promise((resolve, reject) => {
-    const payload = body ? JSON.stringify(body) : null;
-    const req = http.request(
-      {
-        hostname: '127.0.0.1',
-        port,
-        path,
-        method,
-        headers: payload
-          ? {
-              'Content-Type': 'application/json',
-              'Content-Length': Buffer.byteLength(payload)
-            }
-          : {}
-      },
-      (res) => {
-        let raw = '';
-        res.setEncoding('utf8');
-        res.on('data', (chunk) => {
-          raw += chunk;
-        });
-        res.on('end', () => {
-          try {
-            resolve({
-              statusCode: res.statusCode,
-              body: raw ? JSON.parse(raw) : null
-            });
-          } catch (error) {
-            reject(new Error(`响应不是有效 JSON: ${raw}`));
-          }
-        });
-      }
-    );
+function createMockSpawn() {
+  return () => {
+    const child = new EventEmitter();
+    child.stdout = new EventEmitter();
+    child.stderr = new EventEmitter();
+    child.stdout.setEncoding = () => {};
+    child.stderr.setEncoding = () => {};
 
-    req.on('error', reject);
+    process.nextTick(() => {
+      child.stdout.emit('data', JSON.stringify({
+        best_score: 88.8,
+        best_params: {
+          fast_period: 8,
+          slow_period: 24
+        }
+      }));
+      child.emit('close', 0);
+    });
 
-    if (payload) {
-      req.write(payload);
-    }
-
-    req.end();
-  });
+    return child;
+  };
 }
 
-async function startTestServer(iterationRouter) {
-  const express = require('express');
-  const app = express();
-  app.use(express.json());
-  app.use('/api/iteration', iterationRouter);
+function createMockResponse() {
+  return {
+    statusCode: 200,
+    body: null,
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(payload) {
+      this.body = payload;
+      return this;
+    }
+  };
+}
 
-  return new Promise((resolve) => {
-    const server = app.listen(0, () => {
-      resolve({
-        server,
-        port: server.address().port
-      });
-    });
+function getRouteHandler(router, path, method) {
+  const layer = router.stack.find((entry) => {
+    return entry.route && entry.route.path === path && entry.route.methods[method.toLowerCase()];
   });
+
+  if (!layer) {
+    throw new Error(`未找到路由: ${method.toUpperCase()} ${path}`);
+  }
+
+  const handlerLayer = layer.route.stack.find((entry) => typeof entry.handle === 'function');
+  if (!handlerLayer) {
+    throw new Error(`路由 ${method.toUpperCase()} ${path} 缺少可执行处理函数`);
+  }
+
+  return handlerLayer.handle;
+}
+
+async function invokeHandler(handler, req) {
+  const res = createMockResponse();
+  const maybePromise = handler(req, res);
+  if (maybePromise && typeof maybePromise.then === 'function') {
+    await maybePromise;
+  }
+  return res;
 }
 
 async function main() {
-  const mockDb = createMockDb();
+  const childProcess = require('child_process');
   const dbModule = require('../api/db');
+  const originalSpawn = childProcess.spawn;
+  const originalGetDatabase = dbModule.getDatabase;
+  const mockDb = createMockDb();
+
+  childProcess.spawn = createMockSpawn();
   dbModule.getDatabase = async () => mockDb;
 
   const iterationRouter = require('../api/iteration-manager');
   const { activeTasks } = iterationRouter.__test;
-  const { server, port } = await startTestServer(iterationRouter);
+  const startHandler = getRouteHandler(iterationRouter, '/start', 'post');
+  const statusHandler = getRouteHandler(iterationRouter, '/status/:taskId', 'get');
 
   try {
     const startPayload = {
@@ -141,11 +150,11 @@ async function main() {
       parallelTasks: 6
     };
 
-    const startResponse = await requestJson({
-      port,
+    const startResponse = await invokeHandler(startHandler, {
       method: 'POST',
-      path: '/api/iteration/start',
-      body: startPayload
+      body: startPayload,
+      params: {},
+      query: {}
     });
 
     assert.equal(startResponse.statusCode, 200);
@@ -155,10 +164,10 @@ async function main() {
     const taskId = startResponse.body.taskId;
     activeTasks.delete(taskId);
 
-    const statusResponse = await requestJson({
-      port,
+    const statusResponse = await invokeHandler(statusHandler, {
       method: 'GET',
-      path: `/api/iteration/status/${taskId}`
+      params: { taskId },
+      query: {}
     });
 
     assert.equal(statusResponse.statusCode, 200);
@@ -183,7 +192,8 @@ async function main() {
 
     console.log('✅ iteration manager task run snapshot test passed');
   } finally {
-    await new Promise((resolve) => server.close(resolve));
+    childProcess.spawn = originalSpawn;
+    dbModule.getDatabase = originalGetDatabase;
   }
 }
 

@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 const assert = require('assert');
-const http = require('http');
 const { EventEmitter } = require('events');
 
 function createMockDb() {
@@ -43,53 +42,72 @@ function createMockDb() {
   };
 }
 
-function requestJson({ port, method, path, body }) {
+function invokeRoute(router, { method, path, body }) {
   return new Promise((resolve, reject) => {
-    const payload = body ? JSON.stringify(body) : null;
-    const req = http.request(
-      {
-        hostname: '127.0.0.1',
-        port,
-        path,
-        method,
-        headers: payload
-          ? {
-              'Content-Type': 'application/json',
-              'Content-Length': Buffer.byteLength(payload)
-            }
-          : {}
+    let settled = false;
+    const res = {
+      statusCode: 200,
+      headers: {},
+      status(code) {
+        this.statusCode = code;
+        return this;
       },
-      (res) => {
-        let raw = '';
-        res.setEncoding('utf8');
-        res.on('data', chunk => { raw += chunk; });
-        res.on('end', () => {
-          try {
-            resolve({
-              statusCode: res.statusCode,
-              body: raw ? JSON.parse(raw) : null
-            });
-          } catch (error) {
-            reject(new Error(`响应不是有效 JSON: ${raw}`));
-          }
-        });
+      setHeader(name, value) {
+        this.headers[String(name).toLowerCase()] = value;
+      },
+      getHeader(name) {
+        return this.headers[String(name).toLowerCase()];
+      },
+      json(payload) {
+        if (!settled) {
+          settled = true;
+          resolve({ statusCode: this.statusCode, body: payload });
+        }
+        return this;
+      },
+      send(payload) {
+        if (!settled) {
+          settled = true;
+          resolve({ statusCode: this.statusCode, body: payload });
+        }
+        return this;
+      },
+      end(payload) {
+        if (!settled) {
+          settled = true;
+          resolve({ statusCode: this.statusCode, body: payload || null });
+        }
+        return this;
       }
-    );
+    };
 
-    req.on('error', reject);
-    if (payload) req.write(payload);
-    req.end();
-  });
-}
+    const req = {
+      method,
+      url: path,
+      originalUrl: path,
+      path,
+      body: body || {},
+      query: {},
+      params: {},
+      headers: {}
+    };
 
-async function startTestServer(iterationRouter) {
-  const express = require('express');
-  const app = express();
-  app.use(express.json());
-  app.use('/api/iteration', iterationRouter);
-
-  return new Promise((resolve) => {
-    const server = app.listen(0, () => resolve({ server, port: server.address().port }));
+    try {
+      router.handle(req, res, (error) => {
+        if (error && !settled) {
+          settled = true;
+          reject(error);
+        } else if (!settled) {
+          settled = true;
+          resolve({ statusCode: res.statusCode, body: null });
+        }
+      });
+    } catch (error) {
+      if (!settled) {
+        settled = true;
+        reject(error);
+      }
+    }
   });
 }
 
@@ -119,12 +137,11 @@ function createMockSpawn(spawnCalls) {
   };
 }
 
-async function waitForCompletedStatus(port, taskId) {
+async function waitForCompletedStatus(router, taskId) {
   for (let i = 0; i < 120; i++) {
-    const response = await requestJson({
-      port,
+    const response = await invokeRoute(router, {
       method: 'GET',
-      path: `/api/iteration/status/${taskId}`
+      path: `/status/${taskId}`
     });
 
     if (response.statusCode === 200 && response.body?.task?.status === 'completed') {
@@ -149,16 +166,14 @@ async function main() {
   dbModule.getDatabase = async () => mockDb;
 
   const iterationRouter = require('../api/iteration-manager');
-  const { server, port } = await startTestServer(iterationRouter);
 
   try {
     const trialSizes = [40, 55, 80];
 
     for (const nTrials of trialSizes) {
-      const startResponse = await requestJson({
-        port,
+      const startResponse = await invokeRoute(iterationRouter, {
         method: 'POST',
-        path: '/api/iteration/start',
+        path: '/start',
         body: {
           strategyType: 'double_ma',
           optimizationBackend: 'optuna',
@@ -174,7 +189,7 @@ async function main() {
       assert.equal(startResponse.statusCode, 200);
       assert.equal(startResponse.body.success, true);
 
-      const task = await waitForCompletedStatus(port, startResponse.body.taskId);
+      const task = await waitForCompletedStatus(iterationRouter, startResponse.body.taskId);
 
       assert.equal(task.status, 'completed');
       assert.equal(task.optimizationBackend, 'optuna');
@@ -195,7 +210,6 @@ async function main() {
   } finally {
     childProcess.spawn = originalSpawn;
     dbModule.getDatabase = originalGetDatabase;
-    await new Promise((resolve) => server.close(resolve));
   }
 }
 

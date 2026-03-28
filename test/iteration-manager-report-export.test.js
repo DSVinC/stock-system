@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const assert = require('assert');
-const http = require('http');
+const { URL } = require('url');
 
 function createMockDb() {
   const rows = new Map();
@@ -48,63 +48,81 @@ function createMockDb() {
   };
 }
 
-function requestJson({ port, path }) {
+function invokeRouter(router, method, rawPath) {
   return new Promise((resolve, reject) => {
-    const req = http.request(
-      {
-        hostname: '127.0.0.1',
-        port,
-        path,
-        method: 'GET'
+    const url = new URL(rawPath, 'http://127.0.0.1');
+    const req = {
+      method,
+      url: `${url.pathname}${url.search}`,
+      originalUrl: `${url.pathname}${url.search}`,
+      path: url.pathname,
+      query: Object.fromEntries(url.searchParams.entries()),
+      headers: {},
+      params: {}
+    };
+
+    const res = {
+      statusCode: 200,
+      headers: {},
+      body: null,
+      _done: false,
+      status(code) {
+        this.statusCode = code;
+        return this;
       },
-      res => {
-        let raw = '';
-        res.setEncoding('utf8');
-        res.on('data', chunk => {
-          raw += chunk;
-        });
-        res.on('end', () => {
-          try {
-            resolve({
-              statusCode: res.statusCode,
-              body: raw ? JSON.parse(raw) : null
-            });
-          } catch (error) {
-            reject(new Error(`响应不是有效 JSON: ${raw}`));
-          }
-        });
+      setHeader(name, value) {
+        this.headers[String(name).toLowerCase()] = value;
+        return this;
+      },
+      getHeader(name) {
+        return this.headers[String(name).toLowerCase()];
+      },
+      json(payload) {
+        this.body = payload;
+        finish();
+        return this;
+      },
+      send(payload) {
+        this.body = payload;
+        finish();
+        return this;
       }
-    );
+    };
 
-    req.on('error', reject);
-    req.end();
-  });
-}
-
-async function startTestServer(iterationRouter) {
-  const express = require('express');
-  const app = express();
-  app.use(express.json());
-  app.use('/api/iteration', iterationRouter);
-
-  return new Promise(resolve => {
-    const server = app.listen(0, () => {
+    function finish() {
+      if (res._done) {
+        return;
+      }
+      res._done = true;
       resolve({
-        server,
-        port: server.address().port
+        statusCode: res.statusCode,
+        headers: res.headers,
+        body: res.body
       });
-    });
+    }
+
+    try {
+      router.handle(req, res, err => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        finish();
+      });
+    } catch (error) {
+      reject(error);
+    }
   });
 }
 
 async function main() {
   const mockDb = createMockDb();
   const dbModule = require('../api/db');
+  const originalGetDatabase = dbModule.getDatabase;
   dbModule.getDatabase = async () => mockDb;
 
   const iterationRouter = require('../api/iteration-manager');
   const { activeTasks } = iterationRouter.__test;
-  const { server, port } = await startTestServer(iterationRouter);
 
   try {
     const taskId = 'ITER_REPORT_EXPORT';
@@ -146,10 +164,7 @@ async function main() {
       optunaTrialsCompleted: 30
     });
 
-    const reportRes = await requestJson({
-      port,
-      path: `/api/iteration/report/${taskId}?format=markdown`
-    });
+    const reportRes = await invokeRouter(iterationRouter, 'GET', `/report/${taskId}?format=markdown`);
 
     assert.equal(reportRes.statusCode, 200);
     assert.equal(reportRes.body.success, true);
@@ -166,19 +181,13 @@ async function main() {
     assert.ok(markdown.includes('## 实盘前检查'));
     assert.ok(markdown.includes('## 下一步建议'));
 
-    const unsupportedRes = await requestJson({
-      port,
-      path: `/api/iteration/report/${taskId}?format=json`
-    });
+    const unsupportedRes = await invokeRouter(iterationRouter, 'GET', `/report/${taskId}?format=json`);
 
     assert.equal(unsupportedRes.statusCode, 400);
     assert.equal(unsupportedRes.body.success, false);
     assert.ok(String(unsupportedRes.body.error || '').includes('format=markdown'));
 
-    const missingRes = await requestJson({
-      port,
-      path: '/api/iteration/report/ITER_REPORT_NOT_FOUND?format=markdown'
-    });
+    const missingRes = await invokeRouter(iterationRouter, 'GET', '/report/ITER_REPORT_NOT_FOUND?format=markdown');
 
     assert.equal(missingRes.statusCode, 404);
     assert.equal(missingRes.body.success, false);
@@ -186,7 +195,7 @@ async function main() {
     console.log('✅ iteration manager report export test passed');
   } finally {
     activeTasks.clear();
-    await new Promise(resolve => server.close(resolve));
+    dbModule.getDatabase = originalGetDatabase;
   }
 }
 

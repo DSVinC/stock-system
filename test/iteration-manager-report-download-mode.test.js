@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const assert = require('assert');
-const http = require('http');
+const { URL } = require('url');
 
 function createMockDb() {
   return {
@@ -17,59 +17,80 @@ function createMockDb() {
   };
 }
 
-function requestRaw({ port, path }) {
+function invokeRouter(router, method, rawPath) {
   return new Promise((resolve, reject) => {
-    const req = http.request(
-      {
-        hostname: '127.0.0.1',
-        port,
-        path,
-        method: 'GET'
+    const url = new URL(rawPath, 'http://127.0.0.1');
+    const req = {
+      method,
+      url: `${url.pathname}${url.search}`,
+      originalUrl: `${url.pathname}${url.search}`,
+      path: url.pathname,
+      query: Object.fromEntries(url.searchParams.entries()),
+      headers: {},
+      params: {}
+    };
+
+    const res = {
+      statusCode: 200,
+      headers: {},
+      body: null,
+      _done: false,
+      status(code) {
+        this.statusCode = code;
+        return this;
       },
-      res => {
-        let raw = '';
-        res.setEncoding('utf8');
-        res.on('data', chunk => {
-          raw += chunk;
-        });
-        res.on('end', () => {
-          resolve({
-            statusCode: res.statusCode,
-            headers: res.headers,
-            body: raw
-          });
-        });
+      setHeader(name, value) {
+        this.headers[String(name).toLowerCase()] = value;
+        return this;
+      },
+      getHeader(name) {
+        return this.headers[String(name).toLowerCase()];
+      },
+      json(payload) {
+        this.body = payload;
+        finish();
+        return this;
+      },
+      send(payload) {
+        this.body = payload;
+        finish();
+        return this;
       }
-    );
+    };
 
-    req.on('error', reject);
-    req.end();
-  });
-}
-
-async function startTestServer(iterationRouter) {
-  const express = require('express');
-  const app = express();
-  app.use(express.json());
-  app.use('/api/iteration', iterationRouter);
-
-  return new Promise(resolve => {
-    const server = app.listen(0, () => {
+    function finish() {
+      if (res._done) {
+        return;
+      }
+      res._done = true;
       resolve({
-        server,
-        port: server.address().port
+        statusCode: res.statusCode,
+        headers: res.headers,
+        body: res.body
       });
-    });
+    }
+
+    try {
+      router.handle(req, res, err => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        finish();
+      });
+    } catch (error) {
+      reject(error);
+    }
   });
 }
 
 async function main() {
   const dbModule = require('../api/db');
+  const originalGetDatabase = dbModule.getDatabase;
   dbModule.getDatabase = async () => createMockDb();
 
   const iterationRouter = require('../api/iteration-manager');
   const { activeTasks } = iterationRouter.__test;
-  const { server, port } = await startTestServer(iterationRouter);
 
   try {
     const taskId = 'ITER_REPORT_RAW_DOWNLOAD';
@@ -97,22 +118,19 @@ async function main() {
       completedAt: '2026-03-28T01:30:00.000Z'
     });
 
-    const res = await requestRaw({
-      port,
-      path: `/api/iteration/report/${taskId}?format=markdown&download=1`
-    });
+    const res = await invokeRouter(iterationRouter, 'GET', `/report/${taskId}?format=markdown&download=1`);
 
     assert.equal(res.statusCode, 200);
     assert.ok(String(res.headers['content-type'] || '').includes('text/markdown'));
     assert.ok(String(res.headers['content-disposition'] || '').includes(`${taskId}_report.md`));
-    assert.ok(res.body.includes('# 迭代任务回测报告'));
-    assert.ok(res.body.includes('## 任务信息'));
-    assert.ok(res.body.includes('## 下一步建议'));
+    assert.ok(String(res.body || '').includes('# 迭代任务回测报告'));
+    assert.ok(String(res.body || '').includes('## 任务信息'));
+    assert.ok(String(res.body || '').includes('## 下一步建议'));
 
     console.log('✅ iteration manager report download mode test passed');
   } finally {
     activeTasks.clear();
-    await new Promise(resolve => server.close(resolve));
+    dbModule.getDatabase = originalGetDatabase;
   }
 }
 
