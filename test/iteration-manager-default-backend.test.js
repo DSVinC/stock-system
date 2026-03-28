@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const assert = require('assert');
-const http = require('http');
+const { URL } = require('url');
 
 function createMockDb() {
   const rows = new Map();
@@ -56,74 +56,76 @@ function createMockDb() {
   };
 }
 
-function requestJson({ port, method, path, body }) {
+function invokeRouter(router, method, rawPath, body) {
   return new Promise((resolve, reject) => {
-    const payload = body ? JSON.stringify(body) : null;
-    const req = http.request(
-      {
-        hostname: '127.0.0.1',
-        port,
-        path,
-        method,
-        headers: payload
-          ? {
-              'Content-Type': 'application/json',
-              'Content-Length': Buffer.byteLength(payload)
-            }
-          : {}
+    const url = new URL(rawPath, 'http://127.0.0.1');
+    const req = {
+      method,
+      url: `${url.pathname}${url.search}`,
+      originalUrl: `${url.pathname}${url.search}`,
+      path: url.pathname,
+      query: Object.fromEntries(url.searchParams.entries()),
+      headers: {},
+      body,
+      params: {}
+    };
+
+    const res = {
+      statusCode: 200,
+      headers: {},
+      body: null,
+      _done: false,
+      status(code) {
+        this.statusCode = code;
+        return this;
       },
-      (res) => {
-        let raw = '';
-        res.setEncoding('utf8');
-        res.on('data', (chunk) => {
-          raw += chunk;
-        });
-        res.on('end', () => {
-          try {
-            resolve({
-              statusCode: res.statusCode,
-              body: raw ? JSON.parse(raw) : null
-            });
-          } catch (error) {
-            reject(new Error(`响应不是有效 JSON: ${raw}`));
-          }
-        });
+      setHeader(name, value) {
+        this.headers[String(name).toLowerCase()] = value;
+        return this;
+      },
+      getHeader(name) {
+        return this.headers[String(name).toLowerCase()];
+      },
+      json(payload) {
+        this.body = payload;
+        finish();
+        return this;
+      },
+      send(payload) {
+        this.body = payload;
+        finish();
+        return this;
       }
-    );
+    };
 
-    req.on('error', reject);
-
-    if (payload) {
-      req.write(payload);
+    function finish() {
+      if (res._done) {
+        return;
+      }
+      res._done = true;
+      resolve({
+        statusCode: res.statusCode,
+        body: res.body
+      });
     }
 
-    req.end();
-  });
-}
-
-async function startTestServer(iterationRouter) {
-  const express = require('express');
-  const app = express();
-  app.use(express.json());
-  app.use('/api/iteration', iterationRouter);
-
-  return new Promise((resolve) => {
-    const server = app.listen(0, () => {
-      resolve({
-        server,
-        port: server.address().port
+    try {
+      router.handle(req, res, err => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        finish();
       });
-    });
+    } catch (error) {
+      reject(error);
+    }
   });
 }
 
-async function waitForCompletedStatus(port, taskId) {
+async function waitForCompletedStatus(iterationRouter, taskId) {
   for (let i = 0; i < 100; i++) {
-    const response = await requestJson({
-      port,
-      method: 'GET',
-      path: `/api/iteration/status/${taskId}`
-    });
+    const response = await invokeRouter(iterationRouter, 'GET', `/status/${taskId}`);
 
     if (response.statusCode === 200 && response.body?.task?.status === 'completed') {
       return response;
@@ -133,7 +135,7 @@ async function waitForCompletedStatus(port, taskId) {
       throw new Error(`状态查询失败: ${JSON.stringify(response.body)}`);
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await new Promise(resolve => setTimeout(resolve, 20));
   }
 
   throw new Error('等待默认后端任务完成超时');
@@ -154,7 +156,7 @@ async function main() {
   dbModule.getDatabase = async () => mockDb;
 
   const iterationRouter = require('../api/iteration-manager');
-  const { server, port } = await startTestServer(iterationRouter);
+  const { activeTasks } = iterationRouter.__test;
 
   try {
     const startPayload = {
@@ -171,12 +173,7 @@ async function main() {
       parallelTasks: 6
     };
 
-    const startResponse = await requestJson({
-      port,
-      method: 'POST',
-      path: '/api/iteration/start',
-      body: startPayload
-    });
+    const startResponse = await invokeRouter(iterationRouter, 'POST', '/start', startPayload);
 
     assert.equal(startResponse.statusCode, 200);
     assert.equal(startResponse.body.success, true);
@@ -184,7 +181,7 @@ async function main() {
     const taskId = startResponse.body.taskId;
     assert.ok(taskId);
 
-    const statusResponse = await waitForCompletedStatus(port, taskId);
+    const statusResponse = await waitForCompletedStatus(iterationRouter, taskId);
     const task = statusResponse.body.task;
 
     assert.equal(task.optimizationBackend, 'heuristic');
@@ -195,13 +192,13 @@ async function main() {
 
     console.log('✅ iteration manager default backend test passed');
   } finally {
+    activeTasks.clear();
     childProcess.spawn = originalSpawn;
     dbModule.getDatabase = originalGetDatabase;
-    await new Promise((resolve) => server.close(resolve));
   }
 }
 
-main().catch((error) => {
+main().catch(error => {
   console.error(`❌ iteration manager default backend test failed: ${error.message}`);
   process.exit(1);
 });

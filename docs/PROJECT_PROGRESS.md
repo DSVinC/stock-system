@@ -1,6 +1,6 @@
 # 股票系统 - 项目进度总览
 
-**最后更新**: 2026-03-28 11:40  
+**最后更新**: 2026-03-28 11:43  
 **项目经理**: Codex  
 **程序员**: subagent / Claude Code（按任务分配）  
 **验收员**: Codex / Gemini CLI（按任务分配）  
@@ -125,6 +125,7 @@
 所有 P0/P1 任务已完成并验收通过。
 
 **最新完成** (2026-03-28):
+- TASK_FLOW_REFACTOR_039B: `iteration-manager-default-backend.test.js` 已改为无端口模式，独立执行不再触发 listen EPERM
 - TASK_FLOW_REFACTOR_039A: iteration-manager 相关默认总测脚本已完成无端口改造，沙箱下默认总测恢复 49/49 全通过
 - TASK_FLOW_REFACTOR_038A: 已修复 strategy-template 路由顺序（/default 优先于 /:id），新增无端口回归测试并接入默认总测
 - TASK_FLOW_REFACTOR_034B: 已新增 `TASK_V5_000` 规划项与落地证据对照文档，保留规划态 pending 同时补足执行态可追溯映射
@@ -632,6 +633,7 @@
 
 ## 📝 最近事件
 
+*2026-03-28 11:43* - TASK_FLOW_REFACTOR_039B 完成，`iteration-manager-default-backend.test.js` 已改为无端口模式，脚本可在当前沙箱直接通过
 *2026-03-28 11:40* - TASK_FLOW_REFACTOR_039A 完成，iteration-manager 6 条默认总测脚本改为无端口模式，`tests/run-all-tests.js` 恢复 `49/49` 全绿
 *2026-03-28 11:30* - TASK_FLOW_REFACTOR_038A 完成，修复 strategy-template 路由顺序并新增无端口回归测试（default-route/profiles），已接入默认总测
 *2026-03-28 10:59* - TASK_FLOW_REFACTOR_037C 完成，新增策略画像接口契约文档 docs/api-contracts/strategy-template-profiles.md
