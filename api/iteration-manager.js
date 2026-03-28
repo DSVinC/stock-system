@@ -322,6 +322,86 @@ function buildTaskResultSummary(task) {
   };
 }
 
+function generateIterationReportMarkdown(taskPayload) {
+  const task = taskPayload || {};
+  const inputSummary = task.inputSummary && typeof task.inputSummary === 'object' ? task.inputSummary : {};
+  const summary = task.resultSummary && typeof task.resultSummary === 'object' ? task.resultSummary : {};
+  const readiness = summary.deploymentReadiness && typeof summary.deploymentReadiness === 'object'
+    ? summary.deploymentReadiness
+    : null;
+  const checks = readiness && Array.isArray(readiness.checks) ? readiness.checks : [];
+  const nextAction = summary.nextActionSuggestion && typeof summary.nextActionSuggestion === 'object'
+    ? summary.nextActionSuggestion
+    : null;
+  const stocks = Array.isArray(inputSummary.stocks) ? inputSummary.stocks : [];
+  const bestParams = task.bestParams && typeof task.bestParams === 'object' ? task.bestParams : {};
+  const bestParamEntries = Object.entries(bestParams);
+
+  const lines = [
+    '# 迭代任务回测报告',
+    '',
+    '## 任务信息',
+    `- 任务 ID: ${task.taskId || '--'}`,
+    `- 策略类型: ${task.strategyType || '--'}`,
+    `- 优化后端: ${task.optimizationBackend || summary.optimizationBackend || '--'}`,
+    `- 当前状态: ${task.status || summary.status || '--'}`,
+    `- 创建时间: ${task.createdAt || '--'}`,
+    `- 完成时间: ${summary.completedAt || task.completedAt || '--'}`,
+    '',
+    '## 回测输入',
+    `- 股票池: ${stocks.length > 0 ? stocks.join(', ') : '--'}`,
+    `- 时间区间: ${inputSummary.startDate || '--'} ~ ${inputSummary.endDate || '--'}`,
+    `- 最大迭代次数: ${task.maxIterations ?? '--'}`,
+    `- 目标分数: ${task.scoreThreshold ?? '--'}`,
+    '',
+    '## 结果摘要',
+    `- 最佳得分: ${Number.isFinite(Number(task.bestScore)) ? Number(task.bestScore).toFixed(1) : '--'}`,
+    `- 当前轮次: ${task.currentIteration ?? '--'} / ${task.maxIterations ?? '--'}`,
+    `- 进度: ${Number.isFinite(Number(task.progress)) ? Number(task.progress).toFixed(0) : '--'}%`,
+    `- 计划试验数: ${summary.requestedTrials ?? '--'}`,
+    `- 完成试验数: ${summary.completedTrials ?? summary.trialCount ?? '--'}`,
+    '',
+    '## 最佳参数'
+  ];
+
+  if (bestParamEntries.length === 0) {
+    lines.push('- 暂无最佳参数');
+  } else {
+    for (const [key, value] of bestParamEntries) {
+      lines.push(`- ${key}: ${value}`);
+    }
+  }
+
+  lines.push('', '## 实盘前检查');
+  if (!readiness) {
+    lines.push('- 暂无检查结果');
+  } else {
+    lines.push(`- 实盘就绪: ${readiness.readyForLive ? '是' : '否'}`);
+    lines.push(`- 失败项: ${readiness.failedCount ?? 0}`);
+    lines.push(`- 待补齐: ${readiness.pendingCount ?? 0}`);
+    lines.push('');
+    lines.push('### 检查清单');
+    if (checks.length === 0) {
+      lines.push('- 暂无检查明细');
+    } else {
+      for (const check of checks) {
+        lines.push(`- ${check.title || check.id || '--'}: ${check.status || '--'}${check.detail ? `（${check.detail}）` : ''}`);
+      }
+    }
+  }
+
+  lines.push('', '## 下一步建议');
+  if (!nextAction) {
+    lines.push('- 暂无建议');
+  } else {
+    lines.push(`- 建议动作: ${nextAction.title || nextAction.action || '--'}`);
+    lines.push(`- 建议原因: ${nextAction.reason || '--'}`);
+  }
+
+  lines.push('', `> 报告生成时间: ${new Date().toISOString()}`);
+  return lines.join('\n');
+}
+
 async function ensureIterationTaskRunsTable(db) {
   await db.runPromise(ITERATION_TASK_RUNS_TABLE_SQL);
 }
@@ -620,6 +700,56 @@ router.get('/status/:taskId', async (req, res) => {
       error: error.message
     });
   }
+});
+
+/**
+ * 导出迭代任务报告
+ * GET /api/iteration/report/:taskId?format=markdown
+ */
+router.get('/report/:taskId', async (req, res) => {
+  const { taskId } = req.params;
+  const format = String(req.query.format || 'markdown').toLowerCase();
+
+  if (format !== 'markdown') {
+    return res.status(400).json({
+      success: false,
+      error: '仅支持 format=markdown'
+    });
+  }
+
+  const activeTask = activeTasks.get(taskId);
+  let taskPayload = activeTask ? buildTaskResponse(activeTask) : null;
+
+  if (!taskPayload) {
+    try {
+      taskPayload = await loadIterationTaskRun(taskId);
+    } catch (error) {
+      console.error(`[迭代任务 ${taskId}] 报告加载失败:`, error);
+      return res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  }
+
+  if (!taskPayload) {
+    return res.status(404).json({
+      success: false,
+      error: '任务不存在'
+    });
+  }
+
+  const markdown = generateIterationReportMarkdown(taskPayload);
+  return res.json({
+    success: true,
+    data: {
+      taskId,
+      format: 'markdown',
+      fileName: `${taskId}_report.md`,
+      generatedAt: new Date().toISOString(),
+      markdown
+    }
+  });
 });
 
 /**
@@ -1454,7 +1584,8 @@ router.__test = {
   deriveExecutionFeedbackStatus,
   enrichVersionsWithExecutionFeedback,
   enrichVersionsWithPublishStatus,
-  DEFAULT_EXECUTION_SUMMARY
+  DEFAULT_EXECUTION_SUMMARY,
+  generateIterationReportMarkdown
 };
 
 module.exports = router;
