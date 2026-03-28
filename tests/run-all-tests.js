@@ -194,7 +194,8 @@ async function main() {
       './test/iteration-manager-result-summary-recovery.test.js',
       './test/iteration-manager-completed-recovery.test.js',
       './test/iteration-manager-next-action-readiness.test.js',
-      './test/iteration-manager-report-export.test.js'
+      './test/iteration-manager-report-export.test.js',
+      './test/iteration-manager-report-download.test.js'
     ];
 
     for (const scriptPath of iterationManagerScripts) {

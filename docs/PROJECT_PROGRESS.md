@@ -630,6 +630,7 @@
 
 ## 📝 最近事件
 
+*2026-03-28 10:31* - TASK_FLOW_REFACTOR_035F 完成，迭代管理页新增“一键导出报告”按钮并接入 Markdown 导出 API，新增前端下载回归，默认总测 46/46
 *2026-03-28 10:25* - TASK_FLOW_REFACTOR_035E 完成，新增 /api/iteration/report/:taskId Markdown 报告导出与回归测试，默认总测升级为 45/45 全通过
 *2026-03-28 10:14* - TASK_FLOW_REFACTOR_035D 完成，达标分数下的下一步建议已接入“实盘前检查门禁”，新增回归测试并接入默认总测（44/44）
 *2026-03-28 10:11* - TASK_FLOW_REFACTOR_035C 完成，迭代结果摘要已展示 deploymentReadiness（实盘就绪/待处理项/检查清单），恢复态渲染回归通过

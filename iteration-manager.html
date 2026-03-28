@@ -376,6 +376,7 @@
       <div style="display: flex; gap: 12px; margin-top: 20px;">
         <button class="button" id="startBtn" onclick="startIteration()">🚀 开始自迭代</button>
         <button class="button button-secondary" id="stopBtn" onclick="stopIteration()" disabled>⏹️ 停止</button>
+        <button class="button button-secondary" id="exportReportBtn" onclick="exportIterationReport()" disabled>🧾 导出报告</button>
         <button class="button button-secondary" onclick="window.location.href='backtest.html'">← 返回回测研究</button>
       </div>
     </div>
@@ -544,6 +545,53 @@
       isRunning = isTaskRunning;
       document.getElementById('startBtn').disabled = isTaskRunning;
       document.getElementById('stopBtn').disabled = !isTaskRunning;
+      if (typeof updateReportExportButtonState === 'function') {
+        updateReportExportButtonState();
+      }
+    }
+
+    function updateReportExportButtonState() {
+      const exportBtn = document.getElementById('exportReportBtn');
+      if (!exportBtn) return;
+
+      const taskId = currentTaskId || getPersistedIterationTaskId();
+      exportBtn.disabled = !taskId;
+    }
+
+    function getReportTaskId() {
+      return currentTaskId || getPersistedIterationTaskId();
+    }
+
+    async function exportIterationReport() {
+      const taskId = getReportTaskId();
+      if (!taskId) {
+        addLog('⚠️ 当前没有可导出的任务报告', 'warning');
+        return;
+      }
+
+      try {
+        addLog(`🧾 正在导出报告: ${taskId}`, 'info');
+        const response = await fetch(`/api/iteration/report/${taskId}?format=markdown`);
+        const result = await response.json();
+
+        if (!response.ok || !result.success || !result.data?.markdown) {
+          throw new Error(result.error || '导出报告失败');
+        }
+
+        const markdown = result.data.markdown;
+        const fileName = result.data.fileName || `${taskId}_report.md`;
+        const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = fileName;
+        link.click();
+        URL.revokeObjectURL(blobUrl);
+
+        addLog(`✅ 报告已导出: ${fileName}`, 'success');
+      } catch (error) {
+        addLog(`❌ 导出失败: ${error.message}`, 'error');
+      }
     }
 
     // 从 URL 参数获取初始配置
@@ -941,9 +989,11 @@
     function finishIteration(finalStatus = 'success') {
       stopPolling();
       isRunning = false;
-      currentTaskId = null;
       document.getElementById('startBtn').disabled = false;
       document.getElementById('stopBtn').disabled = true;
+      if (typeof updateReportExportButtonState === 'function') {
+        updateReportExportButtonState();
+      }
       updateStatusBadge(finalStatus);
     }
 
