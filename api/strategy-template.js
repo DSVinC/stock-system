@@ -72,6 +72,36 @@ function createStrategyTemplateRouter(express) {
   });
 
   /**
+   * GET /default
+   * 获取默认策略模板
+   */
+  router.get('/default', (req, res) => {
+    try {
+      const template = getDefaultTemplate();
+      
+      if (template) {
+        res.json({
+          success: true,
+          data: template
+        });
+      } else {
+        res.status(404).json({
+          success: false,
+          error: '默认模板不存在',
+          message: '未找到默认策略模板'
+        });
+      }
+    } catch (error) {
+      console.error('[策略模板 API] 获取默认模板失败:', error);
+      res.status(500).json({
+        success: false,
+        error: '加载默认策略模板失败',
+        message: error.message
+      });
+    }
+  });
+
+  /**
    * GET /:id
    * 根据 ID 获取单个策略模板
    */
@@ -97,36 +127,6 @@ function createStrategyTemplateRouter(express) {
       res.status(500).json({
         success: false,
         error: '加载策略模板失败',
-        message: error.message
-      });
-    }
-  });
-
-  /**
-   * GET /default
-   * 获取默认策略模板
-   */
-  router.get('/default', (req, res) => {
-    try {
-      const template = getDefaultTemplate();
-      
-      if (template) {
-        res.json({
-          success: true,
-          data: template
-        });
-      } else {
-        res.status(404).json({
-          success: false,
-          error: '默认模板不存在',
-          message: '未找到默认策略模板'
-        });
-      }
-    } catch (error) {
-      console.error('[策略模板 API] 获取默认模板失败:', error);
-      res.status(500).json({
-        success: false,
-        error: '加载默认策略模板失败',
         message: error.message
       });
     }

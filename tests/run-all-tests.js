@@ -197,6 +197,7 @@ async function main() {
       './test/iteration-manager-report-export.test.js',
       './test/iteration-manager-report-download.test.js',
       './test/iteration-manager-report-download-mode.test.js',
+      './test/strategy-template-default-route.test.js',
       './test/strategy-template-profiles.test.js'
     ];
 

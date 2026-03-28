@@ -1,6 +1,6 @@
 # 股票系统 - 项目进度总览
 
-**最后更新**: 2026-03-28 09:53  
+**最后更新**: 2026-03-28 11:30  
 **项目经理**: Codex  
 **程序员**: subagent / Claude Code（按任务分配）  
 **验收员**: Codex / Gemini CLI（按任务分配）  
@@ -125,6 +125,7 @@
 所有 P0/P1 任务已完成并验收通过。
 
 **最新完成** (2026-03-28):
+- TASK_FLOW_REFACTOR_038A: 已修复 strategy-template 路由顺序（/default 优先于 /:id），新增无端口回归测试并接入默认总测
 - TASK_FLOW_REFACTOR_034B: 已新增 `TASK_V5_000` 规划项与落地证据对照文档，保留规划态 pending 同时补足执行态可追溯映射
 - TASK_FLOW_REFACTOR_034A: 已将 V3 阶段 3/4 的 pending 口径按 runtime 验收证据回写为 done，V3 总体进度更新为 21/21
 - TASK_FLOW_REFACTOR_033D: 已统一研究版本发布到策略库的反馈 summary 口径，补齐 `position_closed_count/total_realized_pnl` 等字段，并为历史快照缺字段场景补渲染回退，默认总测保持 43/43
@@ -630,6 +631,7 @@
 
 ## 📝 最近事件
 
+*2026-03-28 11:30* - TASK_FLOW_REFACTOR_038A 完成，修复 strategy-template 路由顺序并新增无端口回归测试（default-route/profiles），已接入默认总测；当前全量总测在沙箱中仍受 listen EPERM 环境限制
 *2026-03-28 10:59* - TASK_FLOW_REFACTOR_037C 完成，新增策略画像接口契约文档 docs/api-contracts/strategy-template-profiles.md
 *2026-03-28 10:55* - TASK_FLOW_REFACTOR_037B 完成，新增 /api/strategy-template/profiles（4类策略画像）与回归测试，默认总测提升至 48/48
 *2026-03-28 10:49* - TASK_FLOW_REFACTOR_037A 完成，报告接口新增 download=1 直出模式（text/markdown 附件），新增回归并接入默认总测（47/47）

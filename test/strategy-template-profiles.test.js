@@ -1,69 +1,53 @@
 #!/usr/bin/env node
 
 const assert = require('assert');
-const http = require('http');
 const express = require('express');
 
-function requestJson({ port, path }) {
-  return new Promise((resolve, reject) => {
-    const req = http.request(
-      {
-        hostname: '127.0.0.1',
-        port,
-        path,
-        method: 'GET'
-      },
-      res => {
-        let raw = '';
-        res.setEncoding('utf8');
-        res.on('data', chunk => {
-          raw += chunk;
-        });
-        res.on('end', () => {
-          try {
-            resolve({
-              statusCode: res.statusCode,
-              body: JSON.parse(raw)
-            });
-          } catch (error) {
-            reject(new Error(`响应不是有效 JSON: ${raw}`));
-          }
-        });
-      }
-    );
-    req.on('error', reject);
-    req.end();
-  });
+function createMockResponse() {
+  return {
+    statusCode: 200,
+    body: null,
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(payload) {
+      this.body = payload;
+      return this;
+    }
+  };
+}
+
+function getRouteHandler(router, path) {
+  const layer = router.stack.find(entry => entry.route && entry.route.path === path);
+  if (!layer) {
+    throw new Error(`未找到路由: ${path}`);
+  }
+  const [handlerLayer] = layer.route.stack;
+  if (!handlerLayer || typeof handlerLayer.handle !== 'function') {
+    throw new Error(`路由 ${path} 缺少可执行处理函数`);
+  }
+  return handlerLayer.handle;
 }
 
 async function main() {
-  const app = express();
   const createStrategyTemplateRouter = require('../api/strategy-template');
-  app.use('/api/strategy-template', createStrategyTemplateRouter(express));
+  const router = createStrategyTemplateRouter(express);
+  const handler = getRouteHandler(router, '/profiles');
+  const req = {};
+  const res = createMockResponse();
 
-  const server = await new Promise(resolve => {
-    const s = app.listen(0, () => resolve(s));
-  });
-  const port = server.address().port;
+  await handler(req, res);
 
-  try {
-    const res = await requestJson({
-      port,
-      path: '/api/strategy-template/profiles'
-    });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.success, true);
+  assert.equal(res.body.count, 4);
+  assert.ok(Array.isArray(res.body.data));
 
-    assert.equal(res.statusCode, 200);
-    assert.equal(res.body.success, true);
-    assert.equal(res.body.count, 4);
-    assert.ok(Array.isArray(res.body.data));
+  const types = res.body.data.map(item => item.strategy_type).sort();
+  assert.deepEqual(types, ['industry_7factor', 'mean_reversion', 'multi_factor', 'trend_following']);
 
-    const types = res.body.data.map(item => item.strategy_type).sort();
-    assert.deepEqual(types, ['industry_7factor', 'mean_reversion', 'multi_factor', 'trend_following']);
-
-    console.log('✅ strategy template profiles test passed');
-  } finally {
-    await new Promise(resolve => server.close(resolve));
-  }
+  console.log('✅ strategy template profiles test passed');
 }
 
 main().catch(error => {
