@@ -61,6 +61,7 @@
 | **TASK_FLOW_REFACTOR_030B** | **V5_007 停止态展示收口：前端按 stop 接口快照展示 stopped** | **P0** | **🟢 done** | **Codex** | **100%** |
 | **TASK_FLOW_REFACTOR_030C** | **V5_007 可读性收口：停止原因枚举值映射为中文文案** | **P0** | **🟢 done** | **Codex** | **100%** |
 | **TASK_FLOW_REFACTOR_031A** | **V5_007 健壮性收口：进度条防 NaN/Infinity 与越界** | **P0** | **🟢 done** | **Codex** | **100%** |
+| **TASK_FLOW_REFACTOR_031B** | **V5_007 启动参数收口：maxIterations/scoreThreshold/parallelTasks 归一化** | **P0** | **🟢 done** | **Codex** | **100%** |
 | TASK_P0_001 | 黑天鹅检测模块 | P0 | 🟢 accepted | 灵爪 | 100% |
 | TASK_P0_002 | 舆情因子计算模块 | P0 | 🟢 accepted | 灵爪 | 100% |
 | TASK_P0_003 | 因子快照库模块 | P0 | 🟢 accepted | 灵爪 | 100% |
@@ -115,6 +116,7 @@
 所有 P0/P1 任务已完成并验收通过。
 
 **最新完成** (2026-03-28):
+- TASK_FLOW_REFACTOR_031B: 启动接口已归一化关键参数，非法输入不再污染任务快照和 optuna trial 配置
 - TASK_FLOW_REFACTOR_031A: `updateProgress()` 已补数值归一化与 clamp，异常快照下不再出现 `NaN%/Infinity%`
 - TASK_FLOW_REFACTOR_030C: 结果摘要停止原因已映射为中文可读文案，不再直接展示 `manual_stop`
 - TASK_FLOW_REFACTOR_030B: stop API 返回全量任务快照，前端停止后按 `stopped` 实际状态展示，不再误回到 `idle`
@@ -610,6 +612,7 @@
 
 ## 📝 最近事件
 
+*2026-03-28 09:11* - TASK_FLOW_REFACTOR_031B 完成，迭代启动参数已归一化，非法输入回退默认/安全值
 *2026-03-28 09:08* - TASK_FLOW_REFACTOR_031A 完成，进度条显示已加防御逻辑，异常迭代数不会再渲染 NaN/Infinity
 *2026-03-28 09:05* - TASK_FLOW_REFACTOR_030C 完成，停止原因文案映射收口，页面不再直接暴露内部枚举值
 *2026-03-28 09:02* - TASK_FLOW_REFACTOR_030B 完成，stop 响应切全量任务快照，前端停止态展示与后端口径统一

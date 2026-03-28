@@ -60,6 +60,27 @@ function normalizeOptimizationBackend(value) {
   return String(value || 'heuristic').toLowerCase() === 'optuna' ? 'optuna' : 'heuristic';
 }
 
+function normalizeIterationCount(value, fallback = 10) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.min(parsed, 1000);
+}
+
+function normalizeScoreThreshold(value, fallback = 80) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  if (parsed < 0) return 0;
+  if (parsed > 100) return 100;
+  return parsed;
+}
+
+function normalizeParallelTasks(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return Math.min(parsed, 256);
+}
+
 function buildTaskResponse(task) {
   if (!task) return null;
 
@@ -88,6 +109,7 @@ function buildTaskResponse(task) {
     progress: task.progress ?? 0,
     currentIteration: task.currentIteration ?? 0,
     maxIterations: task.maxIterations ?? 0,
+    scoreThreshold: task.scoreThreshold ?? null,
     bestScore: task.bestScore ?? 0,
     bestParams: task.bestParams ?? null,
     resultSummary,
@@ -263,6 +285,9 @@ router.post('/start', async (req, res) => {
 
     const taskId = `ITER_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     const normalizedOptimizationBackend = normalizeOptimizationBackend(optimizationBackend);
+    const normalizedMaxIterations = normalizeIterationCount(maxIterations, 10);
+    const normalizedScoreThreshold = normalizeScoreThreshold(scoreThreshold, 80);
+    const normalizedParallelTasks = normalizeParallelTasks(parallelTasks);
 
     // 创建任务记录
     const task = {
@@ -275,15 +300,15 @@ router.post('/start', async (req, res) => {
         startDate,
         endDate,
         config: config || {},
-        parallelTasks: parallelTasks ?? null,
+        parallelTasks: normalizedParallelTasks,
         optimizationBackend: normalizedOptimizationBackend
       },
-      maxIterations,
-      scoreThreshold,
+      maxIterations: normalizedMaxIterations,
+      scoreThreshold: normalizedScoreThreshold,
       stocks,
       startDate,
       endDate,
-      parallelTasks: parallelTasks ?? null,
+      parallelTasks: normalizedParallelTasks,
       status: 'pending',
       progress: 0,
       currentIteration: 0,
