@@ -176,9 +176,12 @@ async function main() {
     });
     assert.equal(stopResponse.statusCode, 200);
     assert.equal(stopResponse.body.success, true);
+    assert.equal(stopResponse.body.task.status, 'stopped');
+    assert.equal(stopResponse.body.task.stopReason, 'manual_stop');
 
     const task = await waitForStatus(port, taskId, 'stopped');
     assert.equal(task.status, 'stopped');
+    assert.equal(task.stopReason, 'manual_stop');
     assert.equal(task.resultSummary?.stopReason, 'manual_stop');
     assert.ok(task.stoppedAt);
     assert.equal(task.error, undefined, '手动停止不应带 failed 错误');

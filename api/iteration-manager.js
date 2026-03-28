@@ -96,7 +96,8 @@ function buildTaskResponse(task) {
     optimizationBackend,
     ...(task.error ? { error: task.error } : {}),
     ...(task.completedAt ? { completedAt: task.completedAt } : {}),
-    ...(task.stoppedAt ? { stoppedAt: task.stoppedAt } : {})
+    ...(task.stoppedAt ? { stoppedAt: task.stoppedAt } : {}),
+    ...(task.stopReason ? { stopReason: task.stopReason } : {})
   };
 }
 
@@ -368,12 +369,7 @@ router.post('/stop/:taskId', (req, res) => {
   res.json({
     success: true,
     message: '任务已停止',
-    task: {
-      taskId: task.taskId,
-      status: task.status,
-      currentIteration: task.currentIteration,
-      bestScore: task.bestScore
-    }
+    task: buildTaskResponse(task)
   });
 });
 

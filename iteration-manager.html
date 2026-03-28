@@ -855,12 +855,12 @@
         const result = await response.json();
 
         if (result.success) {
-          addLog('⏹️ 任务已停止', 'warning');
-          stopPolling();
-          isRunning = false;
-          document.getElementById('startBtn').disabled = false;
-          document.getElementById('stopBtn').disabled = true;
-          updateStatusBadge('idle');
+          if (result.task) {
+            updateTaskStatus(result.task);
+          } else {
+            addLog('⏹️ 任务已停止', 'warning');
+            finishIteration('stopped');
+          }
         }
       } catch (error) {
         addLog(`❌ 停止失败: ${error.message}`, 'error');
