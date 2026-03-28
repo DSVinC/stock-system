@@ -177,6 +177,7 @@ function deriveNextActionSuggestion(task) {
   const scoreThreshold = parseOptionalFiniteNumber(task.scoreThreshold);
   const bestScore = parseOptionalFiniteNumber(task.bestScore) ?? 0;
   const history = Array.isArray(task.history) ? task.history : [];
+  const deploymentReadiness = deriveDeploymentReadiness(task);
 
   if (status === 'failed') {
     return {
@@ -195,6 +196,14 @@ function deriveNextActionSuggestion(task) {
   }
 
   if (status === 'completed' && scoreThreshold !== null && bestScore >= scoreThreshold) {
+    if (!deploymentReadiness.readyForLive) {
+      return {
+        action: 'complete_preflight_checklist',
+        title: '先补齐实盘前检查',
+        reason: `评分已达标，但仍有 ${deploymentReadiness.failedCount} 项失败、${deploymentReadiness.pendingCount} 项待补齐。建议先完成检查清单再发布。`
+      };
+    }
+
     return {
       action: 'publish_to_strategy_library',
       title: '发布到策略库',

@@ -630,6 +630,7 @@
 
 ## 📝 最近事件
 
+*2026-03-28 10:14* - TASK_FLOW_REFACTOR_035D 完成，达标分数下的下一步建议已接入“实盘前检查门禁”，新增回归测试并接入默认总测（44/44）
 *2026-03-28 10:11* - TASK_FLOW_REFACTOR_035C 完成，迭代结果摘要已展示 deploymentReadiness（实盘就绪/待处理项/检查清单），恢复态渲染回归通过
 *2026-03-28 10:08* - TASK_FLOW_REFACTOR_035B 完成，resultSummary 新增 deploymentReadiness（5项实盘前检查）并接入快照回归，默认总测保持 43/43
 *2026-03-28 10:04* - TASK_FLOW_REFACTOR_035A 完成，V5 迭代结果摘要新增 nextActionSuggestion（动作+原因）并在页面展示，默认总测保持 43/43
