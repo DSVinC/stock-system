@@ -373,9 +373,13 @@
         </div>
       </div>
 
-      <div style="display: flex; gap: 12px; margin-top: 20px;">
+      <div style="display: flex; gap: 12px; margin-top: 20px; align-items: center; flex-wrap: wrap;">
         <button class="button" id="startBtn" onclick="startIteration()">🚀 开始自迭代</button>
         <button class="button button-secondary" id="stopBtn" onclick="stopIteration()" disabled>⏹️ 停止</button>
+        <select id="reportFormatSelect" class="form-select" style="width: 160px; padding: 12px; background: var(--bg-primary); border: 1px solid var(--text-secondary); border-radius: 8px; color: var(--text-primary); font-size: 14px;">
+          <option value="markdown">Markdown 报告 (.md)</option>
+          <option value="html">HTML 报告 (.html)</option>
+        </select>
         <button class="button button-secondary" id="exportReportBtn" onclick="exportIterationReport()" disabled>🧾 导出报告</button>
         <button class="button button-secondary" onclick="window.location.href='backtest.html'">← 返回回测研究</button>
       </div>
@@ -569,18 +573,22 @@
         return;
       }
 
-      try {
-        addLog(`🧾 正在导出报告: ${taskId}`, 'info');
-        const response = await fetch(`/api/iteration/report/${taskId}?format=markdown`);
-        const result = await response.json();
+      const formatSelect = document.getElementById('reportFormatSelect');
+      const format = formatSelect && formatSelect.value === 'html' ? 'html' : 'markdown';
 
-        if (!response.ok || !result.success || !result.data?.markdown) {
+      try {
+        addLog(`🧾 正在导出报告: ${taskId} (${format})`, 'info');
+        const response = await fetch(`/api/iteration/report/${taskId}?format=${format}`);
+        const result = await response.json();
+        const reportContent = format === 'html' ? result.data?.html : result.data?.markdown;
+
+        if (!response.ok || !result.success || !reportContent) {
           throw new Error(result.error || '导出报告失败');
         }
 
-        const markdown = result.data.markdown;
-        const fileName = result.data.fileName || `${taskId}_report.md`;
-        const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+        const fileName = result.data.fileName || `${taskId}_report.${format === 'html' ? 'html' : 'md'}`;
+        const mimeType = format === 'html' ? 'text/html;charset=utf-8' : 'text/markdown;charset=utf-8';
+        const blob = new Blob([reportContent], { type: mimeType });
         const blobUrl = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = blobUrl;
