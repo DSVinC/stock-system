@@ -63,6 +63,7 @@
 | **TASK_FLOW_REFACTOR_031A** | **V5_007 健壮性收口：进度条防 NaN/Infinity 与越界** | **P0** | **🟢 done** | **Codex** | **100%** |
 | **TASK_FLOW_REFACTOR_031B** | **V5_007 启动参数收口：maxIterations/scoreThreshold/parallelTasks 归一化** | **P0** | **🟢 done** | **Codex** | **100%** |
 | **TASK_FLOW_REFACTOR_031C** | **V5_007 兼容性收口：修复 031B 引出的 iteration-manager 回归测试漂移** | **P0** | **🟢 done** | **Codex** | **100%** |
+| **TASK_FLOW_REFACTOR_031D** | **V5_007 总测收口：run-all-tests 恢复 42/42 全通过** | **P0** | **🟢 done** | **Codex** | **100%** |
 | TASK_P0_001 | 黑天鹅检测模块 | P0 | 🟢 accepted | 灵爪 | 100% |
 | TASK_P0_002 | 舆情因子计算模块 | P0 | 🟢 accepted | 灵爪 | 100% |
 | TASK_P0_003 | 因子快照库模块 | P0 | 🟢 accepted | 灵爪 | 100% |
@@ -117,6 +118,7 @@
 所有 P0/P1 任务已完成并验收通过。
 
 **最新完成** (2026-03-28):
+- TASK_FLOW_REFACTOR_031D: 默认总测已恢复全绿（`tests/run-all-tests.js` = `42/42`），随机波动和函数抽取兼容问题已收口
 - TASK_FLOW_REFACTOR_031C: 修复 `formatResultReason` 在子集测试环境缺失的问题，并同步快照测试期望到新参数归一化口径
 - TASK_FLOW_REFACTOR_031B: 启动接口已归一化关键参数，非法输入不再污染任务快照和 optuna trial 配置
 - TASK_FLOW_REFACTOR_031A: `updateProgress()` 已补数值归一化与 clamp，异常快照下不再出现 `NaN%/Infinity%`
@@ -614,6 +616,7 @@
 
 ## 📝 最近事件
 
+*2026-03-28 09:16* - TASK_FLOW_REFACTOR_031D 完成，默认总测恢复 42/42 全通过
 *2026-03-28 09:14* - TASK_FLOW_REFACTOR_031C 完成，iteration-manager 回归测试已回稳，兼容 031B 新口径
 *2026-03-28 09:11* - TASK_FLOW_REFACTOR_031B 完成，迭代启动参数已归一化，非法输入回退默认/安全值
 *2026-03-28 09:08* - TASK_FLOW_REFACTOR_031A 完成，进度条显示已加防御逻辑，异常迭代数不会再渲染 NaN/Infinity

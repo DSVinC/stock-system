@@ -782,7 +782,12 @@
       const maxIterations = parseInt(document.getElementById('maxIterations').value);
       const scoreThreshold = parseInt(document.getElementById('scoreThreshold').value);
       const parallelTasks = parseInt(document.getElementById('parallelTasks').value);
-      const optimizationBackend = getSelectedOptimizationBackend();
+      const optimizationBackend = typeof getSelectedOptimizationBackend === 'function'
+        ? getSelectedOptimizationBackend()
+        : (() => {
+            const select = document.getElementById('optimizationBackend');
+            return select && select.value === 'optuna' ? 'optuna' : 'heuristic';
+          })();
 
       // 获取 URL 参数中的配置
       const urlParams = getUrlParams();
