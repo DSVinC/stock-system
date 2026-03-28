@@ -191,7 +191,9 @@ async function getCachedRealtimeQuote(tsCode, dependencies, cache) {
   if (!entry.realtimeQuotePromise) {
     entry.realtimeQuotePromise = dependencies.quoteProvider(tsCode);
   }
-  const rawQuote = await entry.realtimeQuotePromise;
+  const response = await entry.realtimeQuotePromise;
+  // 处理 { code: 0, data: {...} } 格式的响应
+  const rawQuote = response && response.data ? response.data : response;
   if (!entry.normalizedQuote) {
     entry.normalizedQuote = normalizeRealtimeQuote(tsCode, rawQuote);
   }

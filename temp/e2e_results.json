@@ -1,0 +1,692 @@
+{
+  "executedAt": "2026-03-27T00:39:20.167Z",
+  "playwrightVersion": "1.58.2",
+  "browser": "chromium",
+  "tasks": {
+    "select": {
+      "page": "select.html",
+      "checks": {
+        "strategySelectorOptions": {
+          "pass": true,
+          "actual": [
+            {
+              "value": "double_ma",
+              "text": "双均线策略"
+            },
+            {
+              "value": "rsi",
+              "text": "RSI 超买超卖"
+            },
+            {
+              "value": "macd",
+              "text": "MACD 金叉死叉"
+            },
+            {
+              "value": "bollinger",
+              "text": "布林带突破"
+            },
+            {
+              "value": "seven_factor",
+              "text": "四维度七因子策略"
+            }
+          ]
+        },
+        "configPanelPopup": {
+          "pass": true,
+          "actual": true
+        },
+        "apiDirectionsAndDecisions": {
+          "pass": false,
+          "actual": {
+            "directionsCount": 0,
+            "decisionsCount": 0,
+            "decisionShapeOk": false,
+            "firstDecision": null
+          }
+        },
+        "stockCardsVisible": {
+          "pass": false,
+          "actual": {
+            "top3Visible": false,
+            "top10Visible": false,
+            "top10Cards": 0
+          }
+        }
+      },
+      "screenshots": [
+        "/Users/vvc/.openclaw/workspace/stock-system/temp/screenshots/select-initial.png",
+        "/Users/vvc/.openclaw/workspace/stock-system/temp/screenshots/select-config-panel.png",
+        "/Users/vvc/.openclaw/workspace/stock-system/temp/screenshots/select-results.png"
+      ],
+      "api": {
+        "select": {
+          "url": "http://127.0.0.1:3000/api/select?limit=10&strategy=seven_factor",
+          "status": 500,
+          "body": {
+            "success": false,
+            "message": "getDb is not defined",
+            "details": null,
+            "directions": []
+          }
+        }
+      }
+    },
+    "backtest": {
+      "page": "backtest.html",
+      "checks": {
+        "strategySelectorExists": {
+          "pass": true,
+          "actual": 1
+        },
+        "metricCardsExist": {
+          "pass": true,
+          "actual": {
+            "totalReturn": true,
+            "returnRate": true,
+            "annualizedReturn": true,
+            "maxDrawdown": true,
+            "sharpeRatio": true,
+            "calmarRatio": true,
+            "winRate": true,
+            "profitLossRatio": true,
+            "tradeCount": true
+          }
+        },
+        "gridMaxPositionInputExists": {
+          "pass": true,
+          "actual": true
+        },
+        "metricCardsShowData": {
+          "pass": false,
+          "actual": {
+            "totalReturn": "--",
+            "returnRate": "--",
+            "annualizedReturn": "--",
+            "maxDrawdown": "--",
+            "sharpeRatio": "--",
+            "calmarRatio": "--",
+            "winRate": "--",
+            "profitLossRatio": "--",
+            "tradeCount": "--"
+          }
+        },
+        "chartRendered": {
+          "pass": false,
+          "actual": {
+            "chartCanvasPresent": true,
+            "resultContainerVisible": false,
+            "placeholderVisible": false,
+            "backtestSuccess": false,
+            "equityCurveLength": 0,
+            "selectedStockCount": 5
+          }
+        }
+      },
+      "screenshots": [
+        "/Users/vvc/.openclaw/workspace/stock-system/temp/screenshots/backtest-initial.png",
+        "/Users/vvc/.openclaw/workspace/stock-system/temp/screenshots/backtest-results.png"
+      ],
+      "api": {
+        "selection": {
+          "url": "http://127.0.0.1:3000/api/select?limit=5&date=2024-01-01&strategy=seven_factor&minSevenFactorScore=0.75&peMax=60&pegMax=2.0&maxPrice=150",
+          "status": 200,
+          "body": {
+            "tradeDate": "2023-12-29",
+            "directions": [
+              {
+                "ts_code": "IND_0",
+                "name": "橡胶",
+                "score": 965,
+                "dimensions": {
+                  "social": 3,
+                  "policy": 3,
+                  "public": 3,
+                  "business": 3
+                },
+                "metrics": {
+                  "companyCount": 3,
+                  "avgScore": 9.6496
+                },
+                "picks": [
+                  {
+                    "ts_code": "920247.BJ",
+                    "name": "920247.BJ",
+                    "score": 10
+                  },
+                  {
+                    "ts_code": "301595.SZ",
+                    "name": "太力科技",
+                    "score": 10
+                  },
+                  {
+                    "ts_code": "300731.SZ",
+                    "name": "科创新源",
+                    "score": 8.9488
+                  }
+                ],
+                "reason": "橡胶 行业平均得分 9.65，共 3 只股票"
+              },
+              {
+                "ts_code": "IND_1",
+                "name": "塑料",
+                "score": 918,
+                "dimensions": {
+                  "social": 3,
+                  "policy": 3,
+                  "public": 3,
+                  "business": 3
+                },
+                "metrics": {
+                  "companyCount": 8,
+                  "avgScore": 9.175112500000001
+                },
+                "picks": [
+                  {
+                    "ts_code": "920871.BJ",
+                    "name": "920871.BJ",
+                    "score": 10
+                  },
+                  {
+                    "ts_code": "001356.SZ",
+                    "name": "富岭股份",
+                    "score": 10
+                  },
+                  {
+                    "ts_code": "920469.BJ",
+                    "name": "920469.BJ",
+                    "score": 9.9361
+                  },
+                  {
+                    "ts_code": "688219.SH",
+                    "name": "会通股份",
+                    "score": 9.252
+                  },
+                  {
+                    "ts_code": "920066.BJ",
+                    "name": "920066.BJ",
+                    "score": 8.788
+                  }
+                ],
+                "reason": "塑料 行业平均得分 9.18，共 8 只股票"
+              },
+              {
+                "ts_code": "IND_2",
+                "name": "生物制药",
+                "score": 875,
+                "dimensions": {
+                  "social": 3,
+                  "policy": 3,
+                  "public": 3,
+                  "business": 3
+                },
+                "metrics": {
+                  "companyCount": 9,
+                  "avgScore": 8.7488
+                },
+                "picks": [
+                  {
+                    "ts_code": "688192.SH",
+                    "name": "迪哲医药",
+                    "score": 10
+                  },
+                  {
+                    "ts_code": "688759.SH",
+                    "name": "必贝特",
+                    "score": 10
+                  },
+                  {
+                    "ts_code": "920230.BJ",
+                    "name": "920230.BJ",
+                    "score": 9.904
+                  },
+                  {
+                    "ts_code": "300841.SZ",
+                    "name": "康华生物",
+                    "score": 9.464
+                  },
+                  {
+                    "ts_code": "688687.SH",
+                    "name": "凯因科技",
+                    "score": 8.0588
+                  }
+                ],
+                "reason": "生物制药 行业平均得分 8.75，共 9 只股票"
+              },
+              {
+                "ts_code": "IND_3",
+                "name": "运输设备",
+                "score": 873,
+                "dimensions": {
+                  "social": 3,
+                  "policy": 3,
+                  "public": 3,
+                  "business": 3
+                },
+                "metrics": {
+                  "companyCount": 3,
+                  "avgScore": 8.725966666666666
+                },
+                "picks": [
+                  {
+                    "ts_code": "603321.SH",
+                    "name": "梅轮电梯",
+                    "score": 9.0888
+                  },
+                  {
+                    "ts_code": "300923.SZ",
+                    "name": "研奥股份",
+                    "score": 8.932
+                  },
+                  {
+                    "ts_code": "300931.SZ",
+                    "name": "通用电梯",
+                    "score": 8.1571
+                  }
+                ],
+                "reason": "运输设备 行业平均得分 8.73，共 3 只股票"
+              },
+              {
+                "ts_code": "IND_4",
+                "name": "家居用品",
+                "score": 867,
+                "dimensions": {
+                  "social": 3,
+                  "policy": 3,
+                  "public": 3,
+                  "business": 3
+                },
+                "metrics": {
+                  "companyCount": 8,
+                  "avgScore": 8.6725875
+                },
+                "picks": [
+                  {
+                    "ts_code": "301376.SZ",
+                    "name": "致欧科技",
+                    "score": 10
+                  },
+                  {
+                    "ts_code": "003011.SZ",
+                    "name": "海象新材",
+                    "score": 9.458
+                  },
+                  {
+                    "ts_code": "605155.SH",
+                    "name": "西大门",
+                    "score": 9.0655
+                  },
+                  {
+                    "ts_code": "300616.SZ",
+                    "name": "尚品宅配",
+                    "score": 9.0471
+                  },
+                  {
+                    "ts_code": "301336.SZ",
+                    "name": "趣睡科技",
+                    "score": 8.254
+                  }
+                ],
+                "reason": "家居用品 行业平均得分 8.67，共 8 只股票"
+              },
+              {
+                "ts_code": "IND_5",
+                "name": "汽车服务",
+                "score": 866,
+                "dimensions": {
+                  "social": 3,
+                  "policy": 3,
+                  "public": 3,
+                  "business": 3
+                },
+                "metrics": {
+                  "companyCount": 4,
+                  "avgScore": 8.66205
+                },
+                "picks": [
+                  {
+                    "ts_code": "920030.BJ",
+                    "name": "920030.BJ",
+                    "score": 10
+                  },
+                  {
+                    "ts_code": "300825.SZ",
+                    "name": "阿尔特",
+                    "score": 9.4071
+                  },
+                  {
+                    "ts_code": "600822.SH",
+                    "name": "上海物贸",
+                    "score": 8.2471
+                  },
+                  {
+                    "ts_code": "601965.SH",
+                    "name": "中国汽研",
+                    "score": 6.994
+                  }
+                ],
+                "reason": "汽车服务 行业平均得分 8.66，共 4 只股票"
+              },
+              {
+                "ts_code": "IND_6",
+                "name": "机械基件",
+                "score": 864,
+                "dimensions": {
+                  "social": 3,
+                  "policy": 3,
+                  "public": 3,
+                  "business": 3
+                },
+                "metrics": {
+                  "companyCount": 19,
+                  "avgScore": 8.635152631578949
+                },
+                "picks": [
+                  {
+                    "ts_code": "301160.SZ",
+                    "name": "翔楼新材",
+                    "score": 10
+                  },
+                  {
+                    "ts_code": "301317.SZ",
+                    "name": "鑫磊股份",
+                    "score": 10
+                  },
+                  {
+                    "ts_code": "301268.SZ",
+                    "name": "铭利达",
+                    "score": 9.9471
+                  },
+                  {
+                    "ts_code": "300838.SZ",
+                    "name": "浙江力诺",
+                    "score": 9.738
+                  },
+                  {
+                    "ts_code": "301596.SZ",
+                    "name": "瑞迪智驱",
+                    "score": 9.6161
+                  }
+                ],
+                "reason": "机械基件 行业平均得分 8.64，共 19 只股票"
+              },
+              {
+                "ts_code": "IND_7",
+                "name": "医疗保健",
+                "score": 848,
+                "dimensions": {
+                  "social": 3,
+                  "policy": 3,
+                  "public": 3,
+                  "business": 3
+                },
+                "metrics": {
+                  "companyCount": 30,
+                  "avgScore": 8.480066666666666
+                },
+                "picks": [
+                  {
+                    "ts_code": "688410.SH",
+                    "name": "山外山",
+                    "score": 10
+                  },
+                  {
+                    "ts_code": "920166.BJ",
+                    "name": "920166.BJ",
+                    "score": 10
+                  },
+                  {
+                    "ts_code": "603014.SH",
+                    "name": "威高血净",
+                    "score": 9.9655
+                  },
+                  {
+                    "ts_code": "688580.SH",
+                    "name": "伟思医疗",
+                    "score": 9.7688
+                  },
+                  {
+                    "ts_code": "920278.BJ",
+                    "name": "920278.BJ",
+                    "score": 9.6055
+                  }
+                ],
+                "reason": "医疗保健 行业平均得分 8.48，共 30 只股票"
+              },
+              {
+                "ts_code": "IND_8",
+                "name": "铜",
+                "score": 845,
+                "dimensions": {
+                  "social": 3,
+                  "policy": 3,
+                  "public": 3,
+                  "business": 3
+                },
+                "metrics": {
+                  "companyCount": 4,
+                  "avgScore": 8.452399999999999
+                },
+                "picks": [
+                  {
+                    "ts_code": "601609.SH",
+                    "name": "金田股份",
+                    "score": 9.1288
+                  },
+                  {
+                    "ts_code": "601212.SH",
+                    "name": "白银有色",
+                    "score": 8.7288
+                  },
+                  {
+                    "ts_code": "601899.SH",
+                    "name": "紫金矿业",
+                    "score": 8.158
+                  },
+                  {
+                    "ts_code": "688456.SH",
+                    "name": "有研粉材",
+                    "score": 7.794
+                  }
+                ],
+                "reason": "铜 行业平均得分 8.45，共 4 只股票"
+              },
+              {
+                "ts_code": "IND_9",
+                "name": "半导体",
+                "score": 844,
+                "dimensions": {
+                  "social": 3,
+                  "policy": 3,
+                  "public": 3,
+                  "business": 3
+                },
+                "metrics": {
+                  "companyCount": 35,
+                  "avgScore": 8.442042857142855
+                },
+                "picks": [
+                  {
+                    "ts_code": "688478.SH",
+                    "name": "晶升股份",
+                    "score": 10
+                  },
+                  {
+                    "ts_code": "688693.SH",
+                    "name": "锴威特",
+                    "score": 10
+                  },
+                  {
+                    "ts_code": "688515.SH",
+                    "name": "裕太微",
+                    "score": 10
+                  },
+                  {
+                    "ts_code": "688449.SH",
+                    "name": "联芸科技",
+                    "score": 10
+                  },
+                  {
+                    "ts_code": "688535.SH",
+                    "name": "华海诚科",
+                    "score": 9.7855
+                  }
+                ],
+                "reason": "半导体 行业平均得分 8.44，共 35 只股票"
+              }
+            ],
+            "decisions": [
+              {
+                "ts_code": "301595.SZ",
+                "name": "太力科技",
+                "industry": "橡胶",
+                "decision": "buy",
+                "entry_zone": null,
+                "stop_loss": null,
+                "target_prices": null,
+                "position_suggest": 0.4,
+                "valid_until": null,
+                "seven_factor_score": 10,
+                "pe_ttm": 27,
+                "pb": 1.1,
+                "warning": "数据不足，无法计算完整决策"
+              },
+              {
+                "ts_code": "001356.SZ",
+                "name": "富岭股份",
+                "industry": "塑料",
+                "decision": "buy",
+                "entry_zone": null,
+                "stop_loss": null,
+                "target_prices": null,
+                "position_suggest": 0.4,
+                "valid_until": null,
+                "seven_factor_score": 10,
+                "pe_ttm": 23,
+                "pb": 1.4,
+                "warning": "数据不足，无法计算完整决策"
+              },
+              {
+                "ts_code": "688759.SH",
+                "name": "必贝特",
+                "industry": "生物制药",
+                "decision": "buy",
+                "entry_zone": null,
+                "stop_loss": null,
+                "target_prices": null,
+                "position_suggest": 0.4,
+                "valid_until": null,
+                "seven_factor_score": 10,
+                "pe_ttm": 29,
+                "pb": 1.7,
+                "warning": "数据不足，无法计算完整决策"
+              }
+            ],
+            "isSnapshot": true,
+            "dateAdjusted": true,
+            "originalDate": "2024-01-01",
+            "filters": {
+              "minSevenFactorScore": 0.75,
+              "peMax": 60,
+              "pegMax": 2,
+              "maxPrice": 150,
+              "priceDataAvailable": true
+            },
+            "weights": {
+              "dimension": null,
+              "factor": null
+            }
+          }
+        },
+        "backtest": null
+      }
+    },
+    "iteration": {
+      "page": "iteration-manager.html",
+      "checks": {
+        "strategySelectorExists": {
+          "pass": true,
+          "actual": 1
+        },
+        "versionListExists": {
+          "pass": true,
+          "actual": 1
+        },
+        "startIterationApi": {
+          "pass": true,
+          "actual": {
+            "statusBadge": "完成",
+            "api": {
+              "success": true,
+              "taskId": "ITER_1774572046495_clv1cl",
+              "message": "迭代任务已启动"
+            }
+          }
+        },
+        "versionHistoryDisplayed": {
+          "pass": true,
+          "actual": {
+            "versionItems": 2,
+            "versionListText": "V2\n            自动迭代版本 ITER_1774572046495_clv1cl\n            2026-03-27\n          \n          \n            50.0\n          \n        \n      \n        \n          \n            V1\n            自动迭代版本 ITER_1774523066625_m9lo70\n            2026-03-26\n          \n          \n            50.0",
+            "versionsApi": {
+              "success": true,
+              "versions": [
+                {
+                  "version_id": "V_seven_factor_1774523066730_969rxw",
+                  "strategy_name": "自动迭代版本 ITER_1774523066625_m9lo70",
+                  "backtest_score": 50,
+                  "sharpe_ratio": null,
+                  "max_drawdown": null,
+                  "calmar_ratio": null,
+                  "profit_loss_ratio": null,
+                  "win_rate": null,
+                  "total_return": null,
+                  "created_at": "2026-03-26T11:04:26.730Z",
+                  "parent_version": null,
+                  "change_log": "迭代任务 ITER_1774523066625_m9lo70 完成，最终得分: 50.00"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "screenshots": [
+        "/Users/vvc/.openclaw/workspace/stock-system/temp/screenshots/iteration-initial.png",
+        "/Users/vvc/.openclaw/workspace/stock-system/temp/screenshots/iteration-after-start.png"
+      ],
+      "api": {
+        "start": {
+          "url": "http://127.0.0.1:3000/api/iteration/start",
+          "status": 200,
+          "body": {
+            "success": true,
+            "taskId": "ITER_1774572046495_clv1cl",
+            "message": "迭代任务已启动"
+          }
+        },
+        "versions": {
+          "url": "http://127.0.0.1:3000/api/iteration/versions/seven_factor",
+          "status": 200,
+          "body": {
+            "success": true,
+            "versions": [
+              {
+                "version_id": "V_seven_factor_1774523066730_969rxw",
+                "strategy_name": "自动迭代版本 ITER_1774523066625_m9lo70",
+                "backtest_score": 50,
+                "sharpe_ratio": null,
+                "max_drawdown": null,
+                "calmar_ratio": null,
+                "profit_loss_ratio": null,
+                "win_rate": null,
+                "total_return": null,
+                "created_at": "2026-03-26T11:04:26.730Z",
+                "parent_version": null,
+                "change_log": "迭代任务 ITER_1774523066625_m9lo70 完成，最终得分: 50.00"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

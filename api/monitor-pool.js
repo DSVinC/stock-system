@@ -12,12 +12,29 @@
 
 const { getDatabase } = require('./db');
 
+async function ensureMonitorPoolContextTable(db) {
+  await db.runPromise(`
+    CREATE TABLE IF NOT EXISTS monitor_pool_context (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      monitor_pool_id INTEGER NOT NULL,
+      strategy_source TEXT,
+      strategy_config_id INTEGER,
+      strategy_config_name TEXT,
+      template_id INTEGER,
+      template_name TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      FOREIGN KEY (monitor_pool_id) REFERENCES monitor_pool(id) ON DELETE CASCADE
+    )
+  `);
+}
+
 /**
  * 添加股票到监控池
  */
 async function addToPool(req, res) {
   try {
-    const { stock_code, stock_name, report_path, industry_code_l1, industry_name_l1, industry_code_l2, industry_name_l2, industry_code_l3, industry_name_l3, industry_keywords } = req.body;
+    const { stock_code, stock_name, report_path, industry_code_l1, industry_name_l1, industry_code_l2, industry_name_l2, industry_code_l3, industry_name_l3, industry_keywords, strategySource, strategyConfigId, strategyConfigName, templateId, templateName } = req.body;
     
     if (!stock_code || !stock_name) {
       return res.status(400).json({
@@ -27,6 +44,7 @@ async function addToPool(req, res) {
     }
     
     const db = getDatabase();
+    await ensureMonitorPoolContextTable(db);
     
     // 检查是否已存在
     const existing = await db.getPromise(
@@ -44,7 +62,7 @@ async function addToPool(req, res) {
     
     // 插入新记录
     const now = new Date().toISOString();
-    await db.runPromise(`
+    const result = await db.runPromise(`
       INSERT INTO monitor_pool (
         stock_code, stock_name, report_path,
         industry_code_l1, industry_name_l1,
@@ -59,6 +77,30 @@ async function addToPool(req, res) {
       industry_code_l3 || null, industry_name_l3 || null,
       industry_keywords || null, now, now
     ]);
+
+    if (strategySource || strategyConfigId || strategyConfigName || templateId || templateName) {
+      await db.runPromise(`
+        INSERT INTO monitor_pool_context (
+          monitor_pool_id,
+          strategy_source,
+          strategy_config_id,
+          strategy_config_name,
+          template_id,
+          template_name,
+          created_at,
+          updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        result.lastID,
+        strategySource || null,
+        strategyConfigId || null,
+        strategyConfigName || null,
+        templateId || null,
+        templateName || null,
+        now,
+        now
+      ]);
+    }
     
     res.json({
       success: true,
@@ -83,9 +125,18 @@ async function addToPool(req, res) {
 async function getPoolList(req, res) {
   try {
     const db = getDatabase();
+    await ensureMonitorPoolContextTable(db);
     
     const stocks = await db.allPromise(`
-      SELECT * FROM monitor_pool
+      SELECT
+        mp.*,
+        mpc.strategy_source,
+        mpc.strategy_config_id,
+        mpc.strategy_config_name,
+        mpc.template_id,
+        mpc.template_name
+      FROM monitor_pool mp
+      LEFT JOIN monitor_pool_context mpc ON mpc.monitor_pool_id = mp.id
       ORDER BY added_at DESC
     `);
     

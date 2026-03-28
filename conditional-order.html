@@ -976,6 +976,7 @@
     let selectedOrderIds = [];
     let toastTimer = null;
     let editingOrderId = null;
+    let importedStrategyContext = null;
 
     function getCreateForm() {
       return document.getElementById('create-form');
@@ -1139,7 +1140,11 @@
                         onchange="toggleOrderSelection(${order.id}, this.checked)"
                       >
                     </td>
-                    <td><span class="stock-name">${escapeHtml(order.stock_name || '-')}</span></td>
+                    <td>
+                      <span class="stock-name">${escapeHtml(order.stock_name || '-')}</span>
+                      ${formatStrategyContextMeta(order)}
+                      ${formatExecutionFeedbackMeta(order)}
+                    </td>
                     <td><span class="stock-code">${escapeHtml(order.ts_code || '-')}</span></td>
                     <td><span class="condition-copy">${escapeHtml(formatConditions(order.conditions))}</span></td>
                     <td><span class="action-tag ${order.action === 'buy' ? 'buy' : 'sell'}">${order.action === 'buy' ? '买入' : '卖出'}</span></td>
@@ -1183,6 +1188,82 @@
     function formatConditions(conditions) {
       if (!conditions || conditions.length === 0) return '-';
       return conditions.map(formatConditionText).join('、');
+    }
+
+    function formatStrategyContextMeta(order = {}) {
+      const source = order.strategy_source || order.strategySource;
+      const strategyConfigName = order.strategy_config_name || order.strategyConfigName;
+      const templateName = order.template_name || order.templateName;
+
+      let sourceLabel = '';
+      if (source === 'strategy_config') {
+        sourceLabel = '策略库';
+      } else if (source === 'template') {
+        sourceLabel = '模板';
+      }
+
+      const name = strategyConfigName || templateName;
+      if (!sourceLabel && !name) {
+        return '';
+      }
+
+      const parts = [];
+      if (sourceLabel) {
+        parts.push(
+          '<span style="display:inline-block; margin-right:6px; padding:2px 6px; border-radius:999px; background:rgba(255,255,255,0.08);">'
+          + escapeHtml(sourceLabel)
+          + '</span>'
+        );
+      }
+      if (name) {
+        parts.push('<span>' + escapeHtml(name) + '</span>');
+      }
+
+      return '<div style="margin-top:4px; font-size:12px; color:var(--text-secondary);">'
+        + parts.join('')
+        + '</div>';
+    }
+
+    function formatExecutionFeedbackMeta(order = {}) {
+      const status = order.execution_feedback_status || order.executionFeedbackStatus;
+      const confidence = order.execution_feedback_confidence || order.executionFeedbackConfidence;
+      const totalTrades = order.total_trades ?? order.totalTrades;
+      const totalPnl = order.total_pnl ?? order.totalPnl;
+
+      if (!status && !confidence && totalTrades == null && totalPnl == null) {
+        return '';
+      }
+
+      const statusLabels = {
+        no_data: '暂无反馈',
+        positive: '正向',
+        mixed: '分化',
+        caution: '谨慎'
+      };
+      const confidenceLabels = {
+        none: '无',
+        low: '低',
+        medium: '中',
+        high: '高'
+      };
+
+      const statusLabel = statusLabels[status || 'no_data'];
+      const confidenceLabel = confidenceLabels[confidence || 'none'];
+      const tradesLabel = Number.isFinite(Number(totalTrades)) ? `${Number(totalTrades)} 笔` : '--';
+      const pnlLabel = Number.isFinite(Number(totalPnl)) ? formatNumber(Number(totalPnl)) : '--';
+
+      return `
+        <div style="margin-top:4px; display:flex; flex-wrap:wrap; gap:6px; font-size:12px; color:var(--text-secondary);">
+          <span style="display:inline-block; padding:2px 6px; border-radius:999px; background:rgba(64,158,255,0.12); color:#93c5fd;">
+            反馈: ${escapeHtml(statusLabel)}
+          </span>
+          <span style="display:inline-block; padding:2px 6px; border-radius:999px; background:rgba(255,255,255,0.08);">
+            置信度: ${escapeHtml(confidenceLabel)}
+          </span>
+          <span>样本: ${escapeHtml(tradesLabel)}</span>
+          <span>盈亏: ${escapeHtml(pnlLabel)}</span>
+        </div>
+      `;
     }
 
     function formatConditionText(condition) {
@@ -1542,6 +1623,7 @@
       const form = getCreateForm();
       form.reset();
       setEditingMode(null);
+      importedStrategyContext = null;
       form.action.value = 'buy';
       form.order_type.value = 'price';
       form.condition_logic.value = 'AND';
@@ -1582,6 +1664,7 @@
     function closeCreateModal() {
       document.getElementById('create-modal').classList.remove('show');
       setEditingMode(null);
+      importedStrategyContext = null;
     }
 
     function closeHistoryModal() {
@@ -1733,7 +1816,14 @@
         stockCode,
         stockName,
         stopLoss: payload.stop_loss,
-        strategy
+        strategy,
+        strategyContext: {
+          strategySource: payload.strategySource ?? payload.strategy_source ?? null,
+          strategyConfigId: payload.strategyConfigId ?? payload.strategy_config_id ?? null,
+          strategyConfigName: payload.strategyConfigName ?? payload.strategy_config_name ?? null,
+          templateId: payload.templateId ?? payload.template_id ?? null,
+          templateName: payload.templateName ?? payload.template_name ?? null
+        }
       };
     }
 
@@ -1870,9 +1960,12 @@
       try {
         const parsed = parseImportPayload(rawImport);
         const stockInfo = await fetchStockInfo(parsed.stockCode);
-        if (!stockInfo || normalizeTsCode(stockInfo.ts_code) !== parsed.stockCode) {
-          throw new Error(`未找到股票 ${parsed.stockCode}`);
-        }
+        const resolvedStockInfo = (
+          stockInfo && normalizeTsCode(stockInfo.ts_code) === parsed.stockCode
+        ) ? stockInfo : {
+          ts_code: parsed.stockCode,
+          name: parsed.stockName
+        };
 
         const action = pickImportAction(parsed.strategy);
         const conditions = normalizeImportedConditions(action.trigger_conditions);
@@ -1884,13 +1977,14 @@
         showCreateModal({ allowWithoutAccount: true });
 
         const form = getCreateForm();
-        form.ts_code.value = stockInfo.ts_code || parsed.stockCode;
-        form.stock_name.value = stockInfo.name || parsed.stockName;
+        form.ts_code.value = resolvedStockInfo.ts_code || parsed.stockCode;
+        form.stock_name.value = resolvedStockInfo.name || parsed.stockName;
         form.action.value = action.action_type;
         form.order_type.value = inferOrderTypeFromConditions(conditions);
         form.condition_logic.value = action.trigger_logic || 'AND';
         form.position_pct.value = action.position_percent ?? '';
         form.stop_loss_price.value = action.stop_loss ?? parsed.stopLoss ?? '';
+        importedStrategyContext = parsed.strategyContext || null;
         resetConditions(conditions);
 
         clearImportParam();
@@ -1905,6 +1999,17 @@
       const url = new URL(window.location);
       url.searchParams.delete('batch');
       window.history.replaceState({}, '', url);
+    }
+
+    function normalizeBatchTriggerType(type) {
+      switch (type) {
+        case 'price_cross_up':
+          return 'price_above';
+        case 'price_cross_down':
+          return 'price_below';
+        default:
+          return type;
+      }
     }
 
     // 批量创建模态框
@@ -2069,10 +2174,14 @@
       const conditions = [];
       const conditionRows = document.querySelectorAll('#batch-conditions-list .condition-row');
       conditionRows.forEach(row => {
-        const type = row.querySelector('select').value;
+        const type = normalizeBatchTriggerType(row.querySelector('select').value);
         const value = row.querySelector('input').value;
         if (value) {
-          conditions.push({ type, value });
+          if (type === 'price_above' || type === 'price_below') {
+            conditions.push(createLegacyCompatibleCondition(type, { price: value }));
+          } else {
+            conditions.push({ type, value });
+          }
         }
       });
 
@@ -2097,11 +2206,16 @@
           position_pct: positionPct ? parseFloat(positionPct) : null,
           quantity: quantity ? parseInt(quantity) : null,
           start_date: startDate,
-          end_date: endDate
+          end_date: endDate,
+          strategySource: stock.strategySource,
+          strategyConfigId: stock.strategyConfigId,
+          strategyConfigName: stock.strategyConfigName,
+          templateId: stock.templateId,
+          templateName: stock.templateName
         };
 
         try {
-          const response = await fetch('/api/conditional-order/create', {
+          const response = await fetch('/api/conditional-order', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(orderData)
@@ -2183,7 +2297,8 @@
         start_date: form.start_date.value,
         end_date: form.end_date.value,
         max_trigger_count: parseInt(form.max_trigger_count.value),
-        factor_weights: factorWeights
+        factor_weights: factorWeights,
+        ...(importedStrategyContext || {})
       };
 
       const isEditing = Boolean(editingOrderId);

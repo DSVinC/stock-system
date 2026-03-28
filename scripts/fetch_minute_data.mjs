@@ -52,7 +52,7 @@ const CONFIG = {
     LOG_LEVEL: process.env.LOG_LEVEL || 'info',
 
     // 数据库路径
-    DB_PATH: process.env.DB_PATH || path.join(__dirname, '..', 'stock_system.db'),
+    DB_PATH: process.env.DB_PATH || path.join(__dirname, '..', 'stock_system.db'), // 优先使用 .env 配置
 
     // Python 路径
     PYTHON_PATH: process.env.PYTHON_PATH || 'python3',

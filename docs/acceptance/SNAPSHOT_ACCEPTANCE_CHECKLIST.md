@@ -2,7 +2,7 @@
 
 **验收员**: Gemini  
 **验收时间**: 2026-03-24  
-**验收范围**: TASK_SNAPSHOT_001 ~ TASK_SNAPSHOT_004
+**验收范围**: TASK_SNAPSHOT_001 ~ TASK_SNAPSHOT_005
 
 ---
 
@@ -34,7 +34,7 @@
 | 字段数量 | `PRAGMA table_info(policy_events);` | 10 个字段 | ⬜ |
 | CHECK 约束 | `INSERT INTO policy_events (event_id, publish_date, industry, title, impact_score) VALUES ('TEST', '2026-01-01', 'AI', '测试', 10);` | 报错 CHECK constraint failed | ⬜ |
 | 索引数量 | `SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND tbl_name='policy_events';` | ≥3 个索引 | ⬜ |
-| 示例数据 | `SELECT COUNT(*) FROM policy_events;` | 10 条 | ⬜ |
+| 真实记录数 | `SELECT COUNT(*) FROM policy_events;` | 56 条 | ⬜ |
 | 回测查询 | `SELECT * FROM policy_events WHERE industry='AI' AND publish_date <= '2024-06-01' ORDER BY publish_date DESC LIMIT 5;` | 返回 AI 相关政策 | ⬜ |
 | 迁移脚本 | `ls -la db/migrations/002_create_policy_events_table.sql` | 文件存在 | ⬜ |
 | 交接文档 | `ls -la handover/TASK_SNAPSHOT_002_HANDOVER.md` | 文件存在 | ⬜ |
@@ -80,6 +80,22 @@
 
 ---
 
+## 📋 TASK_SNAPSHOT_005 验收清单
+
+**任务**: 执行历史数据回填
+
+| 检查项 | 验收命令 | 预期结果 | 状态 |
+|--------|---------|---------|------|
+| 脚本存在 | `ls -la scripts/backfill_snapshot.py` | 文件存在 | ⬜ |
+| 语法检查 | `python -m py_compile scripts/backfill_snapshot.py` | 无错误 | ⬜ |
+| 参数解析 | `python scripts/backfill_snapshot.py --help` | 显示帮助信息 | ⬜ |
+| 全量回填 | `python3 scripts/backfill_snapshot.py --start 20200101 --end 20260324 --batch-size 50` | 执行完成 | ⬜ |
+| 回填结果 | `SELECT COUNT(*) FROM stock_factor_snapshot;` | 8269446 条 | ⬜ |
+
+**验收结论**: ⬜ 通过 / ⬜ 不通过
+
+---
+
 ## 📊 验收汇总
 
 | 任务 | 检查项数 | 通过数 | 通过率 | 结论 |
@@ -88,6 +104,7 @@
 | TASK_SNAPSHOT_002 | 8 | ⬜ | ⬜% | ⬜ |
 | TASK_SNAPSHOT_003 | 7 | ⬜ | ⬜% | ⬜ |
 | TASK_SNAPSHOT_004 | 8 | ⬜ | ⬜% | ⬜ |
+| TASK_SNAPSHOT_005 | 5 | ⬜ | ⬜% | ⬜ |
 
 **总体结论**: ⬜ 全部通过 / ⬜ 部分通过 / ⬜ 不通过
 

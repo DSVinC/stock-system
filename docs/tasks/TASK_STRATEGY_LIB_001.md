@@ -4,7 +4,7 @@
 **优先级**: P0  
 **负责人**: Claude Code  
 **验收员**: Gemini CLI / Codex  
-**状态**: in_progress  
+**状态**: ✅ 已完成（修复后验收通过）  
 
 ---
 

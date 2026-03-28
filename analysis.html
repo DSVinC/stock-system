@@ -182,12 +182,13 @@
       <a href="./monitor-pool.html">监控池</a>
       <a href="./conditional-order.html">条件单</a>
       <a href="./backtest.html">回测系统</a>
+      <a href="./iteration-manager.html">策略迭代</a>
       <a href="./portfolio.html">账户管理</a>
     </nav>
     <section class="hero">
       <p class="eyebrow">A-Share Analysis</p>
       <h1>个股分析</h1>
-      <p>将已选方向转化为可跟踪的候选股票，系统会基于方向热度、龙头属性给出初筛结果。</p>
+      <p>执行流第二步：承接选股结果，分析候选股票，为进入监控池和条件单提供决策依据。</p>
     </section>
 
     <section class="panel">
@@ -215,6 +216,7 @@
           <span id="analyze-status">等待分析</span>
           <span id="selected-count">当前已选 0 只</span>
         </div>
+        <div id="strategy-context-banner" class="section-copy" hidden></div>
       </div>
     </section>
 
@@ -247,6 +249,7 @@
     const customStockInput = document.getElementById("custom-stock-input");
     const addCustomButton = document.getElementById("add-custom-button");
     const selectedCount = document.getElementById("selected-count");
+    const strategyContextBanner = document.getElementById("strategy-context-banner");
 
     let directions = [];
     let stocks = [];
@@ -366,6 +369,34 @@
         return urlDirections;
       }
       return normalizeDirections(localStorage.getItem(DIRECTIONS_STORAGE_KEY));
+    }
+
+    function renderStrategyContextBanner() {
+      const config = safeJsonParse(localStorage.getItem('stockSelectConfig'));
+      if (!config || typeof config !== 'object') {
+        strategyContextBanner.hidden = true;
+        strategyContextBanner.textContent = '';
+        return;
+      }
+
+      const source = config.strategySource;
+      const strategyName = config.strategyConfigName || config.templateName || '';
+
+      let sourceLabel = '';
+      if (source === 'strategy_config') {
+        sourceLabel = '策略库';
+      } else if (source === 'template') {
+        sourceLabel = '模板';
+      }
+
+      if (!sourceLabel && !strategyName) {
+        strategyContextBanner.hidden = true;
+        strategyContextBanner.textContent = '';
+        return;
+      }
+
+      strategyContextBanner.hidden = false;
+      strategyContextBanner.textContent = `当前执行策略来源：${sourceLabel || '未标记'}${strategyName ? ` · ${strategyName}` : ''}`;
     }
 
     function renderDirections() {
@@ -700,14 +731,44 @@
         const response = await fetch(`/api/v2/analyze/strategy/${encodeURIComponent(stockCode)}/${riskType}`);
         const result = await response.json();
 
+        let strategyData = result.data;
         if (!result.success) {
-          alert('获取策略失败：' + result.error);
-          return;
+          const localV2Data = stockV2Data.get(stockCode);
+          const localStrategy = localV2Data?.strategies?.[riskType]
+            || localV2Data?.strategies?.balanced
+            || localV2Data?.strategies?.aggressive
+            || localV2Data?.strategies?.conservative;
+
+          if (!localStrategy) {
+            alert('获取策略失败：' + result.error);
+            return;
+          }
+
+          strategyData = {
+            stock_code: stockCode,
+            stock_name: stockName,
+            strategy: localStrategy
+          };
         }
 
+        let config = {};
+        try {
+          const configRaw = localStorage.getItem('stockSelectConfig');
+          config = configRaw ? JSON.parse(configRaw) : {};
+        } catch (error) {
+          config = {};
+        }
+
+        const importPayload = { ...strategyData };
+        if (config.strategySource) importPayload.strategySource = config.strategySource;
+        if (config.strategyConfigId !== undefined) importPayload.strategyConfigId = config.strategyConfigId;
+        if (config.strategyConfigName) importPayload.strategyConfigName = config.strategyConfigName;
+        if (config.templateId !== undefined) importPayload.templateId = config.templateId;
+        if (config.templateName) importPayload.templateName = config.templateName;
+
         // 跳转到条件单界面，传递策略数据
-        const strategyData = encodeURIComponent(JSON.stringify(result.data));
-        window.location.href = `./conditional-order.html?import=${strategyData}`;
+        const importData = encodeURIComponent(JSON.stringify(importPayload));
+        window.location.href = `./conditional-order.html?import=${importData}`;
       } catch (error) {
         console.error('导入失败:', error);
         alert('导入失败：' + error.message);
@@ -829,7 +890,23 @@
         analyzeStatus.textContent = "请至少选择一只股票";
         return;
       }
-      localStorage.setItem(MONITOR_POOL_DRAFT_KEY, JSON.stringify(selectedStocks));
+      // 从选股页继承策略上下文
+      let config = {};
+      try {
+        const configRaw = localStorage.getItem('stockSelectConfig');
+        config = configRaw ? JSON.parse(configRaw) : {};
+      } catch (e) {
+        config = {};
+      }
+      const strategyContext = {};
+      if (config.strategySource) strategyContext.strategySource = config.strategySource;
+      if (config.strategyConfigId !== undefined) strategyContext.strategyConfigId = config.strategyConfigId;
+      if (config.strategyConfigName) strategyContext.strategyConfigName = config.strategyConfigName;
+      if (config.templateId !== undefined) strategyContext.templateId = config.templateId;
+      if (config.templateName) strategyContext.templateName = config.templateName;
+
+      const draftStocks = selectedStocks.map(stock => ({ ...stock, ...strategyContext }));
+      localStorage.setItem(MONITOR_POOL_DRAFT_KEY, JSON.stringify(draftStocks));
       window.location.href = "./monitor-pool.html";
     }
 
@@ -844,6 +921,7 @@
 
     directions = readDirections();
     renderDirections();
+    renderStrategyContextBanner();
     restoreAnalysis();
 
     // 查看选股报告 - 直接使用页面中的链接，无需额外绑定事件

@@ -356,6 +356,10 @@ async function importToOrderFromReport(req, res) {
     }
     
     // 构建条件单
+    const startDate = new Date();
+    const endDate = new Date(startDate);
+    endDate.setMonth(endDate.getMonth() + 3);
+
     const conditionalOrder = {
       account_id: accountId,
       ts_code: stockCode,
@@ -368,7 +372,8 @@ async function importToOrderFromReport(req, res) {
       status: 'enabled',
       trigger_count: 0,
       max_trigger_count: 1,
-      start_date: new Date().toISOString().split('T')[0],
+      start_date: startDate.toISOString().split('T')[0],
+      end_date: endDate.toISOString().split('T')[0],
       remark: `从分析报告导入: ${reportId}`
     };
     
@@ -477,13 +482,14 @@ async function importToOrderFromReport(req, res) {
       });
     }
     
-    // 保存条件单到数据库
+    // 保存条件单到数据库。主表保持现有 schema，报告来源上下文写入侧表。
     const result = await db.runPromise(
       `INSERT INTO conditional_order (
         account_id, ts_code, stock_name, action, order_type,
         position_pct, conditions, condition_logic, status,
-        trigger_count, max_trigger_count, start_date, remark
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        trigger_count, max_trigger_count, start_date, end_date,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
       [
         conditionalOrder.account_id,
         conditionalOrder.ts_code,
@@ -497,7 +503,24 @@ async function importToOrderFromReport(req, res) {
         conditionalOrder.trigger_count,
         conditionalOrder.max_trigger_count,
         conditionalOrder.start_date,
-        conditionalOrder.remark
+        conditionalOrder.end_date
+      ]
+    );
+
+    await db.runPromise(
+      `INSERT INTO conditional_order_context (
+        conditional_order_id,
+        strategy_source,
+        strategy_config_name,
+        report_id,
+        created_at,
+        updated_at
+      ) VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))`,
+      [
+        result.lastID,
+        'analysis_report',
+        conditionalOrder.remark,
+        reportId
       ]
     );
     

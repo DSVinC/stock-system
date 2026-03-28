@@ -5,6 +5,7 @@
 
 const { getDatabase } = require('./db');
 const { checkCondition } = require('./conditional-order');
+const crypto = require('node:crypto');
 
 const BOARD_LOT_SIZE = 100;
 const COMMISSION_RATE = 0.001;
@@ -79,6 +80,19 @@ function createExecutorError(code, message) {
   const error = new Error(message);
   error.code = code;
   return error;
+}
+
+function calculateHoldingDays(positionDate, tradeDate = new Date()) {
+  if (!positionDate) return null;
+  const start = new Date(positionDate);
+  const end = new Date(tradeDate);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return null;
+  }
+
+  start.setHours(0, 0, 0, 0);
+  end.setHours(0, 0, 0, 0);
+  return Math.max(0, Math.round((end - start) / (24 * 60 * 60 * 1000)));
 }
 
 function buildFailure(error) {
@@ -244,10 +258,22 @@ async function applyBuy(db, order, position, quantity, price) {
 
 async function applySell(db, position, quantity, price) {
   const remainingQuantity = position.quantity - quantity;
+  const avgPrice = roundTo(position.avg_price || 0);
+  const closedQuantity = quantity;
+  const closedCost = roundTo(avgPrice * closedQuantity);
+  const realizedPnl = roundTo((price - avgPrice) * closedQuantity);
+  const realizedReturn = closedCost > 0 ? roundTo(realizedPnl / closedCost, 6) : null;
+  const holdingDays = calculateHoldingDays(position.position_date, new Date());
 
   if (remainingQuantity <= 0) {
     await db.runPromise('DELETE FROM portfolio_position WHERE id = ?', [position.id]);
-    return;
+    return {
+      positionClosed: true,
+      closedQuantity,
+      realizedPnl,
+      realizedReturn,
+      holdingDays
+    };
   }
 
   const remainingCost = roundTo((remainingQuantity / position.quantity) * position.cost_amount);
@@ -261,6 +287,14 @@ async function applySell(db, position, quantity, price) {
         unrealized_pnl = ?, unrealized_pnl_rate = ?, updated_at = datetime('now')
     WHERE id = ?
   `, [remainingQuantity, remainingCost, price, marketValue, unrealizedPnl, unrealizedPnlRate, position.id]);
+
+  return {
+    positionClosed: false,
+    closedQuantity,
+    realizedPnl: null,
+    realizedReturn: null,
+    holdingDays: null
+  };
 }
 
 async function updateAccountSnapshot(db, accountId) {
@@ -285,7 +319,7 @@ async function updateAccountSnapshot(db, accountId) {
 async function recordTrade(db, order, quantity, price, tradeAmount, executionMode) {
   const remark = `条件单执行成功(${executionMode})`;
 
-  await db.runPromise(`
+  const result = await db.runPromise(`
     INSERT INTO portfolio_trade (
       account_id, ts_code, stock_name, action, quantity, price, amount,
       trade_date, order_type, conditional_order_id, remark
@@ -302,6 +336,238 @@ async function recordTrade(db, order, quantity, price, tradeAmount, executionMod
     order.id,
     remark
   ]);
+
+  return {
+    tradeId: result.lastID,
+    remark
+  };
+}
+
+function isMissingTableError(error) {
+  const message = String(error?.message || error || '').toLowerCase();
+  return message.includes('no such table');
+}
+
+async function loadStrategyContext(db, orderId) {
+  try {
+    return await db.getPromise(
+      `SELECT
+        strategy_source,
+        strategy_config_id,
+        strategy_config_name,
+        template_id,
+        template_name,
+        strategy_id,
+        strategy_version,
+        report_id
+      FROM conditional_order_context
+      WHERE conditional_order_id = ?`,
+      [orderId]
+    );
+  } catch (error) {
+    if (isMissingTableError(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+const POST_TRIGGER_PRE_TRADE_ERRORS = new Set([
+  'INSUFFICIENT_FUNDS',
+  'INSUFFICIENT_POSITION',
+  'INVALID_QUANTITY'
+]);
+
+async function recordTriggerFailureFeedback(db, order, error) {
+  try {
+    const context = await loadStrategyContext(db, order.id);
+
+    await db.runPromise(`
+      INSERT INTO execution_feedback (
+        feedback_id,
+        event_type,
+        conditional_order_id,
+        trade_id,
+        account_id,
+        ts_code,
+        strategy_source,
+        strategy_config_id,
+        strategy_config_name,
+        template_id,
+        template_name,
+        strategy_id,
+        strategy_version,
+        version_id,
+        report_id,
+        action,
+        quantity,
+        price,
+        amount,
+        payload_json,
+        occurred_at,
+        created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+    `, [
+      crypto.randomUUID(),
+      'conditional_trigger',
+      order.id,
+      null,
+      order.account_id,
+      order.ts_code,
+      context?.strategy_source || null,
+      context?.strategy_config_id || null,
+      context?.strategy_config_name || null,
+      context?.template_id || null,
+      context?.template_name || null,
+      context?.strategy_id || null,
+      context?.strategy_version || null,
+      context?.strategy_version || null,
+      context?.report_id || null,
+      null,
+      null,
+      null,
+      null,
+      JSON.stringify({
+        code: error.code || 'EXECUTION_FAILED',
+        error: error.message,
+        stage: 'post_trigger_pre_trade'
+      })
+    ]);
+  } catch (feedbackError) {
+    if (isMissingTableError(feedbackError)) {
+      return;
+    }
+    throw feedbackError;
+  }
+}
+
+async function recordExecutionFeedback(db, order, trade, quantity, price, tradeAmount, executionMode) {
+  try {
+    const context = await loadStrategyContext(db, order.id);
+
+    await db.runPromise(`
+      INSERT INTO execution_feedback (
+        feedback_id,
+        event_type,
+        conditional_order_id,
+        trade_id,
+        account_id,
+        ts_code,
+        strategy_source,
+        strategy_config_id,
+        strategy_config_name,
+        template_id,
+        template_name,
+        strategy_id,
+        strategy_version,
+        version_id,
+        report_id,
+        action,
+        quantity,
+        price,
+        amount,
+        payload_json,
+        occurred_at,
+        created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+    `, [
+      crypto.randomUUID(),
+      'simulated_trade',
+      order.id,
+      trade.tradeId,
+      order.account_id,
+      order.ts_code,
+      context?.strategy_source || null,
+      context?.strategy_config_id || null,
+      context?.strategy_config_name || null,
+      context?.template_id || null,
+      context?.template_name || null,
+      context?.strategy_id || null,
+      context?.strategy_version || null,
+      context?.strategy_version || null,
+      context?.report_id || null,
+      order.action,
+      quantity,
+      price,
+      tradeAmount,
+      JSON.stringify({
+        execution_mode: executionMode,
+        remark: trade.remark
+      })
+    ]);
+  } catch (feedbackError) {
+    if (isMissingTableError(feedbackError)) {
+      return;
+    }
+    throw feedbackError;
+  }
+}
+
+async function recordPositionClosedFeedback(db, order, trade, quantity, price, tradeAmount, sellResult) {
+  try {
+    const context = await loadStrategyContext(db, order.id);
+
+    await db.runPromise(`
+      INSERT INTO execution_feedback (
+        feedback_id,
+        event_type,
+        conditional_order_id,
+        trade_id,
+        account_id,
+        ts_code,
+        strategy_source,
+        strategy_config_id,
+        strategy_config_name,
+        template_id,
+        template_name,
+        strategy_id,
+        strategy_version,
+        version_id,
+        report_id,
+        action,
+        quantity,
+        price,
+        amount,
+        realized_pnl,
+        realized_return,
+        holding_days,
+        payload_json,
+        occurred_at,
+        created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+    `, [
+      crypto.randomUUID(),
+      'position_closed',
+      order.id,
+      trade.tradeId,
+      order.account_id,
+      order.ts_code,
+      context?.strategy_source || null,
+      context?.strategy_config_id || null,
+      context?.strategy_config_name || null,
+      context?.template_id || null,
+      context?.template_name || null,
+      context?.strategy_id || null,
+      context?.strategy_version || null,
+      context?.strategy_version || null,
+      context?.report_id || null,
+      'sell',
+      quantity,
+      price,
+      tradeAmount,
+      sellResult.realizedPnl,
+      sellResult.realizedReturn,
+      sellResult.holdingDays,
+      JSON.stringify({
+        closed_quantity: sellResult.closedQuantity
+      })
+    ]);
+  } catch (feedbackError) {
+    if (isMissingTableError(feedbackError)) {
+      return;
+    }
+    throw feedbackError;
+  }
 }
 
 async function updateConditionalOrderState(db, order) {
@@ -321,9 +587,10 @@ async function updateConditionalOrderState(db, order) {
 async function executeConditionalOrder(orderId, marketData = {}, technicalData = {}, options = {}) {
   const db = options.db || await getDatabase();
   const shouldCheckCondition = options.skipConditionCheck !== true;
+  let order = null;
 
   try {
-    const order = await getOrderById(db, orderId);
+    order = await getOrderById(db, orderId);
     ensureOrderActive(order);
 
     if (isSuspended(marketData)) {
@@ -345,58 +612,113 @@ async function executeConditionalOrder(orderId, marketData = {}, technicalData =
 
     await db.runPromise('BEGIN TRANSACTION');
 
-    const { account, position } = await loadAccountState(db, order);
-    const { executionMode, quantity } = calculateQuantity(order, account, position, price);
-    const tradeAmount = roundTo(quantity * price);
-    const fee = roundTo(tradeAmount * COMMISSION_RATE);
+    let account = null;
+    let position = null;
+    let quantity = null;
+    let tradeAmount = null;
 
-    validateTradeRequest(order, account, position, quantity, tradeAmount, fee);
-
-    if (order.action === 'buy') {
-      await db.runPromise(
-        'UPDATE portfolio_account SET current_cash = current_cash - ? WHERE id = ?',
-        [roundTo(tradeAmount + fee), order.account_id]
-      );
-      await applyBuy(db, order, position, quantity, price);
-    } else if (order.action === 'sell') {
-      await db.runPromise(
-        'UPDATE portfolio_account SET current_cash = current_cash + ? WHERE id = ?',
-        [roundTo(tradeAmount - fee), order.account_id]
-      );
-      await applySell(db, position, quantity, price);
-    } else {
-      throw createExecutorError('INVALID_ACTION', `不支持的交易动作: ${order.action}`);
-    }
-
-    await recordTrade(db, order, quantity, price, tradeAmount, executionMode);
-    const orderState = await updateConditionalOrderState(db, order);
-    await updateAccountSnapshot(db, order.account_id);
-    await db.runPromise('COMMIT');
-
-    return {
-      success: true,
-      order_id: order.id,
-      account_id: order.account_id,
-      ts_code: order.ts_code,
-      stock_name: order.stock_name,
-      action: order.action,
-      quantity,
-      price,
-      amount: tradeAmount,
-      fee,
-      execution_mode: executionMode,
-      trigger_count: orderState.nextTriggerCount,
-      status: orderState.nextStatus
-    };
-  } catch (error) {
     try {
-      await db.runPromise('ROLLBACK');
-    } catch (rollbackError) {
-      if (!String(rollbackError.message || '').includes('no transaction is active')) {
-        console.error('[conditional-executor] 回滚失败:', rollbackError.message);
-      }
-    }
+      const accountState = await loadAccountState(db, order);
+      account = accountState.account;
+      position = accountState.position;
 
+      const quantityResult = calculateQuantity(order, account, position, price);
+      quantity = quantityResult.quantity;
+      tradeAmount = roundTo(quantity * price);
+      const fee = roundTo(tradeAmount * COMMISSION_RATE);
+
+      validateTradeRequest(order, account, position, quantity, tradeAmount, fee);
+
+      if (order.action === 'buy') {
+        await db.runPromise(
+          'UPDATE portfolio_account SET current_cash = current_cash - ? WHERE id = ?',
+          [roundTo(tradeAmount + fee), order.account_id]
+        );
+        await applyBuy(db, order, position, quantity, price);
+      } else if (order.action === 'sell') {
+        await db.runPromise(
+          'UPDATE portfolio_account SET current_cash = current_cash + ? WHERE id = ?',
+          [roundTo(tradeAmount - fee), order.account_id]
+        );
+        const sellResult = await applySell(db, position, quantity, price);
+
+        if (sellResult.positionClosed) {
+          const trade = await recordTrade(db, order, quantity, price, tradeAmount, quantityResult.executionMode);
+          try {
+            await recordExecutionFeedback(db, order, trade, quantity, price, tradeAmount, quantityResult.executionMode);
+            await recordPositionClosedFeedback(db, order, trade, quantity, price, tradeAmount, sellResult);
+          } catch (feedbackError) {
+            console.error('[conditional-executor] 记录执行反馈出错:', feedbackError.message);
+          }
+          const orderState = await updateConditionalOrderState(db, order);
+          await updateAccountSnapshot(db, order.account_id);
+          await db.runPromise('COMMIT');
+
+          return {
+            success: true,
+            order_id: order.id,
+            account_id: order.account_id,
+            ts_code: order.ts_code,
+            stock_name: order.stock_name,
+            action: order.action,
+            quantity,
+            price,
+            amount: tradeAmount,
+            fee,
+            execution_mode: quantityResult.executionMode,
+            trigger_count: orderState.nextTriggerCount,
+            status: orderState.nextStatus
+          };
+        }
+      } else {
+        throw createExecutorError('INVALID_ACTION', `不支持的交易动作: ${order.action}`);
+      }
+
+      const trade = await recordTrade(db, order, quantity, price, tradeAmount, quantityResult.executionMode);
+      try {
+        await recordExecutionFeedback(db, order, trade, quantity, price, tradeAmount, quantityResult.executionMode);
+      } catch (feedbackError) {
+        console.error('[conditional-executor] 记录执行反馈出错:', feedbackError.message);
+      }
+      const orderState = await updateConditionalOrderState(db, order);
+      await updateAccountSnapshot(db, order.account_id);
+      await db.runPromise('COMMIT');
+
+      return {
+        success: true,
+        order_id: order.id,
+        account_id: order.account_id,
+        ts_code: order.ts_code,
+        stock_name: order.stock_name,
+        action: order.action,
+        quantity,
+        price,
+        amount: tradeAmount,
+        fee,
+        execution_mode: quantityResult.executionMode,
+        trigger_count: orderState.nextTriggerCount,
+        status: orderState.nextStatus
+      };
+    } catch (txError) {
+      try {
+        await db.runPromise('ROLLBACK');
+      } catch (rollbackError) {
+        if (!String(rollbackError.message || '').includes('no transaction is active')) {
+          console.error('[conditional-executor] 回滚失败:', rollbackError.message);
+        }
+      }
+
+      if (POST_TRIGGER_PRE_TRADE_ERRORS.has(txError.code)) {
+        try {
+          await recordTriggerFailureFeedback(db, order, txError);
+        } catch (feedbackError) {
+          console.error('[conditional-executor] 记录触发失败反馈出错:', feedbackError.message);
+        }
+      }
+
+      return buildFailure(txError);
+    }
+  } catch (error) {
     return buildFailure(error);
   }
 }

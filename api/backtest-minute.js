@@ -23,10 +23,9 @@ const MINUTE_INTERVALS = {
 
 // 网格交易默认参数
 const DEFAULT_GRID_CONFIG = {
-  stepPercent: 1.0,       // 网格步长百分比（0.8-1.5）
-  basePosition: 1000,     // 基础持仓量
-  maxPosition: 5000,      // 最大持仓量
-  minPosition: 0          // 最小持仓量
+  stepPercent: 2.0,       // 网格步长百分比（1.5-3.5）
+  gridAmount: 20000,      // 单格委托金额（最低值，元）
+  triggerThreshold: 2.0   // 触发阈值百分比
 };
 
 class MinuteBacktest {
@@ -84,7 +83,7 @@ class MinuteBacktest {
 
     // 网格价格层级
     const gridLevels = [];
-    const numLevels = 10; // 上下各10层
+    const numLevels = config.gridLayers || 10; // 上下各10层
 
     for (let i = -numLevels; i <= numLevels; i++) {
       gridLevels.push({
@@ -122,9 +121,15 @@ class MinuteBacktest {
 
     const config = this.config.gridConfig;
     const stepPercent = gridState.stepPercent;
+    const triggerThreshold = config.triggerThreshold || 2.0; // 触发阈值百分比
 
     // 计算当前价格相对于基准价格的涨跌幅
     const priceChange = ((currentPrice - gridState.basePrice) / gridState.basePrice) * 100;
+
+    // 检查是否达到触发阈值（价格波动不够大时不交易）
+    if (Math.abs(priceChange) < triggerThreshold) {
+      return { action: 'none', reason: 'price_change_below_threshold', priceChange, triggerThreshold };
+    }
 
     // 计算应该持有的网格层级
     const expectedLevel = Math.round(priceChange / stepPercent);
@@ -133,7 +138,11 @@ class MinuteBacktest {
     if (expectedLevel < gridState.currentLevel) {
       // 价格下跌，买入
       const buyLevels = gridState.currentLevel - expectedLevel;
-      const sharesToBuy = config.basePosition * buyLevels;
+      
+      // 根据单格委托金额（最低值）和当前股价，计算需要的股数（向上取整到 100 股）
+      const gridAmount = config.gridAmount || 20000; // 单格委托金额，默认 20000 元
+      const minSharesPerLevel = Math.ceil(gridAmount / currentPrice / 100) * 100; // 向上取整到 100 股
+      const sharesToBuy = minSharesPerLevel * buyLevels;
 
       if (sharesToBuy > 0 && this.cash >= sharesToBuy * currentPrice) {
         // 执行买入
@@ -157,8 +166,12 @@ class MinuteBacktest {
     } else if (expectedLevel > gridState.currentLevel) {
       // 价格上涨，卖出
       const sellLevels = expectedLevel - gridState.currentLevel;
+      
+      // 卖出时同样使用基于金额计算的股数
+      const gridAmount = config.gridAmount || 20000;
+      const minSharesPerLevel = Math.ceil(gridAmount / currentPrice / 100) * 100;
       const sharesToSell = Math.min(
-        config.basePosition * sellLevels,
+        minSharesPerLevel * sellLevels,
         gridState.position
       );
 

@@ -1,0 +1,1210 @@
+/**
+ * 自迭代管理器 API (iteration-manager.js)
+ * 职责：管理策略参数自动迭代优化流程
+ *
+ * API 端点:
+ * - POST /api/iteration/start - 启动迭代任务
+ * - POST /api/iteration/stop/:taskId - 停止任务
+ * - GET /api/iteration/status/:taskId - 获取任务状态
+ * - GET /api/iteration/versions/:strategyType - 获取版本历史
+ * - GET /api/iteration/compare - 版本对比
+ * - POST /api/iteration/optimize - 执行优化
+ * - POST /api/iteration/score - 计算评分
+ */
+const express = require('express');
+const { StrategyScorer, quickScore } = require('./strategy-scorer');
+const { BacktestEngine } = require('./backtest');
+const { getDatabase } = require('./db');
+const { spawn } = require('child_process');
+const path = require('path');
+
+const router = express.Router();
+const DB_PATH = process.env.STOCK_DB || '/Volumes/SSD500/openclaw/stock-system/stock_system.db';
+
+// 活跃任务存储
+const activeTasks = new Map();
+const ITERATION_TASK_RUNS_TABLE_SQL = `
+  CREATE TABLE IF NOT EXISTS iteration_task_runs (
+    task_id TEXT PRIMARY KEY,
+    strategy_type TEXT,
+    input_summary_json TEXT,
+    status TEXT,
+    progress REAL,
+    current_iteration INTEGER,
+    max_iterations INTEGER,
+    best_score REAL,
+    best_params_json TEXT,
+    result_summary_json TEXT,
+    created_at TEXT,
+    updated_at TEXT
+  )
+`;
+
+function safeJsonParse(value, fallback = null) {
+  if (value === null || value === undefined || value === '') {
+    return fallback;
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function safeJsonStringify(value) {
+  return value === undefined ? null : JSON.stringify(value);
+}
+
+function normalizeOptimizationBackend(value) {
+  return String(value || 'heuristic').toLowerCase() === 'optuna' ? 'optuna' : 'heuristic';
+}
+
+function buildTaskResponse(task) {
+  if (!task) return null;
+
+  const optimizationBackend = normalizeOptimizationBackend(task.optimizationBackend || task.inputSummary?.optimizationBackend);
+  const inputSummary = task.inputSummary ? { ...task.inputSummary } : {
+    stocks: task.stocks,
+    startDate: task.startDate,
+    endDate: task.endDate,
+    config: task.config,
+    parallelTasks: task.parallelTasks ?? null
+  };
+  if (optimizationBackend === 'optuna') {
+    inputSummary.optimizationBackend = optimizationBackend;
+  }
+
+  const resultSummary = task.resultSummary || buildTaskResultSummary(task);
+  const history = Array.isArray(task.history)
+    ? task.history.slice(-10)
+    : Array.isArray(resultSummary.history)
+      ? resultSummary.history.slice(-10)
+      : [];
+
+  return {
+    taskId: task.taskId,
+    strategyType: task.strategyType,
+    inputSummary,
+    status: task.status,
+    progress: task.progress ?? 0,
+    currentIteration: task.currentIteration ?? 0,
+    maxIterations: task.maxIterations ?? 0,
+    bestScore: task.bestScore ?? 0,
+    bestParams: task.bestParams ?? null,
+    resultSummary,
+    history,
+    createdAt: task.createdAt || task.created_at || new Date().toISOString(),
+    ...(optimizationBackend === 'optuna' ? { optimizationBackend } : {}),
+    ...(task.error ? { error: task.error } : {}),
+    ...(task.completedAt ? { completedAt: task.completedAt } : {}),
+    ...(task.stoppedAt ? { stoppedAt: task.stoppedAt } : {})
+  };
+}
+
+function buildTaskResultSummary(task) {
+  const optimizationBackend = normalizeOptimizationBackend(task.optimizationBackend || task.inputSummary?.optimizationBackend);
+  return {
+    status: task.status || null,
+    optimizationBackend: optimizationBackend === 'optuna' ? optimizationBackend : undefined,
+    bestScore: task.bestScore ?? null,
+    bestParams: task.bestParams ?? null,
+    finishedAt: task.completedAt || task.finishedAt || null,
+    history: Array.isArray(task.history) ? task.history.slice(-10) : [],
+    error: task.error || null,
+    stoppedAt: task.stoppedAt || null,
+    stopReason: task.stopReason || null,
+    completedAt: task.completedAt || null
+  };
+}
+
+async function ensureIterationTaskRunsTable(db) {
+  await db.runPromise(ITERATION_TASK_RUNS_TABLE_SQL);
+}
+
+async function persistIterationTaskRun(task) {
+  const db = await getDatabase();
+  await ensureIterationTaskRunsTable(db);
+
+  const taskResponse = buildTaskResponse(task);
+  await db.runPromise(
+    `
+      INSERT INTO iteration_task_runs (
+        task_id,
+        strategy_type,
+        input_summary_json,
+        status,
+        progress,
+        current_iteration,
+        max_iterations,
+        best_score,
+        best_params_json,
+        result_summary_json,
+        created_at,
+        updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(task_id) DO UPDATE SET
+        strategy_type = excluded.strategy_type,
+        input_summary_json = excluded.input_summary_json,
+        status = excluded.status,
+        progress = excluded.progress,
+        current_iteration = excluded.current_iteration,
+        max_iterations = excluded.max_iterations,
+        best_score = excluded.best_score,
+        best_params_json = excluded.best_params_json,
+        result_summary_json = excluded.result_summary_json,
+        created_at = excluded.created_at,
+        updated_at = excluded.updated_at
+    `,
+    [
+      taskResponse.taskId,
+      taskResponse.strategyType,
+      safeJsonStringify(taskResponse.inputSummary),
+      taskResponse.status,
+      taskResponse.progress,
+      taskResponse.currentIteration,
+      taskResponse.maxIterations,
+      taskResponse.bestScore,
+      safeJsonStringify(taskResponse.bestParams),
+      safeJsonStringify(buildTaskResultSummary(task)),
+      taskResponse.createdAt,
+      new Date().toISOString()
+    ]
+  );
+}
+
+async function loadIterationTaskRun(taskId) {
+  const db = await getDatabase();
+  await ensureIterationTaskRunsTable(db);
+
+  const row = await db.getPromise(
+    `
+      SELECT
+        task_id,
+        strategy_type,
+        input_summary_json,
+        status,
+        progress,
+        current_iteration,
+        max_iterations,
+        best_score,
+        best_params_json,
+        result_summary_json,
+        created_at,
+        updated_at
+      FROM iteration_task_runs
+      WHERE task_id = ?
+    `,
+    [taskId]
+  );
+
+  if (!row) return null;
+
+  const inputSummary = safeJsonParse(row.input_summary_json, {});
+  const bestParams = safeJsonParse(row.best_params_json, null);
+  const resultSummary = safeJsonParse(row.result_summary_json, {});
+  const optimizationBackend = normalizeOptimizationBackend(inputSummary.optimizationBackend || resultSummary.optimizationBackend);
+
+  return {
+    taskId: row.task_id,
+    strategyType: row.strategy_type,
+    inputSummary,
+    status: row.status,
+    progress: Number(row.progress ?? 0),
+    currentIteration: Number(row.current_iteration ?? 0),
+    maxIterations: Number(row.max_iterations ?? 0),
+    bestScore: Number(row.best_score ?? 0),
+    bestParams,
+    resultSummary,
+    history: Array.isArray(resultSummary.history) ? resultSummary.history.slice(-10) : [],
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    ...(optimizationBackend === 'optuna' ? { optimizationBackend } : {}),
+    ...(resultSummary.error ? { error: resultSummary.error } : {}),
+    ...(resultSummary.completedAt ? { completedAt: resultSummary.completedAt } : {}),
+    ...(resultSummary.stoppedAt ? { stoppedAt: resultSummary.stoppedAt } : {})
+  };
+}
+
+/**
+ * 启动自迭代任务
+ * POST /api/iteration/start
+ *
+ * Request body:
+ * - strategyType: 策略类型
+ * - config: 初始配置
+ * - maxIterations: 最大迭代次数
+ * - scoreThreshold: 目标分数阈值
+ * - stocks: 股票池
+ * - startDate: 回测开始日期
+ * - endDate: 回测结束日期
+ */
+router.post('/start', async (req, res) => {
+  try {
+    const {
+      strategyType,
+      config,
+      maxIterations = 10,
+      scoreThreshold = 80,
+      stocks,
+      startDate,
+      endDate,
+      optimizationBackend,
+      parallelTasks
+    } = req.body;
+
+    if (!strategyType || !stocks || !startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        error: '缺少必要参数：strategyType, stocks, startDate, endDate'
+      });
+    }
+
+    const taskId = `ITER_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    const normalizedOptimizationBackend = normalizeOptimizationBackend(optimizationBackend);
+
+    // 创建任务记录
+    const task = {
+      taskId,
+      strategyType,
+      optimizationBackend: normalizedOptimizationBackend,
+      config: config || {},
+      inputSummary: {
+        stocks,
+        startDate,
+        endDate,
+        config: config || {},
+        parallelTasks: parallelTasks ?? null,
+        ...(normalizedOptimizationBackend === 'optuna'
+          ? { optimizationBackend: normalizedOptimizationBackend }
+          : {})
+      },
+      maxIterations,
+      scoreThreshold,
+      stocks,
+      startDate,
+      endDate,
+      parallelTasks: parallelTasks ?? null,
+      status: 'pending',
+      progress: 0,
+      currentIteration: 0,
+      bestScore: 0,
+      bestParams: null,
+      history: [],
+      createdAt: new Date().toISOString()
+    };
+
+    activeTasks.set(taskId, task);
+    try {
+      await persistIterationTaskRun(task);
+    } catch (persistError) {
+      console.error(`[迭代任务 ${taskId}] 快照保存失败:`, persistError);
+    }
+
+    // 异步执行迭代优化
+    runIterationTask(taskId).catch(err => {
+      console.error(`[迭代任务 ${taskId}] 执行失败:`, err);
+      const t = activeTasks.get(taskId);
+      if (t) {
+        t.status = 'failed';
+        t.error = err.message;
+        t.resultSummary = buildTaskResultSummary(t);
+        persistIterationTaskRun(t).catch(persistError => {
+          console.error(`[迭代任务 ${taskId}] 失败快照保存失败:`, persistError);
+        });
+      }
+    });
+
+    res.json({
+      success: true,
+      taskId,
+      message: '迭代任务已启动'
+    });
+  } catch (error) {
+    console.error('[迭代管理器] 启动失败:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 停止自迭代任务
+ * POST /api/iteration/stop/:taskId
+ */
+router.post('/stop/:taskId', (req, res) => {
+  const { taskId } = req.params;
+  const task = activeTasks.get(taskId);
+
+  if (!task) {
+    return res.status(404).json({
+      success: false,
+      error: '任务不存在'
+    });
+  }
+
+  task.status = 'stopped';
+  task.stoppedAt = new Date().toISOString();
+  task.resultSummary = buildTaskResultSummary(task);
+  persistIterationTaskRun(task).catch(error => {
+    console.error(`[迭代任务 ${taskId}] 停止快照保存失败:`, error);
+  });
+
+  res.json({
+    success: true,
+    message: '任务已停止',
+    task: {
+      taskId: task.taskId,
+      status: task.status,
+      currentIteration: task.currentIteration,
+      bestScore: task.bestScore
+    }
+  });
+});
+
+/**
+ * 获取任务状态
+ * GET /api/iteration/status/:taskId
+ */
+router.get('/status/:taskId', async (req, res) => {
+  const { taskId } = req.params;
+  const task = activeTasks.get(taskId);
+
+  if (task) {
+    return res.json({
+      success: true,
+      task: buildTaskResponse(task)
+    });
+  }
+
+  try {
+    const snapshot = await loadIterationTaskRun(taskId);
+
+    if (!snapshot) {
+      return res.status(404).json({
+        success: false,
+        error: '任务不存在'
+      });
+    }
+
+    return res.json({
+      success: true,
+      task: snapshot
+    });
+  } catch (error) {
+    console.error(`[迭代任务 ${taskId}] 查询快照失败:`, error);
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 默认 execution_summary 值
+ */
+const DEFAULT_EXECUTION_SUMMARY = {
+  simulated_trade_count: 0,
+  position_closed_count: 0,
+  win_rate: 0,
+  total_realized_pnl: 0,
+  avg_realized_return: 0,
+  avg_holding_days: 0,
+  trigger_failure_count: 0,
+  trigger_failure_rate: 0
+};
+
+/**
+ * 根据 execution_summary 推断执行反馈状态
+ * @param {Object} summary - execution_summary 对象
+ * @returns {{ status: string, confidence: string }}
+ */
+function deriveExecutionFeedbackStatus(summary) {
+  // 默认值处理
+  const s = {
+    position_closed_count: summary?.position_closed_count ?? 0,
+    simulated_trade_count: summary?.simulated_trade_count ?? 0,
+    trigger_failure_count: summary?.trigger_failure_count ?? 0,
+    trigger_failure_rate: summary?.trigger_failure_rate ?? 0,
+    total_realized_pnl: summary?.total_realized_pnl ?? 0,
+    win_rate: summary?.win_rate ?? 0
+  };
+
+  // 计算 confidence
+  let confidence;
+  if (s.position_closed_count >= 10) {
+    confidence = 'high';
+  } else if (s.position_closed_count >= 3) {
+    confidence = 'medium';
+  } else if (s.position_closed_count >= 1) {
+    confidence = 'low';
+  } else {
+    confidence = 'none';
+  }
+
+  // 计算 status
+  let status;
+  if (s.position_closed_count === 0 && s.simulated_trade_count === 0 && s.trigger_failure_count === 0) {
+    status = 'no_data';
+  } else if (s.trigger_failure_rate >= 0.4) {
+    status = 'caution';
+  } else if (s.total_realized_pnl > 0 && s.win_rate >= 0.5) {
+    status = 'positive';
+  } else if (s.total_realized_pnl < 0 || s.win_rate < 0.4) {
+    status = 'caution';
+  } else {
+    status = 'mixed';
+  }
+
+  return { status, confidence };
+}
+
+/**
+ * 聚合 execution_feedback 数据，生成 execution_summary
+ * @param {Object} db - 数据库连接
+ * @param {string} versionId - 策略版本 ID
+ * @returns {Object} execution_summary
+ */
+async function aggregateExecutionFeedback(db, versionId) {
+  try {
+    // 检查 execution_feedback 表是否存在
+    const tableCheck = await db.getPromise(`
+      SELECT name FROM sqlite_master
+      WHERE type = 'table' AND name = 'execution_feedback'
+    `);
+
+    if (!tableCheck) {
+      return { ...DEFAULT_EXECUTION_SUMMARY };
+    }
+
+    // 聚合各类统计数据
+    const stats = await db.getPromise(`
+      SELECT
+        COUNT(CASE WHEN event_type = 'simulated_trade' THEN 1 END) AS simulated_trade_count,
+        COUNT(CASE WHEN event_type = 'position_closed' THEN 1 END) AS position_closed_count,
+        COUNT(CASE WHEN event_type = 'conditional_trigger' THEN 1 END) AS trigger_failure_count,
+        SUM(CASE WHEN event_type = 'position_closed' THEN realized_pnl ELSE 0 END) AS total_realized_pnl,
+        AVG(CASE WHEN event_type = 'position_closed' THEN realized_pnl ELSE NULL END) AS avg_realized_pnl,
+        AVG(CASE WHEN event_type = 'position_closed' AND realized_pnl IS NOT NULL THEN realized_return ELSE NULL END) AS avg_realized_return,
+        AVG(CASE WHEN event_type = 'position_closed' AND holding_days IS NOT NULL THEN holding_days ELSE NULL END) AS avg_holding_days,
+        COUNT(CASE WHEN event_type = 'position_closed' AND realized_pnl > 0 THEN 1 END) AS win_count
+      FROM execution_feedback
+      WHERE version_id = ?
+    `, [versionId]);
+
+    const simulatedTradeCount = stats.simulated_trade_count || 0;
+    const positionClosedCount = stats.position_closed_count || 0;
+    const triggerFailureCount = stats.trigger_failure_count || 0;
+    const winCount = stats.win_count || 0;
+
+    // 计算 win_rate
+    const winRate = positionClosedCount > 0 ? winCount / positionClosedCount : 0;
+
+    // 计算 trigger_failure_rate
+    const triggerTotal = triggerFailureCount + simulatedTradeCount;
+    const triggerFailureRate = triggerTotal > 0 ? triggerFailureCount / triggerTotal : 0;
+
+    return {
+      simulated_trade_count: simulatedTradeCount,
+      position_closed_count: positionClosedCount,
+      win_rate: Math.round(winRate * 10000) / 10000, // 保留4位小数
+      total_realized_pnl: Math.round((stats.total_realized_pnl || 0) * 100) / 100,
+      avg_realized_return: stats.avg_realized_return !== null
+        ? Math.round(stats.avg_realized_return * 10000) / 10000
+        : 0,
+      avg_holding_days: stats.avg_holding_days !== null
+        ? Math.round(stats.avg_holding_days * 100) / 100
+        : 0,
+      trigger_failure_count: triggerFailureCount,
+      trigger_failure_rate: Math.round(triggerFailureRate * 10000) / 10000
+    };
+  } catch (error) {
+    console.error(`[execution_summary] 聚合失败 versionId=${versionId}:`, error);
+    return { ...DEFAULT_EXECUTION_SUMMARY };
+  }
+}
+
+async function enrichVersionsWithExecutionFeedback(db, versions) {
+  return Promise.all(
+    versions.map(async (version) => {
+      const executionSummary = await aggregateExecutionFeedback(db, version.version_id);
+      const { status, confidence } = deriveExecutionFeedbackStatus(executionSummary);
+      return {
+        ...version,
+        execution_summary: executionSummary,
+        execution_feedback_status: status,
+        execution_feedback_confidence: confidence
+      };
+    })
+  );
+}
+
+/**
+ * 为版本列表补充发布状态字段
+ * 通过 strategy_config_feedback.source_version_id -> strategy_configs.id 关联
+ * @param {Object} db - 数据库连接
+ * @param {Array} versions - 版本列表
+ * @returns {Promise<Array>} 补充发布状态后的版本列表
+ */
+async function enrichVersionsWithPublishStatus(db, versions) {
+  if (!versions || versions.length === 0) {
+    return versions;
+  }
+
+  const versionIds = versions.map(v => v.version_id);
+  const fallbackVersions = versions.map((version) => ({
+    ...version,
+    published_strategy_config_id: null,
+    is_published_to_library: false
+  }));
+
+  // 查询已发布的版本映射（只查询公开策略）
+  // 如果一个版本对应多个公开策略，返回最大的 strategy_config_id
+  let publishedMap = [];
+  try {
+    publishedMap = await db.allPromise(`
+      SELECT
+        scf.source_version_id,
+        MAX(sc.id) as strategy_config_id
+      FROM strategy_config_feedback scf
+      INNER JOIN strategy_configs sc ON scf.strategy_config_id = sc.id
+      WHERE scf.source_version_id IN (${versionIds.map(() => '?').join(',')})
+        AND sc.is_public = 1
+      GROUP BY scf.source_version_id
+    `, versionIds);
+  } catch (error) {
+    if (String(error.message || error).includes('no such table')) {
+      return fallbackVersions;
+    }
+    throw error;
+  }
+
+  // 构建版本 ID -> 策略配置 ID 的映射
+  const publishLookup = new Map();
+  for (const row of publishedMap) {
+    publishLookup.set(row.source_version_id, row.strategy_config_id);
+  }
+
+  // 为每个版本补充发布状态字段
+  return versions.map(version => {
+    const publishedConfigId = publishLookup.get(version.version_id) || null;
+    return {
+      ...version,
+      published_strategy_config_id: publishedConfigId,
+      is_published_to_library: publishedConfigId !== null
+    };
+  });
+}
+
+/**
+ * 获取版本历史
+ * GET /api/iteration/versions/:strategyType
+ */
+router.get('/versions/:strategyType', async (req, res) => {
+  try {
+    const { strategyType } = req.params;
+    const db = await getDatabase();
+
+    const versions = await db.allPromise(`
+      SELECT version_id, strategy_name, backtest_score,
+             sharpe_ratio, max_drawdown, calmar_ratio,
+             profit_loss_ratio, win_rate, total_return,
+             created_at, parent_version, change_log
+      FROM strategy_versions
+      WHERE strategy_type = ?
+      ORDER BY created_at DESC
+      LIMIT 50
+    `, [strategyType]);
+
+    // 为每个版本添加 execution_summary 和 execution_feedback_status
+    let versionsWithSummary = await enrichVersionsWithExecutionFeedback(db, versions);
+
+    // 补充发布状态字段
+    versionsWithSummary = await enrichVersionsWithPublishStatus(db, versionsWithSummary);
+
+    res.json({ success: true, versions: versionsWithSummary });
+  } catch (error) {
+    console.error('[版本历史] 查询失败:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 策略版本对比
+ * GET /api/iteration/compare?versionIds=v1,v2,v3
+ */
+router.get('/compare', async (req, res) => {
+  try {
+    const { versionIds } = req.query;
+
+    if (!versionIds) {
+      return res.status(400).json({
+        success: false,
+        error: '缺少 versionIds 参数'
+      });
+    }
+
+    const db = await getDatabase();
+    const ids = versionIds.split(',').map(id => id.trim());
+
+    const versions = await Promise.all(
+      ids.map(id => db.getPromise(`
+        SELECT version_id, strategy_type, strategy_name, config_json,
+               backtest_score, sharpe_ratio, max_drawdown, calmar_ratio,
+               profit_loss_ratio, win_rate, total_return,
+               created_at, parent_version, change_log
+        FROM strategy_versions
+        WHERE version_id = ?
+      `, [id]))
+    );
+
+    const validVersions = versions.filter(v => v !== undefined);
+
+    if (validVersions.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: '未找到有效的版本记录'
+      });
+    }
+
+    // 为每个版本添加 execution_summary 和 execution_feedback_status
+    const versionsWithFeedback = (await enrichVersionsWithExecutionFeedback(db, validVersions)).map((version) => ({
+      ...version,
+      config_json: version.config_json ? JSON.parse(version.config_json) : {}
+    }));
+
+    // 对比分析
+    const metrics = ['backtest_score', 'sharpe_ratio', 'max_drawdown', 'calmar_ratio', 'profit_loss_ratio', 'win_rate', 'total_return'];
+    const comparison = {
+      versions: versionsWithFeedback,
+      metrics,
+      best: validVersions.reduce((best, v) =>
+        (v.backtest_score || 0) > (best.backtest_score || 0) ? v : best
+      )
+    };
+
+    res.json({ success: true, comparison });
+  } catch (error) {
+    console.error('[版本对比] 失败:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 执行优化
+ * POST /api/iteration/optimize
+ *
+ * 使用网格搜索或贝叶斯优化寻找最优参数
+ */
+router.post('/optimize', async (req, res) => {
+  try {
+    const {
+      strategyType,
+      paramRanges,
+      stocks,
+      startDate,
+      endDate,
+      initialCash = 1000000,
+      optimizationMethod = 'grid' // 'grid' or 'bayesian'
+    } = req.body;
+
+    if (!paramRanges || !stocks || !startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        error: '缺少必要参数：paramRanges, stocks, startDate, endDate'
+      });
+    }
+
+    console.log(`[优化器] 开始优化: ${strategyType || 'default'}`);
+    console.log(`[优化器] 参数范围:`, JSON.stringify(paramRanges));
+    console.log(`[优化器] 方法: ${optimizationMethod}`);
+
+    // 执行网格搜索优化
+    const results = await runGridSearch({
+      paramRanges,
+      stocks,
+      startDate,
+      endDate,
+      initialCash,
+      strategyType: strategyType || 'double_ma'
+    });
+
+    // 按综合得分排序
+    results.sort((a, b) => b.score - a.score);
+
+    const best = results[0];
+
+    // 保存最优版本
+    if (best) {
+      const scorer = new StrategyScorer();
+      const versionId = scorer.saveVersion({
+        strategyType: strategyType || 'double_ma',
+        strategyName: `优化版本 ${new Date().toISOString().slice(0, 10)}`,
+        config: best.params,
+        backtestScore: best.score,
+        sharpeRatio: best.metrics.sharpeRatio,
+        maxDrawdown: best.metrics.maxDrawdown,
+        calmarRatio: best.metrics.calmarRatio,
+        profitLossRatio: best.metrics.profitLossRatio,
+        winRate: best.metrics.winRate,
+        totalReturn: best.metrics.totalReturn,
+        changeLog: `自动优化 - 得分: ${best.score.toFixed(2)}`
+      });
+      scorer.close();
+
+      best.versionId = versionId;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        best,
+        totalScenarios: results.length,
+        topResults: results.slice(0, 5)
+      }
+    });
+  } catch (error) {
+    console.error('[优化器] 执行失败:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 计算策略评分
+ * POST /api/iteration/score
+ */
+router.post('/score', async (req, res) => {
+  try {
+    const {
+      sharpeRatio,
+      maxDrawdown,
+      calmarRatio,
+      profitLossRatio,
+      winRate,
+      totalReturn
+    } = req.body;
+
+    const metrics = {
+      sharpeRatio: sharpeRatio || 0,
+      maxDrawdown: maxDrawdown || 0,
+      calmarRatio: calmarRatio || 0,
+      profitLossRatio: profitLossRatio || 0,
+      winRate: winRate || 0,
+      totalReturn: totalReturn || 0
+    };
+
+    const scoreResult = quickScore(metrics);
+
+    res.json({
+      success: true,
+      data: scoreResult
+    });
+  } catch (error) {
+    console.error('[评分器] 计算失败:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 运行迭代任务（内部函数）
+ */
+async function runIterationTask(taskId) {
+  const task = activeTasks.get(taskId);
+  if (!task) return;
+
+  task.status = 'running';
+  task.resultSummary = buildTaskResultSummary(task);
+  persistIterationTaskRun(task).catch(error => {
+    console.error(`[迭代任务 ${taskId}] 运行快照保存失败:`, error);
+  });
+  console.log(`[迭代任务 ${taskId}] 开始执行，目标分数: ${task.scoreThreshold}`);
+
+  const optimizationBackend = normalizeOptimizationBackend(task.optimizationBackend || task.inputSummary?.optimizationBackend);
+  if (optimizationBackend === 'optuna') {
+    await runOptunaIterationTask(task);
+    return;
+  }
+
+  await runHeuristicIterationTask(task);
+}
+
+async function runOptunaIterationTask(task) {
+  const { taskId, strategyType, stocks, startDate, endDate, maxIterations } = task;
+  const scriptPath = path.resolve(__dirname, '../scripts/optuna_optimizer.py');
+  const stocksArg = Array.isArray(stocks) ? stocks.join(',') : String(stocks || '');
+  const args = [
+    scriptPath,
+    strategyType,
+    '--stocks',
+    stocksArg,
+    '--start',
+    startDate,
+    '--end',
+    endDate,
+    '--n-trials',
+    String(maxIterations)
+  ];
+
+  console.log(`[迭代任务 ${taskId}] 启动 Optuna: python3 ${args.join(' ')}`);
+
+  const result = await new Promise((resolve, reject) => {
+    const child = spawn('python3', args, {
+      cwd: path.resolve(__dirname, '..'),
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    if (child.stdout) {
+      child.stdout.on('data', chunk => {
+        stdout += chunk.toString();
+      });
+    }
+
+    if (child.stderr) {
+      child.stderr.on('data', chunk => {
+        stderr += chunk.toString();
+      });
+    }
+
+    child.on('error', reject);
+    child.on('close', code => {
+      if (code !== 0) {
+        const detail = stderr.trim() || stdout.trim() || `exit code ${code}`;
+        reject(new Error(`Optuna 优化失败: ${detail}`));
+        return;
+      }
+
+      const raw = stdout.trim();
+      if (!raw) {
+        reject(new Error('Optuna 优化失败: stdout 为空'));
+        return;
+      }
+
+      try {
+        const payload = JSON.parse(raw);
+        resolve(payload);
+      } catch (error) {
+        reject(new Error(`Optuna 输出不是有效 JSON: ${error.message}`));
+      }
+    });
+  });
+
+  const bestScore = Number(result.best_score ?? result.bestScore ?? result.scoreTotal ?? 0);
+  const bestParams = result.best_params ?? result.bestParams ?? null;
+
+  task.currentIteration = maxIterations;
+  task.progress = 100;
+  task.bestScore = Number.isFinite(bestScore) ? bestScore : 0;
+  task.bestParams = bestParams;
+  task.status = 'completed';
+  task.completedAt = new Date().toISOString();
+  task.error = null;
+  task.resultSummary = buildTaskResultSummary(task);
+  persistIterationTaskRun(task).catch(error => {
+    console.error(`[迭代任务 ${taskId}] Optuna 完成快照保存失败:`, error);
+  });
+}
+
+async function runHeuristicIterationTask(task) {
+  const { taskId, strategyType, config, stocks, startDate, endDate, maxIterations, scoreThreshold } = task;
+
+  // 初始参数
+  let currentParams = { ...config };
+  let bestScore = 0;
+  let bestParams = null;
+
+  for (let i = 0; i < maxIterations; i++) {
+    // 检查是否被停止
+    if (task.status === 'stopped') {
+      console.log(`[迭代任务 ${taskId}] 已停止`);
+      return;
+    }
+
+    task.currentIteration = i + 1;
+    task.progress = Math.round((i + 1) / maxIterations * 100);
+
+    console.log(`[迭代任务 ${taskId}] 第 ${i + 1}/${maxIterations} 轮迭代`);
+
+    try {
+      // 运行回测
+      const engine = new BacktestEngine({
+        startDate,
+        endDate,
+        initialCash: 1000000,
+        strategy: {
+          type: strategyType,
+          params: currentParams
+        },
+        stocks
+      });
+
+      await engine.run();
+      const metrics = engine.metrics;
+
+      // 计算评分
+      const scoreResult = quickScore({
+        sharpeRatio: metrics.sharpeRatio,
+        maxDrawdown: metrics.maxDrawdown,
+        calmarRatio: metrics.calmarRatio,
+        profitLossRatio: metrics.profitLossRatio,
+        winRate: metrics.winRate,
+        totalReturn: metrics.returnRate
+      });
+
+      const score = scoreResult.scoreTotal;
+
+      // 记录历史
+      task.history.push({
+        iteration: i + 1,
+        params: { ...currentParams },
+        score,
+        metrics: {
+          sharpeRatio: metrics.sharpeRatio,
+          maxDrawdown: metrics.maxDrawdown,
+          winRate: metrics.winRate,
+          returnRate: metrics.returnRate
+        },
+        timestamp: new Date().toISOString()
+      });
+      task.resultSummary = buildTaskResultSummary(task);
+      persistIterationTaskRun(task).catch(error => {
+        console.error(`[迭代任务 ${taskId}] 进度快照保存失败:`, error);
+      });
+
+      console.log(`[迭代任务 ${taskId}] 得分: ${score}, 等级: ${scoreResult.level}`);
+
+      // 更新最佳结果
+      if (score > bestScore) {
+        bestScore = score;
+        bestParams = { ...currentParams };
+        task.bestScore = score;
+        task.bestParams = bestParams;
+      }
+
+      // 检查是否达到目标
+      if (score >= scoreThreshold) {
+        console.log(`[迭代任务 ${taskId}] 达到目标分数 ${scoreThreshold}`);
+        task.status = 'completed';
+        task.completedAt = new Date().toISOString();
+        task.resultSummary = buildTaskResultSummary(task);
+        persistIterationTaskRun(task).catch(error => {
+          console.error(`[迭代任务 ${taskId}] 完成快照保存失败:`, error);
+        });
+        break;
+      }
+
+      // 调整参数（简单的梯度下降）
+      currentParams = adjustParams(currentParams, scoreResult, metrics);
+
+    } catch (error) {
+      console.error(`[迭代任务 ${taskId}] 第 ${i + 1} 轮失败:`, error.message);
+      task.history.push({
+        iteration: i + 1,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      });
+      task.resultSummary = buildTaskResultSummary(task);
+      persistIterationTaskRun(task).catch(persistError => {
+        console.error(`[迭代任务 ${taskId}] 失败快照保存失败:`, persistError);
+      });
+    }
+  }
+
+  // 任务完成
+  if (task.status === 'running') {
+    task.status = 'completed';
+    task.completedAt = new Date().toISOString();
+  }
+  task.resultSummary = buildTaskResultSummary(task);
+  persistIterationTaskRun(task).catch(error => {
+    console.error(`[迭代任务 ${taskId}] 收尾快照保存失败:`, error);
+  });
+
+  // 保存最优版本
+  if (bestParams && bestScore > 0) {
+    try {
+      const scorer = new StrategyScorer();
+      scorer.saveVersion({
+        strategyType,
+        strategyName: `自动迭代版本 ${taskId}`,
+        config: bestParams,
+        backtestScore: bestScore,
+        changeLog: `迭代任务 ${taskId} 完成，最终得分: ${bestScore.toFixed(2)}`
+      });
+      scorer.close();
+    } catch (error) {
+      console.error(`[迭代任务 ${taskId}] 保存版本失败:`, error);
+    }
+  }
+
+  console.log(`[迭代任务 ${taskId}] 完成，最终得分: ${bestScore}`);
+}
+
+/**
+ * 调整参数（简单启发式）
+ */
+function adjustParams(currentParams, scoreResult, metrics) {
+  const newParams = { ...currentParams };
+
+  // 根据评分结果调整参数
+  if (scoreResult.scoreDrawdown < 60) {
+    // 回撤过大，增加止损
+    if (newParams.stop_loss) {
+      newParams.stop_loss = Math.max(0.03, newParams.stop_loss - 0.01);
+    }
+  }
+
+  if (scoreResult.scoreWinRate < 60) {
+    // 胜率过低，调整均线周期
+    if (newParams.fast_period) {
+      newParams.fast_period = Math.min(30, newParams.fast_period + 2);
+    }
+    if (newParams.slow_period) {
+      newParams.slow_period = Math.max(20, newParams.slow_period - 5);
+    }
+  }
+
+  // 添加随机扰动
+  for (const key of Object.keys(newParams)) {
+    if (typeof newParams[key] === 'number') {
+      const perturbation = (Math.random() - 0.5) * 0.1 * newParams[key];
+      newParams[key] = newParams[key] + perturbation;
+    }
+  }
+
+  return newParams;
+}
+
+/**
+ * 网格搜索优化
+ */
+async function runGridSearch({ paramRanges, stocks, startDate, endDate, initialCash, strategyType }) {
+  const results = [];
+
+  // 生成参数组合
+  const combinations = generateParamCombinations(paramRanges);
+  console.log(`[网格搜索] 生成 ${combinations.length} 个参数组合`);
+
+  for (let i = 0; i < combinations.length; i++) {
+    const params = combinations[i];
+
+    try {
+      const engine = new BacktestEngine({
+        startDate,
+        endDate,
+        initialCash,
+        strategy: {
+          type: strategyType,
+          params
+        },
+        stocks
+      });
+
+      await engine.run();
+      const metrics = engine.metrics;
+
+      // 计算评分
+      const scoreResult = quickScore({
+        sharpeRatio: metrics.sharpeRatio,
+        maxDrawdown: metrics.maxDrawdown,
+        calmarRatio: metrics.calmarRatio,
+        profitLossRatio: metrics.profitLossRatio,
+        winRate: metrics.winRate,
+        totalReturn: metrics.returnRate
+      });
+
+      results.push({
+        params,
+        score: scoreResult.scoreTotal,
+        level: scoreResult.level,
+        metrics: {
+          sharpeRatio: metrics.sharpeRatio,
+          maxDrawdown: metrics.maxDrawdown,
+          calmarRatio: metrics.calmarRatio,
+          profitLossRatio: metrics.profitLossRatio,
+          winRate: metrics.winRate,
+          totalReturn: metrics.returnRate
+        }
+      });
+
+      console.log(`[网格搜索] ${i + 1}/${combinations.length} 完成，得分: ${scoreResult.scoreTotal}`);
+
+    } catch (error) {
+      console.error(`[网格搜索] 参数组合失败:`, error.message);
+    }
+  }
+
+  return results;
+}
+
+/**
+ * 生成参数组合
+ */
+function generateParamCombinations(paramRanges) {
+  const combinations = [];
+  const keys = Object.keys(paramRanges);
+
+  if (keys.length === 0) return [{}];
+
+  const values = keys.map(key => {
+    const range = paramRanges[key];
+    if (Array.isArray(range)) {
+      return range;
+    }
+    if (range.min !== undefined && range.max !== undefined && range.step !== undefined) {
+      const vals = [];
+      for (let v = range.min; v <= range.max; v += range.step) {
+        vals.push(v);
+      }
+      return vals;
+    }
+    return [range];
+  });
+
+  function generate(index, current) {
+    if (index === keys.length) {
+      combinations.push({ ...current });
+      return;
+    }
+
+    for (const val of values[index]) {
+      current[keys[index]] = val;
+      generate(index + 1, current);
+    }
+  }
+
+  generate(0, {});
+  return combinations;
+}
+
+// 导出测试辅助函数
+router.__test = {
+  activeTasks,
+  buildTaskResponse,
+  buildTaskResultSummary,
+  ensureIterationTaskRunsTable,
+  persistIterationTaskRun,
+  loadIterationTaskRun,
+  aggregateExecutionFeedback,
+  deriveExecutionFeedbackStatus,
+  enrichVersionsWithExecutionFeedback,
+  enrichVersionsWithPublishStatus,
+  DEFAULT_EXECUTION_SUMMARY
+};
+
+module.exports = router;

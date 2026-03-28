@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>选股报告详情 | A 股投资系统</title>
+  <link rel="stylesheet" href="./pages/style.css">
+  <style>
+    .report-meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+      margin: 1.5rem 0;
+    }
+    .meta-card, .section-card, .stock-item {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+    }
+    .meta-card {
+      padding: 1rem;
+    }
+    .meta-label {
+      font-size: 0.75rem;
+      color: var(--text-faint);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .meta-value {
+      margin-top: 0.35rem;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .section-card {
+      padding: 1.25rem;
+      margin-top: 1rem;
+    }
+    .section-title {
+      margin: 0 0 0.75rem;
+      color: var(--text);
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+    .stock-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .stock-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.9rem 1rem;
+    }
+    .stock-main {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+    .stock-name {
+      color: var(--text);
+      font-weight: 600;
+    }
+    .stock-code {
+      color: var(--text-faint);
+      font-size: 0.875rem;
+    }
+    .stock-score {
+      color: var(--good);
+      font-weight: 600;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--text-faint);
+    }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <nav class="top-nav">
+      <a href="./select.html">选股分析</a>
+      <a href="./selection-history.html">选股历史</a>
+      <a href="./analysis.html">个股分析</a>
+      <a href="./monitor-pool.html">监控池</a>
+      <a href="./conditional-order.html">条件单</a>
+      <a href="./backtest.html">回测系统</a>
+    </nav>
+
+    <div class="hero">
+      <div class="eyebrow">SELECTION REPORT DETAIL</div>
+      <h1>📘 选股报告详情</h1>
+      <p class="subtitle">查看历史选股报告的日期、筛选统计和入选股票列表</p>
+    </div>
+
+    <div id="reportContainer" class="panel">
+      <div class="panel-inner">
+        <div class="loading-state">
+          <div class="loading-spinner"></div>
+          <p>正在加载报告详情...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function getReportId() {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('id');
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function renderEmpty(message) {
+      document.getElementById('reportContainer').innerHTML = `
+        <div class="panel-inner">
+          <div class="empty-state">
+            <h3 class="empty-title">无法显示报告</h3>
+            <p class="empty-copy">${escapeHtml(message)}</p>
+            <a href="./selection-history.html" class="button-link button-primary" style="margin-top: 1rem;">返回历史列表</a>
+          </div>
+        </div>
+      `;
+    }
+
+    async function loadReport() {
+      const reportId = getReportId();
+      if (!reportId) {
+        renderEmpty('缺少报告 ID');
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/selection/report/${encodeURIComponent(reportId)}`);
+        const payload = await response.json();
+        if (!response.ok || !payload.success || !payload.data) {
+          renderEmpty(payload.error || '报告不存在');
+          return;
+        }
+
+        const report = payload.data;
+        const selectedStocks = Array.isArray(report.selected_stocks) ? report.selected_stocks : [];
+        const stats = report.statistics || {};
+
+        const stocksHtml = selectedStocks.length
+          ? selectedStocks.map((stock) => `
+              <div class="stock-item" data-role="selected-stock-item">
+                <div class="stock-main">
+                  <span class="stock-name">${escapeHtml(stock.name || '--')}</span>
+                  <span class="stock-code">${escapeHtml(stock.ts_code || '')}</span>
+                </div>
+                <span class="stock-score">${escapeHtml(stock.score ?? '--')} 分</span>
+              </div>
+            `).join('')
+          : '<div class="empty-state">暂无入选股票</div>';
+
+        document.getElementById('reportContainer').innerHTML = `
+          <div class="panel-inner">
+            <div class="panel-head">
+              <div>
+                <h2 class="panel-title">报告概览</h2>
+                <p class="panel-copy">历史选股快照与最终入选结果</p>
+              </div>
+              <div class="panel-actions">
+                <a href="./selection-history.html" class="button-link button-secondary">返回历史</a>
+              </div>
+            </div>
+
+            <div class="report-meta">
+              <div class="meta-card">
+                <div class="meta-label">报告 ID</div>
+                <div class="meta-value">${escapeHtml(report.report_id)}</div>
+              </div>
+              <div class="meta-card">
+                <div class="meta-label">交易日</div>
+                <div class="meta-value">${escapeHtml(report.trade_date)}</div>
+              </div>
+              <div class="meta-card">
+                <div class="meta-label">生成时间</div>
+                <div class="meta-value">${escapeHtml(report.created_at)}</div>
+              </div>
+              <div class="meta-card">
+                <div class="meta-label">选中股票</div>
+                <div class="meta-value">${escapeHtml(stats.final_selected ?? selectedStocks.length)} 只</div>
+              </div>
+            </div>
+
+            <div class="section-card">
+              <h3 class="section-title">统计信息</h3>
+              <div class="report-meta">
+                <div class="meta-card">
+                  <div class="meta-label">候选总数</div>
+                  <div class="meta-value">${escapeHtml(stats.total_candidates ?? '--')}</div>
+                </div>
+                <div class="meta-card">
+                  <div class="meta-label">通过行业筛选</div>
+                  <div class="meta-value">${escapeHtml(stats.passed_industry_filter ?? '--')}</div>
+                </div>
+                <div class="meta-card">
+                  <div class="meta-label">通过因子筛选</div>
+                  <div class="meta-value">${escapeHtml(stats.passed_seven_factor ?? '--')}</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="section-card">
+              <h3 class="section-title">入选股票</h3>
+              <div class="stock-list">${stocksHtml}</div>
+            </div>
+          </div>
+        `;
+      } catch (error) {
+        renderEmpty(error.message);
+      }
+    }
+
+    loadReport();
+  </script>
+</body>
+</html>

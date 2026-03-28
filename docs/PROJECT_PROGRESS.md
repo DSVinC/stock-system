@@ -1,9 +1,9 @@
 # 股票系统 - 项目进度总览
 
-**最后更新**: 2026-03-24 14:30  
-**项目经理**: 灵爪  
-**程序员**: Claude Code  
-**验收员**: Gemini CLI / Codex  
+**最后更新**: 2026-03-28 07:51  
+**项目经理**: Codex  
+**程序员**: subagent / Claude Code（按任务分配）  
+**验收员**: Codex / Gemini CLI（按任务分配）  
 
 ---
 
@@ -11,6 +11,48 @@
 
 | 任务 ID | 任务名称 | 优先级 | 状态 | 负责人 | 进度 |
 |---------|----------|--------|------|--------|------|
+| **TASK_FLOW_REFACTOR_001** | **系统总闭环梳理（研究流程/执行流程/策略库中枢）** | **P0** | **🟢 done** | **Codex** | **100%** |
+| **TASK_FLOW_REFACTOR_002** | **执行流页面文案收口（select/analysis）** | **P0** | **🟢 done** | **Codex / Claude Code / Gemini CLI** | **100%** |
+| **TASK_FLOW_REFACTOR_003** | **研究流页面文案收口（backtest/iteration-manager）** | **P0** | **🟢 done** | **Codex / Claude Code** | **100%** |
+| **TASK_FLOW_REFACTOR_004** | **策略库导入身份同步（select）** | **P0** | **🟢 done** | **Codex / Claude Code** | **100%** |
+| **TASK_FLOW_REFACTOR_005** | **执行流程策略身份字段统一（select）** | **P0** | **🟢 done** | **Codex / Claude Code** | **100%** |
+| **TASK_FLOW_REFACTOR_006A** | **执行流上下文传递：analysis → monitor draft** | **P0** | **🟢 done** | **Codex / Claude Code** | **100%** |
+| **TASK_FLOW_REFACTOR_006B** | **执行流上下文传递：monitor draft → batch 参数** | **P0** | **🟢 done** | **Codex / Claude Code** | **100%** |
+| **TASK_FLOW_REFACTOR_006C1** | **执行流上下文传递：conditional-order 前端透传** | **P0** | **🟢 done** | **Codex / Claude Code** | **100%** |
+| **TASK_FLOW_REFACTOR_006C2A** | **执行流上下文持久化：conditional-order context 侧表写入** | **P0** | **🟢 done** | **Codex** | **100%** |
+| **TASK_FLOW_REFACTOR_006C2B** | **执行流上下文持久化：conditional-order 查询聚合侧表** | **P0** | **🟢 done** | **Codex** | **100%** |
+| **TASK_FLOW_REFACTOR_006C2C1** | **执行流上下文持久化：report-storage 导入路径对齐侧表** | **P0** | **🟢 done** | **Codex** | **100%** |
+| **TASK_FLOW_REFACTOR_006C2C2** | **执行流上下文持久化：backtest-to-conditional 导入路径对齐侧表** | **P0** | **🟢 done** | **Codex** | **100%** |
+| **TASK_FLOW_REFACTOR_006C2C3** | **执行流上下文持久化：conditional-order 报告导入旧写法对齐侧表** | **P0** | **🟢 done** | **Codex** | **100%** |
+| **TASK_FLOW_REFACTOR_007A** | **执行反馈回流：execution_feedback migration** | **P0** | **🟢 done** | **Codex** | **100%** |
+| **TASK_FLOW_REFACTOR_007B** | **执行反馈回流：条件单成交写 simulated_trade** | **P0** | **🟢 done** | **Codex** | **100%** |
+| **TASK_FLOW_REFACTOR_007C** | **执行反馈回流：触发未成交写 conditional_trigger** | **P0** | **🟢 done** | **Codex / Claude Code** | **100%** |
+| **TASK_FLOW_REFACTOR_017A** | **执行流可见性：analysis 策略上下文 banner** | **P0** | **🟢 done** | **Codex / Claude Code** | **100%** |
+| **TASK_FLOW_REFACTOR_017B** | **执行流浏览器回归：analysis → monitor-pool** | **P0** | **🟢 done** | **Codex** | **100%** |
+| **TASK_FLOW_REFACTOR_017C** | **执行流浏览器回归：analysis → monitor-pool → conditional-order** | **P0** | **🟢 done** | **Codex / Claude Code** | **100%** |
+| **TASK_FLOW_REFACTOR_018A** | **研究流发布桥收口：发布即公开可见** | **P0** | **🟢 done** | **Codex / subagent** | **100%** |
+| **TASK_FLOW_REFACTOR_018B** | **策略库页面反馈展示：public API + feedback 摘要** | **P0** | **🟢 done** | **Codex / subagent** | **100%** |
+| **TASK_FLOW_REFACTOR_019A** | **V5 研究输入显式化：页面摘要 + parallelTasks 提交** | **P0** | **🟢 done** | **Codex / subagent** | **100%** |
+| **TASK_FLOW_REFACTOR_019B** | **V5 任务输入摘要：status API 回显** | **P0** | **🟢 done** | **Codex / subagent** | **100%** |
+| **TASK_FLOW_REFACTOR_020A** | **V5 任务快照持久化：status 回读 SQLite 快照** | **P0** | **🟢 done** | **Codex / subagent** | **100%** |
+| **TASK_FLOW_REFACTOR_020B** | **V5 页面刷新恢复：恢复最近迭代任务** | **P0** | **🟢 done** | **Codex / subagent** | **100%** |
+| **TASK_FLOW_REFACTOR_021A** | **V5 运行态展示增强：恢复后显示当前任务输入与最佳结果** | **P0** | **🟢 done** | **Codex / subagent** | **100%** |
+| **TASK_FLOW_REFACTOR_022A** | **V5 结果摘要持久化：status 回读 resultSummary** | **P0** | **🟢 done** | **Codex / subagent** | **100%** |
+| **TASK_FLOW_REFACTOR_022B** | **V5 结果摘要展示：恢复后显示任务结果摘要** | **P0** | **🟢 done** | **Codex / subagent** | **100%** |
+| **TASK_FLOW_REFACTOR_023A** | **V5 恢复链路回归：刷新恢复任务的轻量页面测试** | **P0** | **🟢 done** | **Codex / subagent** | **100%** |
+| **TASK_FLOW_REFACTOR_023B** | **V5 终态恢复回归：completed/stopped 轻量页面测试** | **P0** | **🟢 done** | **Codex / subagent** | **100%** |
+| **TASK_FLOW_REFACTOR_024A** | **V5 终态徽标语义修复：stopped/failed 不再误报完成** | **P0** | **🟢 done** | **Codex / subagent** | **100%** |
+| **TASK_FLOW_REFACTOR_024B** | **V5 回归入口收口：iteration-manager 测试纳入默认 runner** | **P0** | **🟢 done** | **Codex / subagent** | **100%** |
+| **TASK_FLOW_REFACTOR_025A** | **旧红灯收口：TASK_TEST_001 mock/数据口径修复** | **P0** | **🟢 done** | **Codex / subagent** | **100%** |
+| **TASK_FLOW_REFACTOR_025B** | **旧红灯收口：TASK_TEST_002 mock/字段语义修复** | **P0** | **🟢 done** | **Codex / subagent** | **100%** |
+| **TASK_FLOW_REFACTOR_025C** | **旧红灯收口：TASK_TEST_003 交易日起点 mock 修复** | **P0** | **🟢 done** | **Codex / subagent** | **100%** |
+| **TASK_FLOW_REFACTOR_025D** | **旧红灯收口：TASK_TEST_004 性能测试 mock/缓存口径修复** | **P0** | **🟢 done** | **Codex / subagent** | **100%** |
+| **TASK_FLOW_REFACTOR_026A** | **V5_007 最小闭环：真实评分 CLI** | **P0** | **🟢 done** | **Codex / subagent** | **100%** |
+| **TASK_FLOW_REFACTOR_026B** | **V5_007 最小闭环：Optuna 脚本接入真实评分 CLI** | **P0** | **🟢 done** | **Codex / subagent** | **100%** |
+| **TASK_FLOW_REFACTOR_026C** | **V5_007 环境收口：安装 optuna 并跑通 1-trial smoke** | **P0** | **🟢 done** | **Codex** | **100%** |
+| **TASK_FLOW_REFACTOR_027A** | **V5_007 研究流接入：iteration-manager 后端支持 optuna 启动** | **P0** | **🟢 done** | **Codex / subagent** | **100%** |
+| **TASK_FLOW_REFACTOR_027B** | **V5_007 研究流接入：iteration-manager 页面支持 optimizationBackend** | **P0** | **🟢 done** | **Codex / subagent** | **100%** |
+| **TASK_FLOW_REFACTOR_027C** | **V5_007 研究流接入：浏览器 smoke 验证 optuna 请求链路** | **P0** | **🟢 done** | **Codex / subagent** | **100%** |
 | TASK_P0_001 | 黑天鹅检测模块 | P0 | 🟢 accepted | 灵爪 | 100% |
 | TASK_P0_002 | 舆情因子计算模块 | P0 | 🟢 accepted | 灵爪 | 100% |
 | TASK_P0_003 | 因子快照库模块 | P0 | 🟢 accepted | 灵爪 | 100% |
@@ -19,8 +61,6 @@
 | TASK_P1_002 | 异步流水线模块 | P1 | 🟢 accepted | 灵爪 | 100% |
 | TASK_P1_003 | 时间衰减函数优化 | P1 | 🟢 accepted | 灵爪 | 100% |
 | TASK_POSITION_MONITOR | 持仓监控功能 | P0 | 🟢 accepted | 灵爪 | 100% |
-| ~~TASK_STRATEGY_LIB_001~~ | ~~策略模板库设计与实现~~ | ~~P0~~ | ~~🟡 acceptance_failed~~ | ~~Claude Code~~ | ~~90%~~ |
-| ~~TASK_STRATEGY_LIB_001_FIX_001~~ | ~~策略执行脚本数据库导出修复~~ | ~~P0~~ | ~~🟡 in_progress~~ | ~~Claude Code~~ | ~~0%~~ |
 | ~~TASK_BACKTEST_SYSTEM_001~~ | ~~回测系统完整功能实现~~ | ~~P0~~ | ~~🟢 accepted~~ | ~~Claude Code~~ | ~~100%~~ |
 | ~~└─ TASK_BACKTEST_001~~ | ~~策略执行脚本数据库导出~~ | ~~P0~~ | ~~🟢 accepted~~ | ~~Claude Code~~ | ~~100%~~ |
 | ~~└─ TASK_BACKTEST_002~~ | ~~回测引擎核心功能~~ | ~~P0~~ | ~~🟢 accepted~~ | ~~Claude Code~~ | ~~100%~~ |
@@ -42,43 +82,168 @@
 | **TASK_109** | **v2.0 架构规划文档** | **🔴重要紧急** | **🟢 done** | **灵爪** | **100%** |
 | **TASK_103** | **条件单界面重构：stock_analyzer.py 结构化改造** | **🔴重要紧急** | **🟢 done** | **Claude Code** | **100%** |
 | **TASK_104** | **analysis.js API 适配 v2** | **🔴重要紧急** | **🟢 done** | **Claude Code** | **100%** |
+| **TASK_SELECT_FIX_001** | **选股功能割裂问题修复** | **🔴重要紧急** | **🟢 done** | **灵爪** | **100%** |
+| └─ 问题 1 | 选股逻辑割裂（行业指数 vs 概念板块） | P0 | 🟢 fixed | 灵爪 | 100% |
+| └─ 问题 2 | 休市日数据为空（ths_hot 接口） | P0 | 🟢 fixed | 灵爪 | 100% |
+| └─ 问题 3 | 个股评分缺失 | P0 | 🟢 fixed | 灵爪 | 100% |
+| **TASK_V4_V5_E2E_FIX_001~004** | **V4/V5 E2E 验收失败修复** | **🔴重要紧急** | **🟢 done** | **灵爪** | **100%** |
+| └─ TASK_E2E_FIX_001 | stock_factor_snapshot 数据回填 | P0 | 🟢 done | 灵爪 | 100% |
+| └─ TASK_E2E_FIX_002 | backtest.html 添加#maxPosition 控件 | P0 | 🟢 done | 灵爪 | 100% |
+| └─ TASK_E2E_FIX_003 | V5 迭代管理器 API 实现 | P0 | 🟢 done | 灵爪 | 100% |
+| └─ TASK_E2E_FIX_004 | 回测结果显示修复 | P0 | 🟢 done | 灵爪 | 100% |
+| **TASK_E2E_FIX_005** | **日期选择器禁用非交易日 UI** | **🔴重要紧急** | **🟢 done** | **灵爪** | **100%** |
+| └─ 前端 | Flatpickr 日历组件，非交易日灰色禁用 | P0 | 🟢 done | 灵爪 | 100% |
+| └─ 后端 | select.js 调整到上一个交易日 | P0 | 🟢 done | 灵爪 | 100% |
+| └─ 后端 | market-data.js 优先查询数据库 | P0 | 🟢 done | 灵爪 | 100% |
+| **TASK_SNAPSHOT_006** | **选股报告保存功能** | **🔴重要紧急** | **🟢 done** | **Codex / Claude Code** | **100%** |
+| **TASK_SNAPSHOT_001~005** | **历史快照数据表 + 回填** | **🔴重要紧急** | **🟢 done** | **Gemini CLI / Codex** | **100%** |
 
 ---
 
 ## 📋 状态说明
 
-### ✅ 已完成任务（8 个）
+### ✅ 已完成任务（持续累计）
 
 所有 P0/P1 任务已完成并验收通过。
 
-### 🔄 进行中任务
+**最新完成** (2026-03-28):
+- TASK_FLOW_REFACTOR_027C: 已补 Playwright 浏览器 smoke，验证 `iteration-manager` 在真实浏览器里会带上 `optimizationBackend=optuna` 与导入后的 `parallelTasks`
+- TASK_FLOW_REFACTOR_027B: `iteration-manager.html` 已新增 `heuristic / optuna` 选择器，启动请求会显式提交 `optimizationBackend`
+- TASK_FLOW_REFACTOR_027A: `iteration-manager` 后端已正式支持 `optimizationBackend=optuna`，可从研究流启动真实优化脚本
+- TASK_FLOW_REFACTOR_026C: 当前环境已安装 `optuna 4.8.0`，并用真实数据库样本跑通了 `1` 个真实 trial；V5_007 进入“最小可运行”状态
+- TASK_FLOW_REFACTOR_026B: `scripts/optuna_optimizer.py` 已移除 `75.0` 占位分数，`objective()` 改为调用真实评分 CLI；当前只剩环境未安装 `optuna`
+- TASK_FLOW_REFACTOR_026A: 已新增 `scripts/real_score_cli.mjs`，用 `BacktestEngine + quickScore` 打通最小真实评分闭环，并显式拦住 mock 数据降级
+- TASK_FLOW_REFACTOR_025D: `TASK_TEST_004` 的 SQL mock 识别已收口，性能测试由 `4/2` 收口为 `6/0`；默认 `run-all-tests` 达到 `42/42`
+- TASK_FLOW_REFACTOR_025C: `TASK_TEST_003` 的交易日起点 mock 已对齐，完整流程集成测试由 `5/1` 收口为 `6/0`；总 runner 提升到 `40/42`
+- TASK_FLOW_REFACTOR_025B: `TASK_TEST_002` 的 mock/字段语义已收口，回测引擎集成测试由 `4/4` 收口为 `8/0`；总 runner 提升到 `39/42`
+- TASK_FLOW_REFACTOR_025A: `TASK_TEST_001` 的 mock/测试数据口径已修正，决策引擎单元测试由 `5/2` 收口为 `7/0`
+- TASK_FLOW_REFACTOR_024B: 默认 `run-all-tests` 已纳入 9 条 iteration-manager 回归；总 runner 仍被旧 V4 套件拖红，但接入目标已完成
+- TASK_FLOW_REFACTOR_024A: 修复运行态轮询在 `stopped/failed` 终态下的徽标语义，`stopped` 不再误报为“完成”
+- TASK_FLOW_REFACTOR_023B: 已补 completed/stopped 恢复回归，覆盖终态恢复后不继续轮询、结果摘要正确显示
+- TASK_FLOW_REFACTOR_023A: 已补“刷新恢复任务”的轻量页面回归，覆盖输入摘要/最佳结果/结果摘要/失败清缓存
+- TASK_FLOW_REFACTOR_022B: `iteration-manager.html` 恢复后已显示任务结果摘要，并保持既有恢复链路通过
+- TASK_FLOW_REFACTOR_022A: 迭代任务结果摘要已持久化到 `iteration_task_runs`，status 可回读 `resultSummary`
+- TASK_FLOW_REFACTOR_021A: `iteration-manager.html` 恢复后已显示当前任务输入摘要与当前最佳结果，且未破坏既有 research input 能力
+- TASK_FLOW_REFACTOR_020B: `iteration-manager.html` 已支持刷新后恢复最近任务，404/失败时会清理本地缓存
+- TASK_FLOW_REFACTOR_020A: 迭代任务最小快照已落到 `iteration_task_runs`，status 可回读 SQLite 快照
+- TASK_FLOW_REFACTOR_019B: `GET /api/iteration/status/:taskId` 已返回 `inputSummary`，任务输入上下文可读
+- TASK_FLOW_REFACTOR_019A: `iteration-manager.html` 已显式展示研究输入，并真实提交 `parallelTasks`
+- TASK_FLOW_REFACTOR_018B: `strategy-config.html` 已切到真实 `/api/strategy-config/*` 路径，并在公开策略列表展示反馈摘要
+- TASK_FLOW_REFACTOR_018A: `publishVersionToStrategyLibrary()` 已显式写入 `is_public = 1`，发布后的策略可进入 public 口径
+- TASK_FLOW_REFACTOR_007C: 条件已触发但未成交的失败场景，现已写入 `execution_feedback.conditional_trigger`，并兼容旧缺表环境
+- TASK_FLOW_REFACTOR_007B: 条件单执行成功后已同步写入 `execution_feedback.simulated_trade`
+- TASK_FLOW_REFACTOR_007A: `execution_feedback` migration 已创建并应用到真实数据库，schema 测试通过
+- TASK_FLOW_REFACTOR_006C2C3: `createFromReport()` 已改为真实 `getDatabase()` + side table 写入，报告导入旧写法完成对齐
+- TASK_FLOW_REFACTOR_006C2C2: `backtest-to-conditional#createConditionalOrderInDB()` 已补写 `conditional_order_context`，研究流来源与导入原因可持久化
+- TASK_FLOW_REFACTOR_006C2C1: `report-storage#importToOrderFromReport()` 已停止依赖 `conditional_order.remark`，并将报告来源说明 / `report_id` 写入 `conditional_order_context`
+- TASK_FLOW_REFACTOR_006C2B: 条件单列表 / 详情查询已联表返回策略上下文字段，查询测试通过
+- TASK_FLOW_REFACTOR_006C2A: `conditional_order_context` 侧表 migration 与 `createConditionalOrder()` 持久化写入已完成，持久化测试通过
+- TASK_FLOW_REFACTOR_006C1: `conditional-order.html` 批量创建条件单时，已透传策略身份字段，并补了回归测试
+- TASK_FLOW_REFACTOR_006B: `monitor-pool.html` 读取草稿和组装 batch 参数时，已保留策略身份字段
+- TASK_FLOW_REFACTOR_006A: `analysis.html` 写入监控池草稿时，已继承选股页的策略身份上下文
+- TASK_FLOW_REFACTOR_005: 执行流程新增 `strategySource / strategyConfigId / strategyConfigName`，并保留 `templateId/templateName` 兼容字段
+- TASK_FLOW_REFACTOR_004: `select.html` 从策略库导入参数后，已将复制后的策略副本 `id/name` 写回当前配置，并补了复现测试
+- TASK_FLOW_REFACTOR_003: 研究流页面文案收口，`backtest.html` / `iteration-manager.html` 明确回到“回测 -> 策略迭代 -> 策略库”主线
+- TASK_FLOW_REFACTOR_002: 执行流页面文案收口，`select.html` / `analysis.html` 明确回到“选股 -> 分析 -> 监控 -> 条件单”主线
+- TASK_FLOW_REFACTOR_001: 形成系统总闭环共识，明确研究流程 / 执行流程 / 策略库中枢关系
+- TASK_V4_V5_E2E_FIX_001~004: V4/V5 E2E 验收失败修复（数据回填 826 万条、#maxPosition 控件、V5 API、回测结果显示）
+- TASK_E2E_FIX_005: 日期选择器禁用非交易日 UI（Flatpickr 日历组件，后端兜底逻辑修复）
+
+### 🔄 近期任务状态
+
+#### V5 自动迭代系统 - 完成口径回调
+
+**状态**: `阶段性完成`
+
+**说明**:
+- 本轮已确认：`select.html`、`backtest.html`、`iteration-manager.html` 的页面级与接口级链路通过浏览器 E2E 验收。
+- 但这不等同于 V5 全能力最终闭环完成。
+- `scripts/optuna_optimizer.py` 已接入真实评分 CLI，且当前环境已跑通最小 `1` trial smoke。
+- `docs/runtime/V5_FINAL_STATUS.md` 已更新为“阶段性完成（约 90%，最小可运行闭环已跑通）”。
+
+**当前结论**:
+- V4：已收口并验收通过
+- V5：框架、页面和关键链路已落地；自动优化已具备最小可运行闭环，后续重点转向更大规模 trial 与正式接入
+
+#### TASK_SNAPSHOT_006 - 选股报告保存功能实现
+
+**状态**: `done`
+
+**最新进展**:
+- 选股完成后保存到 `stock_selection_reports` 的主逻辑已存在
+- `TASK_SNAPSHOT_006A` 已完成：
+  - `/api/selection/history` 不再挂死
+  - 历史页数据源已恢复为可消费 JSON
+- `TASK_SNAPSHOT_006B` 已完成：
+  - `selection-report.html` 详情页已补齐
+  - 历史页“查看详情”链路已打通
+- `TASK_SNAPSHOT_006C1` 已完成：
+  - `backtest.html` 已支持通过历史报告 URL 参数导入股票列表
+  - 历史报告 -> 回测页的接收端已经打通
+- `TASK_SNAPSHOT_006C2` 已完成：
+  - `selection-history.html` 的“导入回测”按钮已接入真实跳转
+  - 历史报告 -> 回测页整条导入链路已闭环
+
+**验收结论**:
+- 选股报告保存功能已闭环完成
+
+#### TASK_SNAPSHOT_001~005 - 历史快照数据表 + 回填
+
+**状态**: `done`
+
+**最新进展**:
+- `stock_factor_snapshot` 表已创建，并已回填到 8269446 条历史快照
+- `policy_events` 表已创建，当前数据库中已有 56 条记录
+- `stock_selection_reports` 表已创建并已有真实数据
+- `scripts/backfill_snapshot.py` 与批量回填脚本均已存在
+
+**验收结论**:
+- 历史快照数据表与回填链路已具备完成证据，原总览 `pending` 口径已修正
+
+#### TASK_FLOW_REFACTOR_005 - 模板 / 策略库副本 / 执行配置字段语义统一
+
+**状态**: `done`
+
+**目标**:
+1. 统一 `templateId/templateName` 与“策略库副本身份”的实际含义
+2. 明确执行流程消费的是“策略库副本”还是“模板定义”
+3. 为后续“执行反馈 -> 策略管理”回流打字段基础
+
+**完成情况**:
+- `select.html` 已新增 `strategySource / strategyConfigId / strategyConfigName`
+- 模板导入与策略库副本导入两条路径已做区分
+- 通过双测试覆盖模板来源和策略库副本来源
+
+#### TASK_FLOW_REFACTOR_006 - 策略身份字段跨页面传递
+
+**状态**: `done`
+
+**目标**:
+1. 让 `analysis.html` / 监控池 / 条件单能够消费统一后的策略身份字段
+2. 为“执行反馈 -> 策略管理”建立基础上下文
+
+**拆分进度**:
+- `TASK_FLOW_REFACTOR_006A`：analysis → monitor draft ✅
+- `TASK_FLOW_REFACTOR_006B`：monitor draft → monitor-pool / batch 参数 ✅
+- `TASK_FLOW_REFACTOR_006C1`：conditional-order 前端透传 ✅
+- `TASK_FLOW_REFACTOR_006C2A`：conditional-order context 侧表写入 ✅
+- `TASK_FLOW_REFACTOR_006C2B`：conditional-order 查询聚合侧表 ✅
+- `TASK_FLOW_REFACTOR_006C2C1`：report-storage 导入路径对齐侧表 ✅
+- `TASK_FLOW_REFACTOR_006C2C2`：backtest-to-conditional 创建路径对齐 ✅
+- `TASK_FLOW_REFACTOR_006C2C3`：createFromReport 旧写法对齐 ✅
 
 #### TASK_STRATEGY_LIB_001 - 策略模板库设计与实现
 
-**状态**: `acceptance_failed`（2026-03-23 07:50 验收）
+**状态**: `done`
 
-**验收结果**:
-- ✅ 4/5 子任务通过（策略基类、双均线、多因子、配置文件）
-- ❌ 1/5 子任务不通过（策略执行脚本 - 数据库导出功能缺失）
+**最终结论**:
+- 原始验收未通过的问题已由后续修复补齐
+- `scripts/run_strategy.py` 现已支持 `--db-export`
+- `strategy_signals` 表已存在，当前数据库中已有 189 条记录
+- runtime 状态与 todo 镜像均已体现完成结果
 
-**修复任务**: TASK_STRATEGY_LIB_001_FIX_001
-
----
-
-#### TASK_STRATEGY_LIB_001_FIX_001 - 数据库导出修复
-
-**状态**: `in_progress`（2026-03-23 07:50 启动）
-
-**修复内容**:
-1. 在 `scripts/run_strategy.py` 中添加 `export_signals_to_db()` 函数
-2. 添加 `--db-export`、`--db-path`、`--strategy-id` 参数
-3. 创建 `strategy_signals` 表
-4. 测试完整流程
-
-**验收标准**:
-- [ ] 运行 `python scripts/run_strategy.py --strategy dual_ma --db-export` 成功
-- [ ] 数据库中 `strategy_signals` 表有记录
-- [ ] 信号数量与 CSV 导出一致
+**收口说明**:
+- `TASK_STRATEGY_LIB_001_FIX_001` 不再单独视为进行中任务，已并入主任务最终完成口径
 
 ---
 
@@ -92,6 +257,8 @@
 | 2026-03-23 00:55 | 策略模板库 Deep Research 完成 | ✅ |
 | 2026-03-23 07:20 | 策略模板库开发启动 | ✅ |
 | 2026-03-23 07:45 | 策略模板库开发完成 | ✅ |
+| 2026-03-26 19:00 | V4/V5 E2E 验收失败修复完成（4 项） | ✅ |
+| 2026-03-27 08:00 | 日期选择器禁用非交易日 UI 完成 | ✅ |
 | 2026-03-23 07:50 | 策略模板库验收（未通过） | ✅ |
 | 2026-03-23 12:05 | PR #4 遗留问题修复完成 | ✅ |
 | 2026-03-23 18:03 | TASK_100 回测界面功能完成 | ✅ |
@@ -322,7 +489,7 @@
 
 | 阻塞项 | 影响 | 解决方案 |
 |--------|------|----------|
-| 数据库导出功能缺失 | 策略信号无法存入数据库 | 修复任务 TASK_STRATEGY_LIB_001_FIX_001 进行中 |
+| 无 | - | 当前该板块无阻塞，后续按新增任务推进 |
 
 ---
 
@@ -340,6 +507,127 @@
 ---
 
 *最后更新：2026-03-24 14:30*
+
+---
+
+## 🚀 V4 修复阶段（已完成）
+
+**阶段目标**: 修复 V4 回测系统重构后发现的关键问题，核心功能已完成验收并收口
+
+### V4 修复任务清单
+
+| 任务 ID | 任务名称 | 优先级 | 状态 | 预计工时 | 备注 |
+|---------|----------|--------|------|---------|------|
+| **TASK_V4_FIX_006** | 核心仓/卫星仓比例不生效 | P0 | ✅ 完成 | 1h | 前端改用 `/api/backtest/joint/run`，已验收 |
+| **TASK_V4_FIX_001** | 选股时点未生效 | P0 | ✅ 完成 | 2h | `/api/select` 接口接收日期参数，已验收 |
+| **TASK_V4_FIX_004** | 回测指标缺失 | P0 | ✅ 完成 | 1h | 补充卡玛比率、盈亏比，已验收 |
+| **TASK_V4_FIX_003** | 策略参数配置 + 一键自迭代按钮 | P1 | ✅ 完成 | 1h | 5 个策略的参数配置面板，已验收 |
+| **TASK_V4_FIX_002** | 选股时点 UI 说明 | P1 | ✅ 完成 | 0.5h | 选股时点可早于回测起点，已验收 |
+| **TASK_V4_FIX_005** | 指标注释 | P1 | ✅ 完成 | 1h | 所有回测指标已添加注释并验收 |
+
+**V4 总计**: 6.5 小时  
+**V4 状态**: 🟢 已完成（2026-03-26 验收通过）
+
+---
+
+## 🔮 V5 自动迭代系统（框架已落地 / 未全闭环）
+
+**阶段目标**: 策略参数自动迭代优化、评分可视化、版本管理等框架已落地，页面链路与 E2E 已通过；但自动优化核心仍保留未完全闭环的能力点
+
+### V5 落地任务清单（页面链路/E2E 已通）
+
+| 任务 ID | 任务名称 | 优先级 | 状态 | 预计工时 | 备注 |
+|---------|----------|--------|------|---------|------|
+| **TASK_V5_000** | V5 自动迭代系统总体规划 | P0 | 🟡 pending | - | 任务规划文档，保留 pending 口径 |
+| **TASK_V5_001** | 创建策略版本数据库表 | P0 | ✅ 完成 | 1h | strategy_versions 等 3 张表 |
+| **TASK_V5_002** | 实现策略评分器 | P0 | ✅ 完成 | 2h | strategy-scorer.js |
+| **TASK_V5_003** | 实现自迭代管理页面 | P0 | ✅ 完成 | 3h | iteration-manager.html |
+| **TASK_V5_004** | 实现策略评分可视化面板 | P1 | ✅ 完成 | 2h | 雷达图/柱状图/趋势图 |
+| **TASK_V5_005** | 实现策略版本对比功能 | P1 | ✅ 完成 | 2h | 指标/参数/收益曲线对比 |
+| **TASK_V5_006** | 实现策略回测报告模板 | P1 | ✅ 完成 | 2h | PDF/HTML/Markdown 导出 |
+| **TASK_V5_007** | 实现 Optuna 参数优化集成 | P0 | 🟢 最小可运行闭环已跑通 | 3h | 已跑通 `1` trial smoke，后续补更大规模回归 |
+| **TASK_V5_008** | 实现二次迭代决策逻辑 | P1 | ✅ 完成 | 2h | 失败原因分析 + 方案选择 |
+| **TASK_V5_009** | 实现策略库 4 类策略详细设计 | P1 | ✅ 完成 | 2h | 趋势/均值回归/多因子 |
+| **TASK_V5_010** | 实现模拟账户验证周期标准 | P2 | ✅ 完成 | 1h | ≥2 周或≥30 次交易 |
+| **TASK_V5_011** | 实现实盘前检查清单标准化 | P2 | ✅ 完成 | 1h | 5 项检查清单 |
+
+**V5 规划/落地工时**: 21 小时  
+**V5 状态**: 🟡 框架已落地，页面链路/E2E 已通，自动优化核心仍待补全
+
+**收口说明**:
+- `docs/tasks/TASK_V5_000.md` 仍保留 `pending` 规划口径，不按“已验收完成”处理
+- `scripts/optuna_optimizer.py` 已不再使用假分数，且当前环境已跑通最小真实优化；后续主要工作是扩大 trial 数并正式接入迭代管理器
+- 自迭代管理页、版本管理与相关页面链路已打通，E2E 结论可保留
+
+---
+
+## 📋 V4/V5 交付收口
+
+### V4 修复阶段（已验收）
+- ✅ 策略参数配置面板（5 个策略）
+- ✅ [💾 保存初始配置] 按钮
+- ✅ [🚀 一键自迭代] 按钮（放在"开始回测"按钮旁边）
+- ✅ 点击"一键自迭代"后跳转到 V5 的"自迭代管理"页面
+
+### V5 自动迭代系统（框架已交付，能力未全闭环）
+**包含内容**:
+1. **自迭代管理页面**（新页面）
+   - 展示各策略的迭代情况
+   - 评分情况可视化（雷达图/柱状图/趋势图）
+   - 策略版本对比功能
+   - 策略回测报告模板
+
+2. **核心能力**
+   - 策略评分器（strategy-scorer.js）
+   - 策略版本管理（strategy_versions 表）
+   - 策略迭代日志（strategy_iteration_log 表）
+   - 自动参数优化流程（目前仍有 TODO / 占位实现）
+   - 模拟账户验证周期标准
+   - 实盘前检查清单标准化
+
+**收口提示**:
+- 页面链路和 E2E 已通过，可以继续沿用当前交付口径
+- `docs/tasks/TASK_V5_000.md` 仍保留 `pending` 规划口径，不能当成全量验收完成
+   - 实盘前检查清单标准化
+
+---
+
+## 📝 最近事件
+
+*2026-03-27 18:31* - TASK_FLOW_REFACTOR_015E 完成，分析页导入条件单已支持本地 `stockV2Data` 回退，不再被 TUSHARE token 依赖卡死
+*2026-03-27 18:27* - TASK_FLOW_REFACTOR_015D 完成，条件单导入在股票详情缺失时已可回退，浏览器联调确认导入、创建、来源展示整段闭环可用
+*2026-03-27 18:22* - TASK_FLOW_REFACTOR_015C 完成，条件单列表已显示策略来源与名称，执行流可直接识别条件单来源
+*2026-03-27 18:18* - TASK_FLOW_REFACTOR_015B 完成，分析页导入条件单时已附带策略身份，执行链路上游导入载荷补齐
+*2026-03-27 18:15* - TASK_FLOW_REFACTOR_015A 完成，单条导入创建条件单已透传策略身份字段，且不会污染后续手动创建
+*2026-03-27 18:08* - TASK_FLOW_REFACTOR_014B1 完成，迭代管理页雷达图已确认单例化，浏览器控制台不再出现 `Canvas is already in use`
+*2026-03-27 18:02* - TASK_FLOW_REFACTOR_014A2 完成，/api/strategy-config/public 已恢复可用，执行流公开策略入口重新打通
+*2026-03-27 17:55* - TASK_FLOW_REFACTOR_013C2 完成，真实发布链路已恢复，浏览器回归确认版本列表可从“📤 发布”刷新为“✅ 已发布”
+*2026-03-27 17:57* - TASK_FLOW_REFACTOR_013C1 完成，版本历史 API 在 strategy_config_feedback 侧表缺失时已安全回退
+*2026-03-27 17:51* - TASK_FLOW_REFACTOR_013B2 完成，迭代管理页版本列表已显示已发布状态并禁用重复发布
+*2026-03-27 17:45* - TASK_FLOW_REFACTOR_013B1 完成，版本历史 API 已附带 published_strategy_config_id / is_published_to_library
+*2026-03-27 17:23* - TASK_FLOW_REFACTOR_013A 完成，迭代管理页发布入口已对齐真实 API 返回结构，成功提示不再读取错误顶层字段
+*2026-03-27 17:15* - TASK_FLOW_REFACTOR_012 完成，选股页导入列表已展示策略 feedback，研究流到执行流入口闭环打通
+*2026-03-27 17:08* - TASK_FLOW_REFACTOR_012B1 完成，公开策略列表 API 已附带 feedback 快照
+*2026-03-27 16:58* - TASK_FLOW_REFACTOR_012A2 完成，研究版本已可发布到策略库并写入 feedback 快照
+*2026-03-27 16:45* - TASK_FLOW_REFACTOR_012A1 完成，已补 strategy_config_feedback side table 与快照 helper
+*2026-03-27 16:26* - TASK_FLOW_REFACTOR_011 完成，研究流 compare 页面已展示 execution feedback 摘要
+*2026-03-27 16:10* - TASK_FLOW_REFACTOR_011A 完成，compare API 已附带 execution feedback 信息
+*2026-03-27 16:04* - TASK_FLOW_REFACTOR_010A 完成，迭代管理页已支持按反馈状态/置信度筛选版本历史
+*2026-03-27 15:58* - TASK_FLOW_REFACTOR_009B 完成，迭代管理页已展示 feedback 状态与置信度标签
+*2026-03-27 15:51* - TASK_FLOW_REFACTOR_009A 完成，版本历史 API 已附带 execution feedback 状态与置信度
+*2026-03-27 15:43* - TASK_FLOW_REFACTOR_008 完成，迭代管理页已展示 execution feedback 摘要
+*2026-03-27 15:33* - TASK_FLOW_REFACTOR_008A 完成，版本历史 API 已可返回 execution feedback 摘要
+*2026-03-27 15:22* - TASK_FLOW_REFACTOR_007 完成，执行反馈回流最小闭环打通（execution_feedback 已覆盖 conditional_trigger / simulated_trade / position_closed）
+*2026-03-27 18:39* - TASK_FLOW_REFACTOR_015F 完成，条件单列表/详情 API 已附带策略 feedback 字段（status/confidence/trades/pnl）
+*2026-03-27 18:43* - TASK_FLOW_REFACTOR_015G 完成，条件单列表已显示执行 feedback 标签与统计摘要
+*2026-03-27 18:47* - TASK_FLOW_REFACTOR_016A 完成，监控池 add/list 已持久化并返回策略上下文
+*2026-03-27 18:50* - TASK_FLOW_REFACTOR_016B 完成，监控池列表已显示策略来源与策略名称
+*2026-03-27 18:55* - TASK_FLOW_REFACTOR_016C 完成，监控池批量创建条件单已改用正确接口并在浏览器中成功落单
+*2026-03-27 18:57* - TASK_FLOW_REFACTOR_016D 完成，监控池 -> 条件单浏览器 smoke 已固化为正式回归脚本
+*2026-03-27 19:00* - TASK_FLOW_REFACTOR_017A 完成，分析页已显示当前策略上下文 banner
+*2026-03-27 19:03* - TASK_FLOW_REFACTOR_017B 完成，分析页 -> 监控池浏览器 smoke 已固化为正式回归脚本
+*2026-03-27 19:05* - TASK_FLOW_REFACTOR_017C 完成，分析页 -> 监控池 -> 条件单全链路浏览器 smoke 已固化为正式回归脚本
+*2026-03-25 21:10* - V4 修复阶段规划完成，V5 自动迭代系统规划完成（TASK_V5_000 创建）
 
 ---
 

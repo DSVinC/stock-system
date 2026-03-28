@@ -190,6 +190,22 @@ async function createConditionalOrderInDB(orderData) {
     now
   ]);
 
+  if (orderData.source || orderData.reason) {
+    await db.runPromise(`
+      INSERT INTO conditional_order_context (
+        conditional_order_id,
+        strategy_source,
+        strategy_config_name,
+        created_at,
+        updated_at
+      ) VALUES (?, ?, ?, datetime('now'), datetime('now'))
+    `, [
+      result.lastID,
+      orderData.source || null,
+      orderData.reason || null
+    ]);
+  }
+
   return {
     id: result.lastID,
     ...orderData

@@ -8,6 +8,7 @@
 const { getDatabase } = require('./db');
 const { checkCondition } = require('./conditional-order');
 const { normalizeToDb, normalizeArrayToDb } = require('../utils/format');
+const { adjustBacktestDateRange } = require('./utils/trading-day');
 
 /**
  * 计算简单移动平均线
@@ -799,6 +800,16 @@ class BacktestEngine {
       const stdDev = Math.sqrt(variance);
       this.metrics.sharpeRatio = stdDev > 0 ? (avgReturn * 252) / (stdDev * Math.sqrt(252)) : 0;
     }
+    
+    // TASK_V4_FIX_004: 卡玛比率 = 年化收益 / 最大回撤
+    this.metrics.calmarRatio = this.metrics.maxDrawdown > 0 ? this.metrics.annualizedReturn / this.metrics.maxDrawdown : 0;
+    
+    // TASK_V4_FIX_004: 盈亏比 = 平均盈利 / 平均亏损
+    const winTrades = sellTrades.filter(t => t.profit > 0);
+    const lossTrades = sellTrades.filter(t => t.profit <= 0);
+    const avgWin = winTrades.length > 0 ? winTrades.reduce((sum, t) => sum + t.profit, 0) / winTrades.length : 0;
+    const avgLoss = lossTrades.length > 0 ? Math.abs(lossTrades.reduce((sum, t) => sum + t.profit, 0) / lossTrades.length) : 0;
+    this.metrics.profitLossRatio = avgLoss > 0 ? avgWin / avgLoss : (avgWin > 0 ? Infinity : 0);
   }
   
   /**
@@ -815,12 +826,16 @@ class BacktestEngine {
         endDate: this.config.endDate,
         initialCash: this.config.initialCash,
         finalValue: this.state.dailyValues[this.state.dailyValues.length - 1]?.totalValue || this.config.initialCash,
-        totalReturn: this.metrics.totalReturn,
-        returnRate: this.metrics.returnRate,
-        maxDrawdown: this.metrics.maxDrawdown,
-        sharpeRatio: this.metrics.sharpeRatio,
-        winRate: this.metrics.winRate,
-        tradeCount: this.metrics.tradeCount
+        // 回测指标（TASK_V4_FIX_004: 7 个核心指标）
+        totalReturn: this.metrics.totalReturn,           // 总收益（元）
+        returnRate: this.metrics.returnRate,             // 总收益率（%）
+        annualizedReturn: this.metrics.annualizedReturn, // 年化收益率（%）
+        maxDrawdown: this.metrics.maxDrawdown,           // 最大回撤（%）
+        sharpeRatio: this.metrics.sharpeRatio,           // 夏普比率（风险调整后收益）
+        calmarRatio: this.metrics.calmarRatio,           // 卡玛比率（年化收益/最大回撤）
+        profitLossRatio: this.metrics.profitLossRatio,   // 盈亏比（平均盈利/平均亏损）
+        winRate: this.metrics.winRate,                   // 胜率（%）
+        tradeCount: this.metrics.tradeCount              // 交易次数
       }
     };
   }
@@ -837,9 +852,25 @@ async function runBacktest(req, res) {
     if (!startDate || !endDate || !strategy) {
       return res.status(400).json({
         success: false,
-        error: '缺少必要参数: startDate, endDate, strategy'
+        error: '缺少必要参数：startDate, endDate, strategy'
       });
     }
+
+    // 调整日期到最近的交易日
+    let dateAdjustment = null;
+    try {
+      dateAdjustment = adjustBacktestDateRange({ startDate, endDate });
+      console.log('[回测] 日期调整：' + startDate + ' -> ' + dateAdjustment.startDate + ', ' + endDate + ' -> ' + dateAdjustment.endDate);
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        error: error.message
+      });
+    }
+
+    // 使用调整后的日期
+    const adjustedStartDate = dateAdjustment.startDate;
+    const adjustedEndDate = dateAdjustment.endDate;
 
     let conditionalOrders = [];
     // 规范化股票代码格式（转换为数据库格式）
@@ -869,19 +900,21 @@ async function runBacktest(req, res) {
     }
     
     const engine = new BacktestEngine({
-      startDate,
-      endDate,
+      startDate: adjustedStartDate,
+      endDate: adjustedEndDate,
       initialCash: initialCash || 1000000,
       strategy,
       stocks: normalizedStocks,
-      conditionalOrders
+      conditionalOrders,
+      dateAdjustment
     });
     
     const report = await engine.run();
     
     res.json({
       success: true,
-      data: report
+      data: report,
+      dateAdjustment: dateAdjustment
     });
   } catch (error) {
     console.error('[回测] 运行失败:', error);
@@ -1439,6 +1472,8 @@ const FactorSnapshotBacktest = require('./backtest-engine');
 /**
  * 运行基于因子快照的回测
  * POST /api/backtest/factor-snapshot/run
+ * TASK_V4_026: 支持 selectionDate 参数
+ * TASK_API_003: 默认启用决策引擎
  */
 async function runFactorSnapshotBacktest(req, res) {
   try {
@@ -1451,7 +1486,12 @@ async function runFactorSnapshotBacktest(req, res) {
       positionLimit = 10,
       stampDutyRate = 0.001,
       slippageRate = 0,
-      strategy = {}
+      strategy = {},
+      // TASK_V4_026: 选股时点参数
+      selectionDate = null,
+      // TASK_API_003: 决策引擎参数（默认启用）
+      useDecisionEngine = true,
+      strategyType = 'short_term'
     } = req.body;
 
     // 参数验证
@@ -1471,7 +1511,26 @@ async function runFactorSnapshotBacktest(req, res) {
       });
     }
 
+    // TASK_V4_026: 验证 selectionDate 格式
+    if (selectionDate && !dateRegex.test(selectionDate)) {
+      return res.status(400).json({
+        success: false,
+        error: 'selectionDate 日期格式必须为 YYYY-MM-DD'
+      });
+    }
+
+    // TASK_V4_026: 验证 selectionDate 不能晚于 startDate
+    if (selectionDate && new Date(selectionDate) > new Date(startDate)) {
+      return res.status(400).json({
+        success: false,
+        error: 'selectionDate 不能晚于 startDate'
+      });
+    }
+
     console.log(`[因子快照回测] 开始运行: ${startDate} 到 ${endDate}`);
+    if (selectionDate) {
+      console.log(`[因子快照回测] 选股时点: ${selectionDate} (使用该日期的快照数据进行选股)`);
+    }
     console.log(`[因子快照回测] 初始资金: ${initialCapital}, 手续费率: ${commissionRate}`);
     console.log(`[因子快照回测] 策略配置:`, JSON.stringify(strategy, null, 2));
 
@@ -1482,14 +1541,16 @@ async function runFactorSnapshotBacktest(req, res) {
       minCommission,
       positionLimit,
       stampDutyRate,
-      slippageRate
+      slippageRate,
+      selectionDate
     });
 
     // 运行回测
     const result = await backtest.run({
       startDate,
       endDate,
-      strategyConfig: strategy
+      strategyConfig: strategy,
+      selectionDate
     });
 
     // 保存回测结果到数据库
@@ -1811,6 +1872,501 @@ async function scanFactorSnapshotParameters(req, res) {
   }
 }
 
+// ============================
+// 联合回测功能 (TASK_V4_024)
+// ============================
+
+const CoreBacktestEngine = require('./backtest-core');
+const SatelliteBacktestEngine = require('./backtest-satellite');
+const { calculateJointEquity, calculateSharpeRatio, calculateMaxDrawdown, calculateAnnualizedReturn } = require('./joint-optimizer');
+
+/**
+ * 联合回测引擎
+ * 支持核心仓 + 卫星仓的联合回测
+ * TASK_API_003: 支持决策引擎配置
+ */
+class JointBacktestEngine {
+  constructor(config = {}) {
+    this.config = {
+      // 资金配置
+      initialCapital: config.initialCapital || 1000000,
+
+      // 投资组合配置
+      coreWeight: config.coreWeight || 0.7,      // 核心仓占比（默认70%）
+      satelliteWeight: config.satelliteWeight || 0.3, // 卫星仓占比（默认30%）
+
+      // 交易成本
+      commissionRate: config.commissionRate || 0.00025,
+      minCommission: config.minCommission || 5,
+      stampDutyRate: config.stampDutyRate || 0.001,
+      slippageRate: config.slippageRate || 0,
+
+      // 核心仓策略配置
+      coreStrategy: config.coreStrategy || {},
+
+      // 卫星仓网格交易配置
+      gridConfig: config.gridConfig || {},
+
+      // TASK_API_003: 决策引擎配置
+      useDecisionEngine: config.useDecisionEngine !== false, // 默认启用
+      strategyType: config.strategyType || 'short_term',
+
+      ...config
+    };
+
+    // 验证权重配置
+    const totalWeight = this.config.coreWeight + this.config.satelliteWeight;
+    if (Math.abs(totalWeight - 1) > 0.001) {
+      console.warn(`[联合回测] 权重配置不等于100%，自动调整: ${this.config.coreWeight} + ${this.config.satelliteWeight} = ${totalWeight}`);
+      // 归一化
+      this.config.coreWeight = this.config.coreWeight / totalWeight;
+      this.config.satelliteWeight = this.config.satelliteWeight / totalWeight;
+    }
+
+    // 创建子引擎
+    // TASK_API_003: 传递决策引擎配置
+    this.coreEngine = new CoreBacktestEngine({
+      ...this.config,
+      coreWeight: this.config.coreWeight,
+      useDecisionEngine: this.config.useDecisionEngine,
+      strategyType: this.config.strategyType
+    });
+
+    this.satelliteEngine = new SatelliteBacktestEngine({
+      ...this.config,
+      satelliteWeight: this.config.satelliteWeight
+    });
+
+    this.results = null;
+  }
+
+  /**
+   * 运行联合回测
+   * TASK_V4_026: 支持 selectionDate 参数
+   */
+  async run(params = {}) {
+    const {
+      startDate,
+      endDate,
+      // 核心仓配置
+      coreStrategy = {},
+      // 卫星仓配置
+      satelliteStock,
+      gridConfig = {},
+      interval = '5',
+      // TASK_V4_026: 选股时点参数
+      selectionDate = null
+    } = params;
+
+    console.log(`[联合回测] 开始联合回测: ${startDate} 到 ${endDate}`);
+    if (selectionDate) {
+      console.log(`[联合回测] 选股时点: ${selectionDate} (使用该日期的快照数据进行选股)`);
+    }
+    console.log(`[联合回测] 初始资金: ${this.config.initialCapital.toLocaleString()}`);
+    console.log(`[联合回测] 核心仓占比: ${(this.config.coreWeight * 100).toFixed(0)}%`);
+    console.log(`[联合回测] 卫星仓占比: ${(this.config.satelliteWeight * 100).toFixed(0)}%`);
+    console.log(`[联合回测] 卫星仓股票: ${satelliteStock || '未指定'}`);
+
+    const startTime = Date.now();
+
+    // 并行运行核心仓和卫星仓回测
+    const [coreResult, satelliteResult] = await Promise.allSettled([
+      // 核心仓回测
+      this.coreEngine.run({
+        startDate,
+        endDate,
+        strategyConfig: {
+          ...this.config.coreStrategy,
+          ...coreStrategy
+        },
+        selectionDate
+      }),
+      // 卫星仓回测（如果指定了股票）
+      satelliteStock
+        ? this.satelliteEngine.run({
+            startDate,
+            endDate,
+            tsCode: satelliteStock,
+            gridConfig: {
+              ...this.config.gridConfig,
+              ...gridConfig
+            },
+            interval
+          })
+        : Promise.resolve(this.generateEmptySatelliteResult())
+    ]);
+
+    // 处理结果
+    const coreData = coreResult.status === 'fulfilled' ? coreResult.value : this.generateEmptyCoreResult();
+    const satelliteData = satelliteResult.status === 'fulfilled' ? satelliteResult.value : this.generateEmptySatelliteResult();
+
+    // 记录错误
+    if (coreResult.status === 'rejected') {
+      console.error(`[联合回测] 核心仓回测失败:`, coreResult.reason);
+    }
+    if (satelliteResult.status === 'rejected') {
+      console.error(`[联合回测] 卫星仓回测失败:`, satelliteResult.reason);
+    }
+
+    // 合并结果
+    this.results = this.mergeResults(coreData, satelliteData, selectionDate);
+
+    const endTime = Date.now();
+    console.log(`[联合回测] 回测完成，耗时: ${(endTime - startTime) / 1000}秒`);
+
+    return this.results;
+  }
+
+  /**
+   * 生成空的核心仓结果
+   */
+  generateEmptyCoreResult() {
+    const coreCapital = this.config.initialCapital * this.config.coreWeight;
+    return {
+      portfolio: 'core',
+      coreWeight: this.config.coreWeight,
+      initialCapital: coreCapital,
+      finalCapital: coreCapital,
+      summary: {
+        initialCapital: coreCapital,
+        finalCapital: coreCapital,
+        totalReturn: 0,
+        annualizedReturn: 0,
+        maxDrawdown: 0,
+        sharpeRatio: 0,
+        totalTrades: 0,
+        tradingDays: 0
+      },
+      details: {
+        equityCurve: [coreCapital],
+        trades: [],
+        dates: []
+      }
+    };
+  }
+
+  /**
+   * 生成空的卫星仓结果
+   */
+  generateEmptySatelliteResult() {
+    const satelliteCapital = this.config.initialCapital * this.config.satelliteWeight;
+    return {
+      portfolio: 'satellite',
+      satelliteWeight: this.config.satelliteWeight,
+      initialCapital: satelliteCapital,
+      finalCapital: satelliteCapital,
+      summary: {
+        initialCapital: satelliteCapital,
+        finalCapital: satelliteCapital,
+        totalReturn: 0,
+        annualizedReturn: 0,
+        maxDrawdown: 0,
+        sharpeRatio: 0,
+        totalTrades: 0,
+        tradingDays: 0
+      },
+      details: {
+        equityCurve: [satelliteCapital],
+        trades: []
+      }
+    };
+  }
+
+  /**
+   * 合并核心仓和卫星仓的回测结果
+   * TASK_V4_026: 记录选股时点信息
+   */
+  mergeResults(coreResult, satelliteResult, selectionDate = null) {
+    const initialCapital = this.config.initialCapital;
+    const coreWeight = this.config.coreWeight;
+    const satelliteWeight = this.config.satelliteWeight;
+
+    // 计算联合净值曲线
+    const coreEquity = coreResult.details.equityCurve || [];
+    const satelliteEquity = satelliteResult.details.equityCurve || [];
+
+    // 对齐时间轴（取较短的对齐）
+    const minLength = Math.min(coreEquity.length, satelliteEquity.length);
+
+    // 计算联合权益曲线
+    const jointEquityCurve = [];
+    for (let i = 0; i < minLength; i++) {
+      // 如果两者长度一致，直接加权
+      if (coreEquity[i] !== undefined && satelliteEquity[i] !== undefined) {
+        jointEquityCurve.push(coreEquity[i] + satelliteEquity[i]);
+      } else if (coreEquity[i] !== undefined) {
+        // 只有核心仓数据
+        const satelliteValue = satelliteEquity[satelliteEquity.length - 1] || 0;
+        jointEquityCurve.push(coreEquity[i] + satelliteValue);
+      }
+    }
+
+    // 如果核心仓数据更长，补充剩余部分
+    for (let i = minLength; i < coreEquity.length; i++) {
+      const satelliteValue = satelliteEquity[satelliteEquity.length - 1] || 0;
+      jointEquityCurve.push(coreEquity[i] + satelliteValue);
+    }
+
+    // 如果联合权益曲线为空，使用初始资金
+    if (jointEquityCurve.length === 0) {
+      jointEquityCurve.push(initialCapital);
+    }
+
+    // 计算联合收益率序列
+    const jointReturns = [];
+    for (let i = 1; i < jointEquityCurve.length; i++) {
+      if (jointEquityCurve[i - 1] > 0) {
+        jointReturns.push((jointEquityCurve[i] - jointEquityCurve[i - 1]) / jointEquityCurve[i - 1]);
+      }
+    }
+
+    // 计算联合绩效指标
+    const finalCapital = jointEquityCurve[jointEquityCurve.length - 1];
+    const totalReturn = (finalCapital - initialCapital) / initialCapital;
+    const tradingDays = Math.max(
+      coreResult.summary.tradingDays || 0,
+      satelliteResult.summary.tradingDays || 0
+    );
+    const annualizedReturn = calculateAnnualizedReturn(totalReturn, tradingDays);
+    const maxDrawdown = calculateMaxDrawdown(jointEquityCurve);
+    const sharpeRatio = calculateSharpeRatio(jointReturns, 0.02, 252);
+
+    // 合并交易记录
+    const allTrades = [
+      ...(coreResult.details.trades || []),
+      ...(satelliteResult.details.trades || [])
+    ];
+
+    return {
+      success: true,
+      portfolio: 'joint',
+      config: {
+        initialCapital,
+        coreWeight,
+        satelliteWeight,
+        coreWeightPercent: `${(coreWeight * 100).toFixed(0)}%`,
+        satelliteWeightPercent: `${(satelliteWeight * 100).toFixed(0)}%`
+      },
+
+      // TASK_V4_026: 添加选股时点和回测区间信息
+      backtestInfo: {
+        selectionDate: selectionDate || null,
+        backtestStartDate: coreResult.backtestInfo?.backtestStartDate || coreResult.details.dates[0],
+        backtestEndDate: coreResult.backtestInfo?.backtestEndDate || coreResult.details.dates[coreResult.details.dates.length - 1],
+        actualTradingDays: tradingDays,
+        futureFunctionProtection: !!selectionDate,
+        selectionSnapshotCount: coreResult.backtestInfo?.selectionSnapshotCount || 0
+      },
+
+      // 联合结果
+      summary: {
+        initialCapital,
+        finalCapital,
+        totalReturn,
+        returnRate: totalReturn, // P0-4: 兼容前端字段名
+        annualizedReturn,
+        maxDrawdown,
+        sharpeRatio,
+        totalTrades: allTrades.filter(t => t.action === 'SELL').length,
+        tradeCount: allTrades.filter(t => t.action === 'SELL').length, // P0-4: 兼容前端字段名
+        winRate: allTrades.length > 0 ? allTrades.filter(t => t.profit > 0).length / allTrades.filter(t => t.action === 'SELL').length : 0,
+        tradingDays
+      },
+
+      // 核心仓结果
+      core: {
+        weight: coreWeight,
+        initialCapital: coreResult.initialCapital,
+        finalCapital: coreResult.finalCapital,
+        totalReturn: coreResult.summary.totalReturn,
+        annualizedReturn: coreResult.summary.annualizedReturn,
+        maxDrawdown: coreResult.summary.maxDrawdown,
+        sharpeRatio: coreResult.summary.sharpeRatio,
+        totalTrades: coreResult.summary.totalTrades,
+        trades: coreResult.details.trades,
+        // TASK_V4_026: 添加选股结果
+        selectedStocks: coreResult.details.selectedStocks || []
+      },
+
+      // 卫星仓结果
+      satellite: {
+        weight: satelliteWeight,
+        initialCapital: satelliteResult.initialCapital,
+        finalCapital: satelliteResult.finalCapital,
+        totalReturn: satelliteResult.summary.totalReturn,
+        annualizedReturn: satelliteResult.summary.annualizedReturn,
+        maxDrawdown: satelliteResult.summary.maxDrawdown,
+        sharpeRatio: satelliteResult.summary.sharpeRatio,
+        totalTrades: satelliteResult.summary.totalTrades,
+        gridStats: satelliteResult.summary.gridStats,
+        trades: satelliteResult.details.trades
+      },
+
+      // 详细数据
+      details: {
+        jointEquityCurve,
+        jointReturns,
+        coreEquityCurve: coreResult.details.equityCurve,
+        satelliteEquityCurve: satelliteResult.details.equityCurve,
+        allTrades,
+        dates: coreResult.details.dates || satelliteResult.details.dates || []
+      },
+
+      // 原始结果
+      rawResults: {
+        core: coreResult,
+        satellite: satelliteResult
+      }
+    };
+  }
+
+  /**
+   * 获取回测结果
+   */
+  getResults() {
+    return this.results;
+  }
+}
+
+/**
+ * 运行联合回测 API
+ * POST /api/backtest/joint/run
+ * TASK_V4_026: 支持 selectionDate 参数
+ * TASK_API_003: 默认启用决策引擎
+ */
+async function runJointBacktest(req, res) {
+  try {
+    const {
+      startDate,
+      endDate,
+      initialCapital = 1000000,
+      coreWeight = 0.7,
+      satelliteWeight = 0.3,
+      coreStrategy = {},
+      satelliteStock,
+      gridConfig = {},
+      interval = '5',
+      // TASK_V4_026: 选股时点参数
+      selectionDate = null,
+      // TASK_API_003: 决策引擎参数（默认启用）
+      useDecisionEngine = true,
+      strategyType = 'short_term'
+    } = req.body;
+
+    // 参数验证
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        error: '必须提供 startDate 和 endDate 参数'
+      });
+    }
+
+    // satelliteStock 为可选参数，未提供时仅运行核心仓回测
+    if (!satelliteStock) {
+      console.log(`[联合回测] 仅核心仓回测模式`);
+    }
+
+    // 验证日期格式
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
+      return res.status(400).json({
+        success: false,
+        error: '日期格式必须为 YYYY-MM-DD'
+      });
+    }
+
+    // TASK_V4_026: 验证 selectionDate 格式
+    if (selectionDate && !dateRegex.test(selectionDate)) {
+      return res.status(400).json({
+        success: false,
+        error: 'selectionDate 日期格式必须为 YYYY-MM-DD'
+      });
+    }
+
+    // TASK_V4_026: 验证 selectionDate 不能晚于 startDate
+    if (selectionDate && new Date(selectionDate) > new Date(startDate)) {
+      return res.status(400).json({
+        success: false,
+        error: 'selectionDate 不能晚于 startDate'
+      });
+    }
+
+    console.log(`[联合回测API] 开始运行: ${startDate} 到 ${endDate}`);
+    if (selectionDate) {
+      console.log(`[联合回测API] 选股时点: ${selectionDate} (使用该日期的快照数据进行选股)`);
+    }
+    // TASK_API_003: 输出决策引擎配置
+    console.log(`[联合回测API] 决策引擎: ${useDecisionEngine ? '启用' : '禁用'}, 策略类型: ${strategyType}`);
+    console.log(`[联合回测API] 核心仓占比: ${(coreWeight * 100).toFixed(0)}%, 卫星仓占比: ${(satelliteWeight * 100).toFixed(0)}%`);
+
+    // 创建联合回测引擎
+    // TASK_API_003: 传递决策引擎配置
+    const engine = new JointBacktestEngine({
+      initialCapital,
+      coreWeight,
+      satelliteWeight,
+      coreStrategy,
+      gridConfig,
+      selectionDate,
+      // TASK_API_003: 决策引擎配置
+      useDecisionEngine,
+      strategyType
+    });
+
+    // 运行回测
+    const result = await engine.run({
+      startDate,
+      endDate,
+      coreStrategy,
+      satelliteStock,
+      gridConfig,
+      interval,
+      selectionDate
+    });
+
+    res.json({
+      success: true,
+      data: result
+    });
+
+  } catch (error) {
+    console.error('[联合回测] 运行失败:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+/**
+ * 获取联合回测默认配置 API
+ * GET /api/backtest/joint/config
+ */
+async function getJointBacktestConfig(req, res) {
+  try {
+    res.json({
+      success: true,
+      data: {
+        defaultWeights: {
+          core: 0.7,
+          satellite: 0.3
+        },
+        gridConfig: {
+          stepPercent: { min: 0.5, max: 2.0, default: 1.0, label: '网格步长(%)' },
+          basePosition: { min: 100, max: 5000, default: 1000, label: '基础持仓量' },
+          maxPosition: { min: 1000, max: 10000, default: 5000, label: '最大持仓量' }
+        },
+        intervals: ['1', '5', '15', '30', '60']
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
 module.exports = {
   BacktestEngine,
   runBacktest,
@@ -1823,5 +2379,12 @@ module.exports = {
   runFactorSnapshotBacktest,
   getFactorSnapshotBacktestHistory,
   getFactorSnapshotBacktestDetail,
-  scanFactorSnapshotParameters
+  scanFactorSnapshotParameters,
+
+  // TASK_V4_024: 联合回测
+  JointBacktestEngine,
+  CoreBacktestEngine,
+  SatelliteBacktestEngine,
+  runJointBacktest,
+  getJointBacktestConfig
 };

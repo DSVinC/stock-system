@@ -1,0 +1,58 @@
+{
+  "template_id": "ROTATION_V1",
+  "name": "行业轮动策略",
+  "description": "基于行业景气度周期轮动的配置策略，动态调整行业权重，适合中长期投资",
+  "version": "1.0.0",
+  "params": {
+    "industry_weights": {
+      "social": 0.30,
+      "policy": 0.30,
+      "sentiment": 0.20,
+      "commercial": 0.20
+    },
+    "factor_weights": {
+      "value": 0.20,
+      "growth": 0.25,
+      "profitability": 0.20,
+      "safety": 0.15,
+      "technical": 0.10,
+      "capital": 0.05,
+      "sentiment": 0.05
+    },
+    "rotation": {
+      "lookback_period": 20,
+      "rotation_threshold": 0.15,
+      "max_rotation_frequency": "monthly",
+      "min_industry_score_diff": 0.10
+    },
+    "selection": {
+      "industry_top_n": 8,
+      "stock_top_n_per_industry": 2,
+      "min_seven_factor_score": 0.70,
+      "pe_max": 50,
+      "peg_max": 1.5,
+      "revenue_growth_min": 0.15,
+      "gross_margin_min": 0.20
+    },
+    "position": {
+      "core_ratio": 0.60,
+      "satellite_ratio": 0.40,
+      "satellite_count": 4
+    },
+    "grid": {
+      "step": 0.015,
+      "price_range": "6_months",
+      "single_amount": 40000,
+      "trend_filter": true
+    },
+    "risk_control": {
+      "max_drawdown": -0.25,
+      "min_annual_return": 0.12,
+      "min_win_rate": 0.60
+    }
+  },
+  "compatible_with": ["selection", "backtest", "monitor"],
+  "is_default": false,
+  "created_at": "2026-03-25",
+  "author": "system"
+}
