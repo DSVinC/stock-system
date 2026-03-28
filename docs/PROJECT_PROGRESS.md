@@ -630,6 +630,7 @@
 
 ## 📝 最近事件
 
+*2026-03-28 10:43* - TASK_FLOW_REFACTOR_036C 完成，README 默认总测口径由 42/42 更新为 46/46，并复核默认总测全绿
 *2026-03-28 10:40* - TASK_FLOW_REFACTOR_036B 完成，新增迭代报告导出接口契约文档 docs/api-contracts/iteration-report.md，导出接口已形成可交接合同
 *2026-03-28 10:36* - TASK_FLOW_REFACTOR_036A 完成，V5_000 对照文档已回写：V5_006、V5_010、V5_011 调整为已落地口径并补 035A~035F 映射
 *2026-03-28 10:31* - TASK_FLOW_REFACTOR_035F 完成，迭代管理页新增“一键导出报告”按钮并接入 Markdown 导出 API，新增前端下载回归，默认总测 46/46
