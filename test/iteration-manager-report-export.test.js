@@ -180,6 +180,8 @@ async function main() {
     assert.ok(markdown.includes('## 最佳参数'));
     assert.ok(markdown.includes('## 实盘前检查'));
     assert.ok(markdown.includes('## 下一步建议'));
+    assert.ok(markdown.includes('## 执行清单'));
+    assert.ok(markdown.includes('## 约束条件'));
 
     const unsupportedRes = await invokeRouter(iterationRouter, 'GET', `/report/${taskId}?format=json`);
 

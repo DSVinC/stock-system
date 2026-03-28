@@ -293,6 +293,139 @@ function deriveNextActionSuggestion(task) {
   };
 }
 
+function deriveTuningPlan(task, nextActionSuggestion) {
+  const action = nextActionSuggestion?.action || 'increase_trials';
+  const basePlan = {
+    action,
+    priority: 'medium',
+    steps: [],
+    guardrails: []
+  };
+
+  if (action === 'tighten_risk_limits') {
+    return {
+      ...basePlan,
+      priority: 'high',
+      steps: [
+        '下调止损阈值 1%（例如从 8% 调整到 7%）',
+        '下调单笔最大仓位 10%',
+        '保持入场逻辑不变，先验证回撤改善效果'
+      ],
+      guardrails: [
+        '最大回撤目标 < 20%',
+        '不得通过过度减少交易次数掩盖风险'
+      ]
+    };
+  }
+
+  if (action === 'recalibrate_slippage_model') {
+    return {
+      ...basePlan,
+      priority: 'high',
+      steps: [
+        '将滑点或冲击成本假设提高 0.1%~0.2%',
+        '复核手续费、印花税与撮合成交价口径',
+        '在同区间重跑并对比 simulationDeviation'
+      ],
+      guardrails: [
+        '模拟偏差绝对值目标 < 20%',
+        '参数调整后必须保持评分逻辑一致'
+      ]
+    };
+  }
+
+  if (action === 'switch_strategy_template') {
+    return {
+      ...basePlan,
+      priority: 'high',
+      steps: [
+        '切换到备选策略模板（趋势/均值/多因子）',
+        '保留相同回测区间进行横向对比',
+        '胜率与收益同时改善后再进入下一轮优化'
+      ],
+      guardrails: [
+        '胜率目标 >= 45%',
+        '避免仅追求胜率而显著牺牲收益'
+      ]
+    };
+  }
+
+  if (action === 'optimize_exit_ratio') {
+    return {
+      ...basePlan,
+      steps: [
+        '优先调整止盈止损比（Risk-Reward Ratio）',
+        '固定入场条件，按网格搜索测试退出参数',
+        '优先选择夏普与回撤同时改善的组合'
+      ],
+      guardrails: [
+        '夏普目标 >= 1.0',
+        '最大回撤不可恶化'
+      ]
+    };
+  }
+
+  if (action === 'increase_holding_period') {
+    return {
+      ...basePlan,
+      steps: [
+        '将最大持仓周期提高约 20%',
+        '观察单笔盈亏分布是否向右偏移',
+        '若交易频次骤降则回退一档周期'
+      ],
+      guardrails: [
+        '收益率目标 >= 10%',
+        '交易样本数保持可统计'
+      ]
+    };
+  }
+
+  if (action === 'complete_preflight_checklist') {
+    return {
+      ...basePlan,
+      priority: 'high',
+      steps: [
+        '补齐实盘前检查缺口（偏差/风控参数/飞书测试）',
+        '确认 deploymentReadiness 全部为 pass',
+        '检查完成后再执行发布流程'
+      ],
+      guardrails: [
+        'failedCount 必须为 0',
+        'pendingCount 必须为 0'
+      ]
+    };
+  }
+
+  if (action === 'publish_to_strategy_library') {
+    return {
+      ...basePlan,
+      priority: 'high',
+      steps: [
+        '将当前最佳参数发布到策略库',
+        '写入版本备注与回测报告快照',
+        '进入执行流做监控池与条件单验证'
+      ],
+      guardrails: [
+        '发布前需保留可回滚版本',
+        '发布后必须跟踪真实执行反馈'
+      ]
+    };
+  }
+
+  return {
+    ...basePlan,
+    steps: [
+      '增加迭代轮数（建议 +50%）',
+      '扩展参数搜索范围并保持边界约束',
+      '优先保留得分提升最稳定的参数组合'
+    ],
+    guardrails: [
+      '避免参数越界导致策略不可解释',
+      '每轮需保留可复现实验记录'
+    ]
+  };
+}
+
 function buildTaskResponse(task) {
   if (!task) return null;
 
@@ -342,6 +475,7 @@ function buildTaskResultSummary(task) {
   const requestedTrials = parseOptionalFiniteNumber(requestedTrialsRaw);
   const completedTrials = parseOptionalFiniteNumber(completedTrialsRaw);
   const nextActionSuggestion = deriveNextActionSuggestion(task);
+  const tuningPlan = deriveTuningPlan(task, nextActionSuggestion);
   const deploymentReadiness = deriveDeploymentReadiness(task);
 
   return {
@@ -356,6 +490,7 @@ function buildTaskResultSummary(task) {
     stopReason: task.stopReason || null,
     completedAt: task.completedAt || null,
     nextActionSuggestion,
+    tuningPlan,
     deploymentReadiness,
     ...(optimizationBackend === 'optuna'
       ? {
@@ -377,6 +512,9 @@ function generateIterationReportMarkdown(taskPayload) {
   const checks = readiness && Array.isArray(readiness.checks) ? readiness.checks : [];
   const nextAction = summary.nextActionSuggestion && typeof summary.nextActionSuggestion === 'object'
     ? summary.nextActionSuggestion
+    : null;
+  const tuningPlan = summary.tuningPlan && typeof summary.tuningPlan === 'object'
+    ? summary.tuningPlan
     : null;
   const stocks = Array.isArray(inputSummary.stocks) ? inputSummary.stocks : [];
   const bestParams = task.bestParams && typeof task.bestParams === 'object' ? task.bestParams : {};
@@ -441,6 +579,20 @@ function generateIterationReportMarkdown(taskPayload) {
   } else {
     lines.push(`- 建议动作: ${nextAction.title || nextAction.action || '--'}`);
     lines.push(`- 建议原因: ${nextAction.reason || '--'}`);
+  }
+
+  if (tuningPlan && Array.isArray(tuningPlan.steps) && tuningPlan.steps.length > 0) {
+    lines.push('', '## 执行清单');
+    lines.push(`- 优先级: ${tuningPlan.priority || '--'}`);
+    for (const step of tuningPlan.steps) {
+      lines.push(`- ${step}`);
+    }
+    if (Array.isArray(tuningPlan.guardrails) && tuningPlan.guardrails.length > 0) {
+      lines.push('', '## 约束条件');
+      for (const guardrail of tuningPlan.guardrails) {
+        lines.push(`- ${guardrail}`);
+      }
+    }
   }
 
   lines.push('', `> 报告生成时间: ${new Date().toISOString()}`);

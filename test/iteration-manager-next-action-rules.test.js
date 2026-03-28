@@ -41,41 +41,50 @@ function main() {
     taskId: 'ITER_RULE_DRAWDOWN',
     metrics: { maxDrawdown: -0.23, winRate: 0.52 }
   });
+  const drawdownSummary = buildTaskResultSummary(drawdownTask);
   assert.equal(
-    buildTaskResultSummary(drawdownTask).nextActionSuggestion.action,
+    drawdownSummary.nextActionSuggestion.action,
     'tighten_risk_limits',
     '高回撤应优先建议收紧风险'
   );
+  assert.equal(drawdownSummary.tuningPlan.action, 'tighten_risk_limits');
+  assert.ok(drawdownSummary.tuningPlan.steps.length >= 3);
 
   const deviationTask = buildTask({
     taskId: 'ITER_RULE_DEVIATION',
     metrics: { maxDrawdown: -0.1, winRate: 0.52, simulationDeviation: 0.28 }
   });
+  const deviationSummary = buildTaskResultSummary(deviationTask);
   assert.equal(
-    buildTaskResultSummary(deviationTask).nextActionSuggestion.action,
+    deviationSummary.nextActionSuggestion.action,
     'recalibrate_slippage_model',
     '高模拟偏差应建议校准模拟假设'
   );
+  assert.equal(deviationSummary.tuningPlan.action, 'recalibrate_slippage_model');
 
   const sharpeTask = buildTask({
     taskId: 'ITER_RULE_SHARPE',
     metrics: { maxDrawdown: -0.1, winRate: 0.52, sharpeRatio: 0.6 }
   });
+  const sharpeSummary = buildTaskResultSummary(sharpeTask);
   assert.equal(
-    buildTaskResultSummary(sharpeTask).nextActionSuggestion.action,
+    sharpeSummary.nextActionSuggestion.action,
     'optimize_exit_ratio',
     '低夏普应建议优化止盈止损比'
   );
+  assert.equal(sharpeSummary.tuningPlan.action, 'optimize_exit_ratio');
 
   const lowReturnHighWinTask = buildTask({
     taskId: 'ITER_RULE_RETURN',
     metrics: { maxDrawdown: -0.1, winRate: 0.58, sharpeRatio: 1.2, returnRate: 0.06 }
   });
+  const lowReturnSummary = buildTaskResultSummary(lowReturnHighWinTask);
   assert.equal(
-    buildTaskResultSummary(lowReturnHighWinTask).nextActionSuggestion.action,
+    lowReturnSummary.nextActionSuggestion.action,
     'increase_holding_period',
     '胜率高但收益低应建议延长持仓周期'
   );
+  assert.equal(lowReturnSummary.tuningPlan.action, 'increase_holding_period');
 
   const belowThresholdCompletedTask = buildTask({
     taskId: 'ITER_RULE_THRESHOLD',
@@ -84,11 +93,13 @@ function main() {
     bestScore: 78,
     metrics: { maxDrawdown: -0.1, winRate: 0.55, sharpeRatio: 1.1 }
   });
+  const belowThresholdSummary = buildTaskResultSummary(belowThresholdCompletedTask);
   assert.equal(
-    buildTaskResultSummary(belowThresholdCompletedTask).nextActionSuggestion.action,
+    belowThresholdSummary.nextActionSuggestion.action,
     'increase_trials',
     'completed 但未达阈值应建议扩迭代'
   );
+  assert.equal(belowThresholdSummary.tuningPlan.action, 'increase_trials');
 
   console.log('✅ iteration manager next action rules test passed');
 }

@@ -1,6 +1,6 @@
 # 股票系统 - 项目进度总览
 
-**最后更新**: 2026-03-28 12:03  
+**最后更新**: 2026-03-28 12:09  
 **项目经理**: Codex  
 **程序员**: subagent / Claude Code（按任务分配）  
 **验收员**: Codex / Gemini CLI（按任务分配）  
@@ -125,6 +125,7 @@
 所有 P0/P1 任务已完成并验收通过。
 
 **最新完成** (2026-03-28):
+- TASK_FLOW_REFACTOR_040B: V5 结果摘要新增 tuningPlan（执行清单+约束条件），报告导出新增“执行清单/约束条件”章节，默认总测保持 50/50
 - TASK_FLOW_REFACTOR_040A: V5 二次迭代决策树增强（偏差/夏普/收益结构/未达阈值完成态规则），默认总测升级为 50/50
 - TASK_FLOW_REFACTOR_039C: README 与 runtime 测试口径已统一，默认总测当前口径固定为 49/49
 - TASK_FLOW_REFACTOR_039B: `iteration-manager-default-backend.test.js` 已改为无端口模式，独立执行不再触发 listen EPERM
@@ -635,6 +636,7 @@
 
 ## 📝 最近事件
 
+*2026-03-28 12:09* - TASK_FLOW_REFACTOR_040B 完成，V5 `resultSummary` 新增 `tuningPlan`（action/priority/steps/guardrails），报告导出新增“执行清单/约束条件”，默认总测 `50/50` 全通过
 *2026-03-28 12:03* - TASK_FLOW_REFACTOR_040A 完成，迭代下一步建议规则新增 4 类决策分支并接入新回归，`tests/run-all-tests.js` 升级为 `50/50` 全通过
 *2026-03-28 11:46* - TASK_FLOW_REFACTOR_039C 完成，README 默认总测口径已更新为 49/49，并回写 038A runtime 的过期环境告警
 *2026-03-28 11:43* - TASK_FLOW_REFACTOR_039B 完成，`iteration-manager-default-backend.test.js` 已改为无端口模式，脚本可在当前沙箱直接通过
