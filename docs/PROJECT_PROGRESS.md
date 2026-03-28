@@ -630,6 +630,7 @@
 
 ## 📝 最近事件
 
+*2026-03-28 10:11* - TASK_FLOW_REFACTOR_035C 完成，迭代结果摘要已展示 deploymentReadiness（实盘就绪/待处理项/检查清单），恢复态渲染回归通过
 *2026-03-28 10:08* - TASK_FLOW_REFACTOR_035B 完成，resultSummary 新增 deploymentReadiness（5项实盘前检查）并接入快照回归，默认总测保持 43/43
 *2026-03-28 10:04* - TASK_FLOW_REFACTOR_035A 完成，V5 迭代结果摘要新增 nextActionSuggestion（动作+原因）并在页面展示，默认总测保持 43/43
 *2026-03-28 09:53* - TASK_FLOW_REFACTOR_034B 完成，已补 V5_000 规划对照回写文档，交接可直接定位规划项落地证据

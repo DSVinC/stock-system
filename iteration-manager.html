@@ -1035,6 +1035,15 @@
         const nextAction = summary.nextActionSuggestion && typeof summary.nextActionSuggestion === 'object'
           ? summary.nextActionSuggestion
           : null;
+        const deploymentReadiness = summary.deploymentReadiness && typeof summary.deploymentReadiness === 'object'
+          ? summary.deploymentReadiness
+          : null;
+        const readinessChecks = deploymentReadiness && Array.isArray(deploymentReadiness.checks)
+          ? deploymentReadiness.checks
+          : [];
+        const readinessCheckText = readinessChecks.length > 0
+          ? readinessChecks.map(check => `${check.title || check.id || '--'}: ${check.status || '--'}`).join('；')
+          : '';
         const timeLabel = completedAt
           ? (finalStatus === 'completed' ? '完成时间' : '停止时间')
           : '';
@@ -1078,6 +1087,20 @@
               <span class="metric-label">${reasonLabel}</span>
               <span class="metric-value">${reason}</span>
             </div>` : ''}
+            ${deploymentReadiness ? `
+            <div class="metric">
+              <span class="metric-label">实盘就绪</span>
+              <span class="metric-value">${deploymentReadiness.readyForLive ? '是' : '否'}</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">待处理项</span>
+              <span class="metric-value">失败 ${deploymentReadiness.failedCount ?? 0} / 待补齐 ${deploymentReadiness.pendingCount ?? 0}</span>
+            </div>
+            ${readinessCheckText ? `
+            <div class="metric">
+              <span class="metric-label">检查清单</span>
+              <span class="metric-value">${readinessCheckText}</span>
+            </div>` : ''}` : ''}
             ${nextAction ? `
             <div class="metric">
               <span class="metric-label">下一步建议</span>

@@ -187,7 +187,17 @@ async function main() {
               finalStatus: 'completed',
               bestScore: 92.4,
               completedAt: '2026-03-27 11:20:00',
-              stopReason: '已完成全部迭代'
+              stopReason: '已完成全部迭代',
+              deploymentReadiness: {
+                readyForLive: false,
+                failedCount: 1,
+                pendingCount: 2,
+                checks: [
+                  { id: 'score_threshold', title: '策略评分 >= 75', status: 'pass' },
+                  { id: 'simulation_period_or_trade_count', title: '模拟周期 >= 14 天 或 交易次数 >= 30', status: 'pass' },
+                  { id: 'simulation_deviation', title: '模拟收益偏差 < 20%', status: 'fail' }
+                ]
+              }
             }
           }
         })
@@ -227,6 +237,11 @@ async function main() {
   assert.ok(html.includes('2026-03-27 11:20:00'));
   assert.ok(html.includes('停止原因'));
   assert.ok(html.includes('已完成全部迭代'));
+  assert.ok(html.includes('实盘就绪'));
+  assert.ok(html.includes('否'));
+  assert.ok(html.includes('待处理项'));
+  assert.ok(html.includes('失败 1 / 待补齐 2'));
+  assert.ok(html.includes('检查清单'));
   assert.equal(sandbox.__elements.statusBadge.textContent, '完成');
   assert.equal(sandbox.__elements.completedCount.textContent, '12');
   assert.equal(sandbox.__elements.totalCount.textContent, '12');
