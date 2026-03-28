@@ -1,6 +1,6 @@
 # 股票系统 - 项目进度总览
 
-**最后更新**: 2026-03-28 12:17  
+**最后更新**: 2026-03-28 12:27  
 **项目经理**: Codex  
 **程序员**: subagent / Claude Code（按任务分配）  
 **验收员**: Codex / Gemini CLI（按任务分配）  
@@ -125,6 +125,7 @@
 所有 P0/P1 任务已完成并验收通过。
 
 **最新完成** (2026-03-28):
+- TASK_RELEASE_001: PR #9 已合并 `main`，GitHub Pages 已恢复上线并完成线上 smoke 验收（首页/select/backtest/iteration-manager 全部 200）
 - TASK_FLOW_REFACTOR_041C: `TASK_V5_000_RECONCILIATION` 已同步最新落地证据，V5_008 口径更新为“已落地（持续优化）”
 - TASK_FLOW_REFACTOR_041B: iteration-manager 页面导出入口已支持 Markdown/HTML 可选，前端导出链路与后端格式能力一致
 - TASK_FLOW_REFACTOR_041A: 迭代报告导出新增 `format=html`（JSON + download 双模式），并完成合同与回归覆盖，默认总测保持 50/50
@@ -639,6 +640,7 @@
 
 ## 📝 最近事件
 
+*2026-03-28 12:27* - TASK_RELEASE_001 完成，PR #9 已合并主分支；修复 Pages 部署阻塞（移除被跟踪 db 链接）后，线上地址 `https://dsvinc.github.io/stock-system/` 恢复可访问并完成页面 smoke 验收
 *2026-03-28 12:17* - TASK_FLOW_REFACTOR_041C 完成，V5 规划对照文档已补 040A~041B 证据映射并更新 V5_008 口径为“已落地（持续优化）”
 *2026-03-28 12:16* - TASK_FLOW_REFACTOR_041B 完成，iteration-manager 页面新增报告格式选择器并支持导出 Markdown/HTML，默认总测 `50/50` 全通过
 *2026-03-28 12:13* - TASK_FLOW_REFACTOR_041A 完成，`/api/iteration/report/:taskId` 新增 `format=html` 与 HTML 下载模式，合同文档已更新，默认总测 `50/50` 全通过
