@@ -59,6 +59,7 @@
 | **TASK_FLOW_REFACTOR_029B** | **V5_007 恢复态回归：浏览器 smoke 验证 backend 控件同步** | **P0** | **🟢 done** | **Codex / subagent** | **100%** |
 | **TASK_FLOW_REFACTOR_030A** | **V5_007 停止链路收口：optuna 手动停止终止子进程并保持 stopped** | **P0** | **🟢 done** | **Codex** | **100%** |
 | **TASK_FLOW_REFACTOR_030B** | **V5_007 停止态展示收口：前端按 stop 接口快照展示 stopped** | **P0** | **🟢 done** | **Codex** | **100%** |
+| **TASK_FLOW_REFACTOR_030C** | **V5_007 可读性收口：停止原因枚举值映射为中文文案** | **P0** | **🟢 done** | **Codex** | **100%** |
 | TASK_P0_001 | 黑天鹅检测模块 | P0 | 🟢 accepted | 灵爪 | 100% |
 | TASK_P0_002 | 舆情因子计算模块 | P0 | 🟢 accepted | 灵爪 | 100% |
 | TASK_P0_003 | 因子快照库模块 | P0 | 🟢 accepted | 灵爪 | 100% |
@@ -113,6 +114,7 @@
 所有 P0/P1 任务已完成并验收通过。
 
 **最新完成** (2026-03-28):
+- TASK_FLOW_REFACTOR_030C: 结果摘要停止原因已映射为中文可读文案，不再直接展示 `manual_stop`
 - TASK_FLOW_REFACTOR_030B: stop API 返回全量任务快照，前端停止后按 `stopped` 实际状态展示，不再误回到 `idle`
 - TASK_FLOW_REFACTOR_030A: 修复 `optuna` 手动停止链路，停止时会终止子进程，且状态保持 `stopped` 不再误转 `failed`
 - TASK_FLOW_REFACTOR_029B: 已新增恢复态浏览器 smoke，验证恢复最近任务后 `optimizationBackend` 下拉框与任务真实值一致
@@ -606,6 +608,7 @@
 
 ## 📝 最近事件
 
+*2026-03-28 09:05* - TASK_FLOW_REFACTOR_030C 完成，停止原因文案映射收口，页面不再直接暴露内部枚举值
 *2026-03-28 09:02* - TASK_FLOW_REFACTOR_030B 完成，stop 响应切全量任务快照，前端停止态展示与后端口径统一
 *2026-03-28 08:59* - TASK_FLOW_REFACTOR_030A 完成，optuna 手动停止会终止子进程，任务状态稳定保持 stopped
 *2026-03-28 08:30* - TASK_FLOW_REFACTOR_029B 完成，新增恢复态浏览器 smoke，已验证恢复任务时 optimizationBackend 控件同步

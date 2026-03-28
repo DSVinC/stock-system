@@ -977,6 +977,16 @@
       document.getElementById('completedCount').textContent = current;
     }
 
+    function formatResultReason(reason) {
+      const value = String(reason || '').trim();
+      if (!value) return '';
+
+      if (value === 'manual_stop') return '手动停止任务';
+      if (value === 'timeout') return '任务执行超时';
+
+      return value;
+    }
+
     // 更新最佳配置
     function updateBestConfig(score, params, resultSummary, taskStatus) {
       const container = document.getElementById('bestConfig');
@@ -1002,7 +1012,7 @@
         const finalStatus = summary.finalStatus || summary.status || taskStatus || '--';
         const bestScoreSummary = Number.isFinite(Number(summary.bestScore)) ? Number(summary.bestScore).toFixed(1) : '--';
         const completedAt = summary.completedAt || summary.completed_time || summary.stoppedAt || summary.stopped_time || summary.finishedAt || summary.finished_at || '';
-        const reason = summary.errorReason || summary.stopReason || summary.reason || summary.message || '';
+        const reason = formatResultReason(summary.errorReason || summary.stopReason || summary.reason || summary.message || '');
         const timeLabel = completedAt
           ? (finalStatus === 'completed' ? '完成时间' : '停止时间')
           : '';
