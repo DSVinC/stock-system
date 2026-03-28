@@ -87,6 +87,90 @@ function parseOptionalFiniteNumber(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function deriveDeploymentReadiness(task) {
+  const scoreThreshold = parseOptionalFiniteNumber(task.scoreThreshold) ?? 75;
+  const bestScore = parseOptionalFiniteNumber(task.bestScore) ?? 0;
+  const summary = task.resultSummary && typeof task.resultSummary === 'object' ? task.resultSummary : {};
+  const history = Array.isArray(task.history) ? task.history : [];
+  const metricCarrier = history.find(item => item && item.metrics && typeof item.metrics === 'object');
+  const metrics = metricCarrier?.metrics || {};
+  const tradeCount = parseOptionalFiniteNumber(
+    metrics.tradeCount ?? metrics.totalTrades ?? summary.tradeCount ?? summary.totalTrades
+  );
+
+  const inputSummary = task.inputSummary && typeof task.inputSummary === 'object' ? task.inputSummary : {};
+  const startDateRaw = inputSummary.startDate || task.startDate || '';
+  const endDateRaw = inputSummary.endDate || task.endDate || '';
+  const startDate = startDateRaw ? new Date(startDateRaw) : null;
+  const endDate = endDateRaw ? new Date(endDateRaw) : null;
+  const validationDays = (startDate && endDate && !Number.isNaN(startDate.getTime()) && !Number.isNaN(endDate.getTime()))
+    ? Math.floor((endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000)) + 1
+    : null;
+
+  const simulationDeviation = parseOptionalFiniteNumber(
+    metrics.simulationDeviation ?? summary.simulationDeviation ?? summary.simulation_deviation
+  );
+
+  const bestParams = task.bestParams && typeof task.bestParams === 'object' ? task.bestParams : {};
+  const hasRiskParams = (
+    bestParams.stop_loss !== undefined ||
+    bestParams.stopLoss !== undefined ||
+    bestParams.max_position !== undefined ||
+    bestParams.maxPosition !== undefined ||
+    bestParams.risk_limit !== undefined ||
+    bestParams.riskLimit !== undefined
+  );
+
+  const feishuTestedRaw = inputSummary?.notifications?.feishuTested ?? task.feishuPushTested;
+  const feishuTested = feishuTestedRaw === true;
+
+  const checks = [
+    {
+      id: 'score_threshold',
+      title: '策略评分 >= 75',
+      status: bestScore >= scoreThreshold ? 'pass' : 'fail',
+      detail: `当前 ${bestScore.toFixed(1)} / 阈值 ${scoreThreshold.toFixed(1)}`
+    },
+    {
+      id: 'simulation_period_or_trade_count',
+      title: '模拟周期 >= 14 天 或 交易次数 >= 30',
+      status: (validationDays !== null && validationDays >= 14) || (tradeCount !== null && tradeCount >= 30) ? 'pass' : 'fail',
+      detail: `周期 ${validationDays ?? '--'} 天，交易 ${tradeCount ?? '--'} 笔`
+    },
+    {
+      id: 'simulation_deviation',
+      title: '模拟收益偏差 < 20%',
+      status: simulationDeviation === null ? 'pending' : (Math.abs(simulationDeviation) < 0.2 ? 'pass' : 'fail'),
+      detail: simulationDeviation === null
+        ? '暂无偏差数据'
+        : `偏差 ${(simulationDeviation * 100).toFixed(1)}%`
+    },
+    {
+      id: 'risk_params_configured',
+      title: '风控参数已配置',
+      status: hasRiskParams ? 'pass' : 'pending',
+      detail: hasRiskParams ? '已检测到止损/仓位/风险限制参数' : '未检测到标准风控参数字段'
+    },
+    {
+      id: 'feishu_push_tested',
+      title: '飞书推送已测试',
+      status: feishuTested ? 'pass' : 'pending',
+      detail: feishuTested ? '已标记完成飞书推送测试' : '未标记飞书推送测试'
+    }
+  ];
+
+  const failedCount = checks.filter(check => check.status === 'fail').length;
+  const pendingCount = checks.filter(check => check.status === 'pending').length;
+  const readyForLive = failedCount === 0 && pendingCount === 0;
+
+  return {
+    readyForLive,
+    failedCount,
+    pendingCount,
+    checks
+  };
+}
+
 function deriveNextActionSuggestion(task) {
   const status = String(task.status || '').toLowerCase();
   const stopReason = String(task.stopReason || task.resultSummary?.stopReason || '').toLowerCase();
@@ -204,6 +288,7 @@ function buildTaskResultSummary(task) {
   const requestedTrials = parseOptionalFiniteNumber(requestedTrialsRaw);
   const completedTrials = parseOptionalFiniteNumber(completedTrialsRaw);
   const nextActionSuggestion = deriveNextActionSuggestion(task);
+  const deploymentReadiness = deriveDeploymentReadiness(task);
 
   return {
     status: task.status || null,
@@ -217,6 +302,7 @@ function buildTaskResultSummary(task) {
     stopReason: task.stopReason || null,
     completedAt: task.completedAt || null,
     nextActionSuggestion,
+    deploymentReadiness,
     ...(optimizationBackend === 'optuna'
       ? {
           requestedTrials,

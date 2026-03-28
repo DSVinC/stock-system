@@ -190,6 +190,25 @@ async function main() {
     assert.equal(statusResponse.body.task.resultSummary.stopReason, 'manual_stop');
     assert.ok(statusResponse.body.task.resultSummary.nextActionSuggestion, '应返回下一步建议');
     assert.equal(statusResponse.body.task.resultSummary.nextActionSuggestion.action, 'resume_iteration');
+    assert.ok(statusResponse.body.task.resultSummary.deploymentReadiness, '应返回实盘前检查摘要');
+    assert.equal(
+      statusResponse.body.task.resultSummary.deploymentReadiness.readyForLive,
+      false,
+      '缺少偏差/风控/飞书测试信息时不应直接标记可实盘'
+    );
+    assert.equal(
+      statusResponse.body.task.resultSummary.deploymentReadiness.checks.length,
+      5,
+      '应包含 5 项标准化检查项'
+    );
+    assert.equal(
+      statusResponse.body.task.resultSummary.deploymentReadiness.checks[0].id,
+      'score_threshold'
+    );
+    assert.equal(
+      statusResponse.body.task.resultSummary.deploymentReadiness.checks[1].id,
+      'simulation_period_or_trade_count'
+    );
 
     console.log('✅ iteration manager result summary snapshot test passed');
   } finally {
