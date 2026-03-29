@@ -48,6 +48,7 @@ const {
   toNumber,
 } = require('./market-data');
 const { calculateCompositeScore } = require('./score-factors');
+const { getDatabase } = require('./db');
 
 const router = express.Router();
 const REPORT_DIR = path.join(__dirname, '..', '..', 'report', 'stockana');
@@ -88,6 +89,16 @@ async function analyzeStockWithCache(stockCode, version = "v1") {
     return payload;
   } catch (error) {
     console.error(`分析股票 ${stockCode} 失败:`, error.message);
+    const fallbackable = /No module named 'tushare'|No module named 'pandas'|No module named 'numpy'|无法解析的 JSON/.test(error.message);
+    if (fallbackable && typeof getAnalysisRouter().buildFallbackPayload === 'function') {
+      try {
+        const fallbackPayload = await getAnalysisRouter().buildFallbackPayload(stockCode);
+        setCachedReport(stockCode, fallbackPayload, version);
+        return fallbackPayload;
+      } catch (fallbackError) {
+        console.error(`股票 ${stockCode} 后备分析也失败:`, fallbackError.message);
+      }
+    }
     return null;
   }
 }
@@ -197,13 +208,12 @@ async function buildAnalyzeList(directions) {
       stock.decision = payload.summary?.decision || '观望';
       stock.reportPayload = payload; // 保存完整报告数据供后续使用
     } else if (stock) {
-      // 分析失败时使用默认评分
-      stock.score = 6;
-      stock.decision = '观望';
+      stock.analysisFailed = true;
     }
   });
 
   return Array.from(resultMap.values())
+    .filter((stock) => !stock.analysisFailed)
     .sort((left, right) => {
       if (right.score !== left.score) return right.score - left.score;
       if (right.total_mv !== left.total_mv) return right.total_mv - left.total_mv;
@@ -690,7 +700,84 @@ async function writeStockReport(query) {
 
   fs.mkdirSync(REPORT_DIR, { recursive: true });
   fs.writeFileSync(fullPath, renderStockReport(payload), 'utf8');
-  return { payload, fileName, fullPath };
+  return { payload, fileName, fullPath, dateStamp };
+}
+
+function normalizeReportDecision(decision) {
+  const text = String(decision || '').trim();
+  if (text === '买入' || /^buy$/i.test(text)) return 'buy';
+  if (text === '观望' || /^watch$/i.test(text)) return 'watch';
+  if (text === '回避' || text === '卖出' || /^avoid|sell$/i.test(text)) return 'avoid';
+  return 'watch';
+}
+
+function buildDecisionsFromPayload(payload) {
+  const stopLoss = Number(payload?.stopLoss);
+  const buyZone = payload?.buyZone;
+  const targetPrices = Array.isArray(payload?.targetPrices) ? payload.targetPrices : [];
+  const stopProfitList = targetPrices
+    .map(item => Number(item?.price))
+    .filter(value => Number.isFinite(value));
+
+  const decisions = {};
+  if (Number.isFinite(stopLoss)) {
+    decisions.stop_loss = stopLoss;
+  }
+  if (stopProfitList.length > 0) {
+    decisions.stop_profit = stopProfitList;
+  }
+  if (Array.isArray(buyZone) && buyZone.length >= 2) {
+    const low = Number(buyZone[0]);
+    const high = Number(buyZone[1]);
+    if (Number.isFinite(low) && Number.isFinite(high)) {
+      decisions.entry_zone = { low: Math.min(low, high), high: Math.max(low, high) };
+    }
+  }
+  return decisions;
+}
+
+async function persistStockReport(reportId, payload) {
+  const db = await getDatabase();
+  const rating = Math.max(1, Math.min(5, Math.round(Number(payload?.reportScore || 0) / 2)));
+  const targetPrice = Number(payload?.targetPrice);
+  const stopLoss = Number(payload?.stopLoss);
+  const stopProfit = Number.isFinite(targetPrice)
+    ? JSON.stringify([{ price: targetPrice, ratio: 1, rationale: '目标价止盈' }])
+    : null;
+  const entryZone = payload?.buyZone
+    ? JSON.stringify(payload.buyZone)
+    : null;
+  const keyEvents = Array.isArray(payload?.riskWarnings)
+    ? JSON.stringify(payload.riskWarnings)
+    : JSON.stringify([]);
+
+  const payloadWithDecisions = {
+    ...(payload || {}),
+    decisions: buildDecisionsFromPayload(payload)
+  };
+
+  await db.runPromise(
+    `
+      INSERT OR REPLACE INTO stock_analysis_reports (
+        report_id, stock_code, stock_name, report_json,
+        decision, rating, stop_loss, stop_profit, entry_zone, add_position, key_events,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `,
+    [
+      reportId,
+      payload?.stock?.ts_code || '',
+      payload?.stock?.name || '',
+      JSON.stringify(payloadWithDecisions),
+      normalizeReportDecision(payload?.decision),
+      rating,
+      Number.isFinite(stopLoss) ? stopLoss : null,
+      stopProfit,
+      entryZone,
+      null,
+      keyEvents
+    ]
+  );
 }
 
 async function analyzeHandler(req, res) {
@@ -732,9 +819,12 @@ router.post('/report', async (req, res) => {
 
   try {
     const report = await writeStockReport(query);
+    const reportId = `ANALYZE_${report.payload.stock.ts_code}_${report.dateStamp}_${Date.now()}`;
+    await persistStockReport(reportId, report.payload);
     const baseUrl = `${req.protocol}://${req.get('host')}`;
     return res.json({
       success: true,
+      report_id: reportId,
       report_path: `${baseUrl}/report/analysis/${encodeURIComponent(report.fileName)}`,
       stock: {
         name: report.payload.stock.name,

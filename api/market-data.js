@@ -7,7 +7,10 @@ const Database = require('better-sqlite3');
 
 const execFileAsync = promisify(execFile);
 const TUSHARE_URL = 'https://api.tushare.pro';
-const WORKSPACE_ENV_PATH = path.join(__dirname, '..', '.env');
+const ENV_PATHS = [
+  path.join(__dirname, '..', '.env'),
+  path.join(__dirname, '..', '..', '.env'),
+];
 const DB_PATH = process.env.STOCK_DB || '/Volumes/SSD500/openclaw/stock-system/stock_system.db';
 let dbCache = null;
 
@@ -34,28 +37,30 @@ class MarketDataError extends Error {
 }
 
 function loadWorkspaceEnv() {
-  if (!fs.existsSync(WORKSPACE_ENV_PATH)) {
-    return;
+  for (const envPath of ENV_PATHS) {
+    if (!fs.existsSync(envPath)) {
+      continue;
+    }
+
+    const raw = fs.readFileSync(envPath, 'utf8');
+    raw.split(/\r?\n/).forEach((line) => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) {
+        return;
+      }
+
+      const separatorIndex = trimmed.indexOf('=');
+      if (separatorIndex <= 0) {
+        return;
+      }
+
+      const key = trimmed.slice(0, separatorIndex).trim();
+      const value = trimmed.slice(separatorIndex + 1).trim().replace(/^['"]|['"]$/g, '');
+      if (!process.env[key]) {
+        process.env[key] = value;
+      }
+    });
   }
-
-  const raw = fs.readFileSync(WORKSPACE_ENV_PATH, 'utf8');
-  raw.split(/\r?\n/).forEach((line) => {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) {
-      return;
-    }
-
-    const separatorIndex = trimmed.indexOf('=');
-    if (separatorIndex <= 0) {
-      return;
-    }
-
-    const key = trimmed.slice(0, separatorIndex).trim();
-    const value = trimmed.slice(separatorIndex + 1).trim().replace(/^['"]|['"]$/g, '');
-    if (!process.env[key]) {
-      process.env[key] = value;
-    }
-  });
 }
 
 function getTushareToken() {
@@ -442,6 +447,115 @@ function normalizeTsCode(input) {
   return raw;
 }
 
+function toSymbol(tsCode) {
+  const normalized = normalizeTsCode(tsCode);
+  if (/^\d{6}\.(SH|SZ|BJ)$/.test(normalized)) {
+    return normalized.slice(0, 6);
+  }
+  return normalized;
+}
+
+function dedupeStockRows(rows, limit = 10) {
+  const result = [];
+  const seen = new Set();
+
+  for (const row of rows || []) {
+    const tsCode = normalizeTsCode(row.ts_code || row.code || '');
+    if (!tsCode || seen.has(tsCode)) {
+      continue;
+    }
+    seen.add(tsCode);
+    result.push({
+      ts_code: tsCode,
+      symbol: toSymbol(tsCode),
+      name: row.name || row.stock_name || row.ts_name || tsCode,
+      industry: row.industry || row.industry_name_l1 || ''
+    });
+    if (result.length >= limit) {
+      break;
+    }
+  }
+
+  return result;
+}
+
+function searchStocksFromLocalDb(query, limit = 10) {
+  const normalizedQuery = String(query || '').trim();
+  if (!normalizedQuery) {
+    return [];
+  }
+
+  const db = getDb();
+  const tsCode = normalizeTsCode(normalizedQuery);
+  const symbol = toSymbol(tsCode);
+  const likeQuery = `%${normalizedQuery}%`;
+  const likeSymbol = `%${symbol}%`;
+
+  const localRows = [];
+
+  try {
+    const fromStocks = db.prepare(`
+      SELECT ts_code, stock_name AS name, industry_name_l1 AS industry
+      FROM stocks
+      WHERE (list_status IS NULL OR list_status = 'L')
+        AND (
+          ts_code = @tsCode
+          OR ts_code LIKE @likeQuery
+          OR stock_name LIKE @likeQuery
+          OR ts_code LIKE @likeSymbol
+        )
+      ORDER BY CASE
+        WHEN ts_code = @tsCode THEN 0
+        WHEN stock_name = @query THEN 1
+        ELSE 2
+      END, ts_code
+      LIMIT @limit
+    `).all({
+      tsCode,
+      query: normalizedQuery,
+      likeQuery,
+      likeSymbol,
+      limit
+    });
+    localRows.push(...fromStocks);
+  } catch (_error) {
+    // 忽略本地表异常，继续尝试 stock_list
+  }
+
+  if (localRows.length < limit) {
+    try {
+      const fromStockList = db.prepare(`
+        SELECT ts_code, stock_name AS name, '' AS industry
+        FROM stock_list
+        WHERE (status IS NULL OR status = 'L')
+          AND (
+            ts_code = @tsCode
+            OR ts_code LIKE @likeQuery
+            OR stock_name LIKE @likeQuery
+            OR ts_code LIKE @likeSymbol
+          )
+        ORDER BY CASE
+          WHEN ts_code = @tsCode THEN 0
+          WHEN stock_name = @query THEN 1
+          ELSE 2
+        END, ts_code
+        LIMIT @limit
+      `).all({
+        tsCode,
+        query: normalizedQuery,
+        likeQuery,
+        likeSymbol,
+        limit: Math.max(1, limit - localRows.length)
+      });
+      localRows.push(...fromStockList);
+    } catch (_error) {
+      // 忽略本地表异常，外层会继续走 Tushare 兜底
+    }
+  }
+
+  return dedupeStockRows(localRows, limit);
+}
+
 // 已弃用：runSinaScript - 改用免费 API
 // async function runSinaScript(scriptName, args = []) { ... }
 
@@ -466,7 +580,16 @@ async function searchStock(query) {
     }
   }
   maybeCode = normalizeTsCode(maybeCode);
-  
+
+  // 优先本地库命中，避免外部接口不可用导致“总是搜不到”
+  const localMatches = searchStocksFromLocalDb(normalizedQuery, 5);
+  if (localMatches.length > 0) {
+    const exact = localMatches.find((item) => item.ts_code === maybeCode)
+      || localMatches.find((item) => item.symbol === normalizedQuery)
+      || localMatches.find((item) => String(item.name || '') === normalizedQuery);
+    return exact || localMatches[0];
+  }
+
   if (/^\d{6}\.(SH|SZ|BJ)$/.test(maybeCode)) {
     const rows = await tushareRequest('stock_basic', {
       ts_code: maybeCode,
@@ -500,36 +623,16 @@ async function searchStock(query) {
  * 模糊搜索股票（返回多个结果）
  */
 async function searchStocks(query, limit = 10) {
-  const normalizedQuery = String(query || '').trim().toLowerCase();
-  if (!normalizedQuery) {
+  const rawQuery = String(query || '').trim();
+  if (!rawQuery) {
     return [];
   }
+  const normalizedQuery = rawQuery.toLowerCase();
 
-  const results = [];
-  const seen = new Set();
+  const results = searchStocksFromLocalDb(rawQuery, limit);
+  const seen = new Set(results.map((item) => item.ts_code));
 
-  // 1. 尝试新浪实时搜索
-  try {
-    const result = await runSinaScript('search-symbol.cjs', [normalizedQuery]);
-    const matches = Array.isArray(result.data) ? result.data : [];
-    for (const item of matches.slice(0, limit)) {
-      if (item && item.symbol) {
-        const tsCode = normalizeTsCode(item.symbol);
-        if (!seen.has(tsCode)) {
-          seen.add(tsCode);
-          results.push({
-            ts_code: tsCode,
-            name: item.name || tsCode,
-            symbol: tsCode.slice(0, 6),
-          });
-        }
-      }
-    }
-  } catch (_error) {
-    // 新浪搜索失败，继续使用本地搜索
-  }
-
-  // 2. 本地股票列表模糊匹配
+  // 兜底：本地库不足时再使用 Tushare
   if (results.length < limit) {
     try {
       const rows = await tushareRequest('stock_basic', {

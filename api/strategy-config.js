@@ -1181,13 +1181,20 @@ async function listPublicStrategies(req, res) {
     );
 
     // 解析 JSON 字段
-    const parsedRows = await Promise.all(rows.map(async (row) => ({
-      ...row,
-      portfolio_config: row.portfolio_config ? safeParseJSON(row.portfolio_config) : null,
-      grid_config: row.grid_config ? safeParseJSON(row.grid_config) : null,
-      backtest_period: row.backtest_period ? safeParseJSON(row.backtest_period) : null,
-      feedback: await getFeedbackSnapshot(row.id)
-    })));
+    const parsedRows = await Promise.all(rows.map(async (row) => {
+      const feedback = await getFeedbackSnapshot(row.id);
+      const feedbackStatus = feedback?.execution_feedback_status || 'no_data';
+      const feedbackConfidence = feedback?.execution_feedback_confidence || 'none';
+      return {
+        ...row,
+        portfolio_config: row.portfolio_config ? safeParseJSON(row.portfolio_config) : null,
+        grid_config: row.grid_config ? safeParseJSON(row.grid_config) : null,
+        backtest_period: row.backtest_period ? safeParseJSON(row.backtest_period) : null,
+        feedback,
+        feedback_status: feedbackStatus,
+        feedback_confidence: feedbackConfidence,
+      };
+    }));
 
     res.json({
       success: true,

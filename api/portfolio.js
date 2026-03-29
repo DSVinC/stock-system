@@ -5,6 +5,8 @@
  */
 
 const { getDatabase } = require('./db');
+const { normalizeToApi, normalizeToDb } = require('../utils/format');
+const { getRealtimeQuote } = require('./market-data');
 
 function safeJsonParse(value, fallback = null) {
   try {
@@ -21,6 +23,118 @@ function validateAccountName(name) {
 
 function validateInitialCash(cash) {
   return typeof cash === 'number' && cash > 0 && cash <= 10000000;
+}
+
+function validateTsCode(tsCode) {
+  return typeof tsCode === 'string' && /^\d{6}\.(SZ|SH|BJ)$/.test(tsCode.trim().toUpperCase());
+}
+
+function validateStockName(name) {
+  return typeof name === 'string' && name.trim().length >= 1 && name.trim().length <= 50;
+}
+
+function validatePrice(price) {
+  return typeof price === 'number' && Number.isFinite(price) && price > 0 && price <= 100000;
+}
+
+function validateQuantity(quantity) {
+  return typeof quantity === 'number' && Number.isInteger(quantity) && quantity > 0 && quantity <= 10000000;
+}
+
+function toNumber(value, fallback = 0) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
+async function getLatestCloseByTsCode(db, tsCode) {
+  const raw = String(tsCode || '').trim();
+  if (!raw) {
+    return null;
+  }
+
+  const candidates = [...new Set([
+    raw,
+    raw.toUpperCase(),
+    raw.toLowerCase(),
+    normalizeToApi(raw),
+    normalizeToDb(raw)
+  ])].filter(Boolean);
+
+  const placeholders = candidates.map(() => '?').join(',');
+  return db.getPromise(`
+    SELECT close, trade_date, ts_code
+    FROM stock_daily
+    WHERE ts_code IN (${placeholders})
+    ORDER BY trade_date DESC
+    LIMIT 1
+  `, candidates);
+}
+
+async function getRealtimePriceByTsCode(tsCode) {
+  try {
+    const quote = await getRealtimeQuote(tsCode);
+    const price = toNumber(
+      quote?.price ?? quote?.data?.price,
+      0
+    );
+    if (price > 0) {
+      return {
+        price,
+        tradeDate: quote?.date || quote?.data?.date || null
+      };
+    }
+  } catch (error) {
+    console.warn(`[portfolio] 实时行情兜底失败 ${tsCode}:`, error.message);
+  }
+  return { price: 0, tradeDate: null };
+}
+
+async function refreshAccountPositionsValuation(db, accountId) {
+  const positions = await db.allPromise(`
+    SELECT *
+    FROM portfolio_position
+    WHERE account_id = ?
+    ORDER BY id ASC
+  `, [accountId]);
+
+  const refreshed = [];
+
+  for (const position of positions) {
+    const latestCloseRow = await getLatestCloseByTsCode(db, position.ts_code);
+    let latestPrice = toNumber(latestCloseRow?.close, toNumber(position.current_price, 0));
+    let latestTradeDate = latestCloseRow?.trade_date || null;
+    if (!(latestPrice > 0)) {
+      const fallbackQuote = await getRealtimePriceByTsCode(position.ts_code);
+      if (fallbackQuote.price > 0) {
+        latestPrice = fallbackQuote.price;
+        latestTradeDate = fallbackQuote.tradeDate || latestTradeDate;
+      }
+    }
+    const quantity = toNumber(position.quantity, 0);
+    const avgPrice = toNumber(position.avg_price, 0);
+    const costAmount = toNumber(position.cost_amount, avgPrice * quantity);
+    const marketValue = latestPrice > 0 ? Number((quantity * latestPrice).toFixed(2)) : 0;
+    const unrealizedPnl = Number((marketValue - costAmount).toFixed(2));
+    const unrealizedPnlRate = costAmount > 0 ? Number((unrealizedPnl / costAmount).toFixed(6)) : 0;
+
+    await db.runPromise(`
+      UPDATE portfolio_position
+      SET current_price = ?, market_value = ?, unrealized_pnl = ?, unrealized_pnl_rate = ?, updated_at = datetime('now')
+      WHERE id = ?
+    `, [latestPrice || null, marketValue, unrealizedPnl, unrealizedPnlRate, position.id]);
+
+    refreshed.push({
+      ...position,
+      current_price: latestPrice || null,
+      market_value: marketValue,
+      unrealized_pnl: unrealizedPnl,
+      unrealized_pnl_rate: unrealizedPnlRate,
+      latest_trade_date: latestTradeDate,
+    });
+  }
+
+  await updateAccountValue(db, accountId);
+  return refreshed.sort((a, b) => toNumber(b.market_value, 0) - toNumber(a.market_value, 0));
 }
 
 // ========== 账户管理 API ==========
@@ -195,14 +309,13 @@ async function getAccountSummary(req, res) {
       return res.status(404).json({ success: false, error: '账户不存在' });
     }
     
-    const positions = await db.allPromise(`
-      SELECT * FROM portfolio_position WHERE account_id = ? ORDER BY market_value DESC
-    `, [id]);
+    const positions = await refreshAccountPositionsValuation(db, id);
+    const refreshedAccount = await db.getPromise('SELECT * FROM portfolio_account WHERE id = ?', [id]);
     
     res.json({ 
       success: true, 
       data: {
-        account,
+        account: refreshedAccount || account,
         positions,
         position_count: positions.length
       }
@@ -417,6 +530,94 @@ async function getPosition(req, res) {
   }
 }
 
+/**
+ * 手动添加持仓
+ * POST /api/portfolio/account/:id/manual-position
+ */
+async function addManualPosition(req, res) {
+  try {
+    const { id } = req.params;
+    const {
+      ts_code,
+      stock_name,
+      avg_price,
+      quantity,
+    } = req.body || {};
+
+    const normalizedCode = String(ts_code || '').trim().toUpperCase();
+    const normalizedName = String(stock_name || '').trim();
+    const price = Number(avg_price);
+    const lotQuantity = Number(quantity);
+
+    if (!validateTsCode(normalizedCode)) {
+      return res.status(400).json({ success: false, error: '股票代码格式无效，需为 000001.SZ / 600000.SH' });
+    }
+    if (!validateStockName(normalizedName)) {
+      return res.status(400).json({ success: false, error: '股票名称不能为空，且长度不能超过 50 字符' });
+    }
+    if (!validatePrice(price)) {
+      return res.status(400).json({ success: false, error: '成本价必须为大于 0 的有效数字' });
+    }
+    if (!validateQuantity(lotQuantity)) {
+      return res.status(400).json({ success: false, error: '持仓量必须为正整数' });
+    }
+
+    const db = await getDatabase();
+    const account = await db.getPromise('SELECT * FROM portfolio_account WHERE id = ?', [id]);
+    if (!account) {
+      return res.status(404).json({ success: false, error: '账户不存在' });
+    }
+
+    const latestCloseRow = await getLatestCloseByTsCode(db, normalizedCode);
+    const currentPrice = toNumber(latestCloseRow?.close, price);
+    const costAmount = Number((price * lotQuantity).toFixed(2));
+    const marketValue = Number((currentPrice * lotQuantity).toFixed(2));
+    const unrealizedPnl = Number((marketValue - costAmount).toFixed(2));
+    const unrealizedPnlRate = costAmount > 0 ? Number((unrealizedPnl / costAmount).toFixed(6)) : 0;
+
+    if (toNumber(account.current_cash, 0) < costAmount) {
+      return res.status(400).json({ success: false, error: '账户现金不足，无法按该成本价和持仓量录入仓位' });
+    }
+
+    await db.runPromise(`
+      INSERT INTO portfolio_position (
+        account_id, ts_code, stock_name, quantity, avg_price, cost_amount,
+        current_price, market_value, unrealized_pnl, unrealized_pnl_rate,
+        position_date, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, date('now'), datetime('now'))
+    `, [id, normalizedCode, normalizedName, lotQuantity, price, costAmount, currentPrice, marketValue, unrealizedPnl, unrealizedPnlRate]);
+
+    await db.runPromise(`
+      INSERT INTO portfolio_trade (
+        account_id, ts_code, stock_name, action, quantity, price, amount, trade_date, order_type, remark
+      ) VALUES (?, ?, ?, 'buy', ?, ?, ?, datetime('now'), ?, ?)
+    `, [id, normalizedCode, normalizedName, lotQuantity, price, costAmount, 'manual', '手动录入持仓']);
+
+    await db.runPromise(`
+      UPDATE portfolio_account
+      SET current_cash = ?, updated_at = datetime('now')
+      WHERE id = ?
+    `, [Number((toNumber(account.current_cash, 0) - costAmount).toFixed(2)), id]);
+
+    await updateAccountValue(db, id);
+
+    const summaryPositions = await refreshAccountPositionsValuation(db, id);
+    const refreshedAccount = await db.getPromise('SELECT * FROM portfolio_account WHERE id = ?', [id]);
+
+    res.json({
+      success: true,
+      message: '手动持仓添加成功',
+      data: {
+        account: refreshedAccount,
+        positions: summaryPositions,
+      }
+    });
+  } catch (error) {
+    console.error('手动添加持仓失败:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
 // ========== 交易记录 API ==========
 
 /**
@@ -531,6 +732,7 @@ module.exports = {
   updateAccount,
   deleteAccount,
   getAccountSummary,
+  addManualPosition,
   clearPositions,
   getAccountConditionalOrders,
   getPositions,

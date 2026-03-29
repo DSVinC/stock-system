@@ -1,0 +1,2215 @@
+{
+  "executedAt": "2026-03-29T08:29:19.618Z",
+  "select": {
+    "status": 200,
+    "ok": true,
+    "data": {
+      "generatedAt": "2026-03-29T08:29:25.214Z",
+      "tradeDate": "20260324",
+      "methodology": {
+        "framework": "自上而下行业筛选",
+        "dimensions": [
+          "社会经济趋势",
+          "政策方向",
+          "舆论热度",
+          "商业变现"
+        ],
+        "sources": [
+          "Tushare stock_basic",
+          "Tushare ths_index",
+          "Tushare moneyflow_cnt_ths",
+          "Tushare ths_hot",
+          "Tushare new_share"
+        ]
+      },
+      "directions": [
+        {
+          "ts_code": "885936.TI",
+          "name": "绿色电力",
+          "score": 90,
+          "dimensions": {
+            "social": 5,
+            "policy": 3,
+            "public": 5,
+            "business": 5
+          },
+          "metrics": {
+            "companyCount": 381,
+            "hotRank": 1,
+            "hotValue": 146705.5,
+            "ipoMatches": 0,
+            "netAmount": 0,
+            "pctChange": 4.04
+          },
+          "leadStock": "",
+          "picks": [
+            {
+              "ts_code": "601012.SH",
+              "code": "601012.SH",
+              "name": "隆基绿能",
+              "industry": "电气设备",
+              "total_mv": 1442.86343111,
+              "turnover_rate": 5.1471,
+              "volume_ratio": 1.32,
+              "pe_ttm": 0,
+              "score": 85
+            },
+            {
+              "ts_code": "601877.SH",
+              "code": "601877.SH",
+              "name": "正泰电器",
+              "industry": "电气设备",
+              "total_mv": 747.84120365,
+              "turnover_rate": 2.5128,
+              "volume_ratio": 1.03,
+              "pe_ttm": 16.4151,
+              "score": 83
+            },
+            {
+              "ts_code": "600956.SH",
+              "code": "600956.SH",
+              "name": "新天绿能",
+              "industry": "供气供热",
+              "total_mv": 465.25865582999995,
+              "turnover_rate": 3.4761,
+              "volume_ratio": 1.19,
+              "pe_ttm": 26.8058,
+              "score": 81
+            },
+            {
+              "ts_code": "688599.SH",
+              "code": "688599.SH",
+              "name": "天合光能",
+              "industry": "电气设备",
+              "total_mv": 437.12313021,
+              "turnover_rate": 2.9507,
+              "volume_ratio": 1.09,
+              "pe_ttm": 0,
+              "score": 81
+            },
+            {
+              "ts_code": "002459.SZ",
+              "code": "002459.SZ",
+              "name": "晶澳科技",
+              "industry": "电气设备",
+              "total_mv": 408.74641885,
+              "turnover_rate": 5.2159,
+              "volume_ratio": 1.45,
+              "pe_ttm": 0,
+              "score": 81
+            }
+          ],
+          "reason": "绿色电力 当前由真实市场数据筛出：板块资金净流入 0.00 亿元，近端热度排名 第 1 名，板块成分 381 家，近一年相关 IPO 0 家，四维度综合得分 90。"
+        },
+        {
+          "ts_code": "885425.TI",
+          "name": "特高压",
+          "score": 85,
+          "dimensions": {
+            "social": 5,
+            "policy": 3,
+            "public": 5,
+            "business": 4
+          },
+          "metrics": {
+            "companyCount": 124,
+            "hotRank": 14,
+            "hotValue": 16454.5,
+            "ipoMatches": 0,
+            "netAmount": 0,
+            "pctChange": 3.95
+          },
+          "leadStock": "",
+          "picks": [
+            {
+              "ts_code": "600563.SH",
+              "code": "600563.SH",
+              "name": "法拉电子",
+              "industry": "元器件",
+              "total_mv": 286.155,
+              "turnover_rate": 5.0146,
+              "volume_ratio": 1.09,
+              "pe_ttm": 24.8372,
+              "score": 80
+            },
+            {
+              "ts_code": "600869.SH",
+              "code": "600869.SH",
+              "name": "远东股份",
+              "industry": "电气设备",
+              "total_mv": 283.41134566,
+              "turnover_rate": 3.5676,
+              "volume_ratio": 1.44,
+              "pe_ttm": 0,
+              "score": 80
+            },
+            {
+              "ts_code": "600089.SH",
+              "code": "600089.SH",
+              "name": "特变电工",
+              "industry": "电气设备",
+              "total_mv": 1440.5511619899999,
+              "turnover_rate": 3.8492,
+              "volume_ratio": 0.98,
+              "pe_ttm": 27.0696,
+              "score": 78
+            },
+            {
+              "ts_code": "601868.SH",
+              "code": "601868.SH",
+              "name": "中国能建",
+              "industry": "建筑工程",
+              "total_mv": 1367.47016726,
+              "turnover_rate": 5.4891,
+              "volume_ratio": 0.9,
+              "pe_ttm": 17.2052,
+              "score": 78
+            },
+            {
+              "ts_code": "000070.SZ",
+              "code": "000070.SZ",
+              "name": "特发信息",
+              "industry": "通信设备",
+              "total_mv": 129.82971439,
+              "turnover_rate": 7.3796,
+              "volume_ratio": 1.21,
+              "pe_ttm": 0,
+              "score": 77
+            }
+          ],
+          "reason": "特高压 当前由真实市场数据筛出：板块资金净流入 0.00 亿元，近端热度排名 第 14 名，板块成分 124 家，近一年相关 IPO 0 家，四维度综合得分 85。"
+        },
+        {
+          "ts_code": "885410.TI",
+          "name": "固废处理",
+          "score": 75,
+          "dimensions": {
+            "social": 5,
+            "policy": 3,
+            "public": 2,
+            "business": 5
+          },
+          "metrics": {
+            "companyCount": 153,
+            "hotRank": null,
+            "hotValue": 0,
+            "ipoMatches": 0,
+            "netAmount": 0,
+            "pctChange": 4.55
+          },
+          "leadStock": "",
+          "picks": [
+            {
+              "ts_code": "600711.SH",
+              "code": "600711.SH",
+              "name": "盛屯矿业",
+              "industry": "小金属",
+              "total_mv": 354.4931449,
+              "turnover_rate": 6.6226,
+              "volume_ratio": 1.46,
+              "pe_ttm": 18.0733,
+              "score": 80
+            },
+            {
+              "ts_code": "600388.SH",
+              "code": "600388.SH",
+              "name": "龙净环保",
+              "industry": "环境保护",
+              "total_mv": 235.21257346000002,
+              "turnover_rate": 2.3737,
+              "volume_ratio": 1.8,
+              "pe_ttm": 21.1467,
+              "score": 79
+            },
+            {
+              "ts_code": "601992.SH",
+              "code": "601992.SH",
+              "name": "金隅集团",
+              "industry": "水泥",
+              "total_mv": 188.99654907,
+              "turnover_rate": 2.7012,
+              "volume_ratio": 1.95,
+              "pe_ttm": 0,
+              "score": 78
+            },
+            {
+              "ts_code": "600710.SH",
+              "code": "600710.SH",
+              "name": "苏美达",
+              "industry": "商贸代理",
+              "total_mv": 165.95717812,
+              "turnover_rate": 2.837,
+              "volume_ratio": 1.98,
+              "pe_ttm": 12.2459,
+              "score": 78
+            },
+            {
+              "ts_code": "600531.SH",
+              "code": "600531.SH",
+              "name": "豫光金铅",
+              "industry": "铅锌",
+              "total_mv": 155.87396177,
+              "turnover_rate": 4.4952,
+              "volume_ratio": 1.08,
+              "pe_ttm": 17.8418,
+              "score": 78
+            }
+          ],
+          "reason": "固废处理 当前由真实市场数据筛出：板块资金净流入 0.00 亿元，近端热度排名 暂无热榜数据，板块成分 153 家，近一年相关 IPO 0 家，四维度综合得分 75。"
+        },
+        {
+          "ts_code": "885920.TI",
+          "name": "光伏建筑一体化",
+          "score": 75,
+          "dimensions": {
+            "social": 5,
+            "policy": 3,
+            "public": 2,
+            "business": 5
+          },
+          "metrics": {
+            "companyCount": 131,
+            "hotRank": null,
+            "hotValue": 0,
+            "ipoMatches": 0,
+            "netAmount": 0,
+            "pctChange": 4.33
+          },
+          "leadStock": "",
+          "picks": [
+            {
+              "ts_code": "601012.SH",
+              "code": "601012.SH",
+              "name": "隆基绿能",
+              "industry": "电气设备",
+              "total_mv": 1442.86343111,
+              "turnover_rate": 5.1471,
+              "volume_ratio": 1.32,
+              "pe_ttm": 0,
+              "score": 85
+            },
+            {
+              "ts_code": "601877.SH",
+              "code": "601877.SH",
+              "name": "正泰电器",
+              "industry": "电气设备",
+              "total_mv": 747.84120365,
+              "turnover_rate": 2.5128,
+              "volume_ratio": 1.03,
+              "pe_ttm": 16.4151,
+              "score": 83
+            },
+            {
+              "ts_code": "688599.SH",
+              "code": "688599.SH",
+              "name": "天合光能",
+              "industry": "电气设备",
+              "total_mv": 437.12313021,
+              "turnover_rate": 2.9507,
+              "volume_ratio": 1.09,
+              "pe_ttm": 0,
+              "score": 81
+            },
+            {
+              "ts_code": "002271.SZ",
+              "code": "002271.SZ",
+              "name": "东方雨虹",
+              "industry": "其他建材",
+              "total_mv": 363.32124962,
+              "turnover_rate": 3.405,
+              "volume_ratio": 1.62,
+              "pe_ttm": 0,
+              "score": 80
+            },
+            {
+              "ts_code": "600732.SH",
+              "code": "600732.SH",
+              "name": "爱旭股份",
+              "industry": "电气设备",
+              "total_mv": 326.26821313,
+              "turnover_rate": 6.9305,
+              "volume_ratio": 2.34,
+              "pe_ttm": 0,
+              "score": 80
+            }
+          ],
+          "reason": "光伏建筑一体化 当前由真实市场数据筛出：板块资金净流入 0.00 亿元，近端热度排名 暂无热榜数据，板块成分 131 家，近一年相关 IPO 0 家，四维度综合得分 75。"
+        },
+        {
+          "ts_code": "885572.TI",
+          "name": "水利",
+          "score": 75,
+          "dimensions": {
+            "social": 5,
+            "policy": 3,
+            "public": 2,
+            "business": 5
+          },
+          "metrics": {
+            "companyCount": 258,
+            "hotRank": null,
+            "hotValue": 0,
+            "ipoMatches": 0,
+            "netAmount": 0,
+            "pctChange": 3.95
+          },
+          "leadStock": "",
+          "picks": [
+            {
+              "ts_code": "002271.SZ",
+              "code": "002271.SZ",
+              "name": "东方雨虹",
+              "industry": "其他建材",
+              "total_mv": 363.32124962,
+              "turnover_rate": 3.405,
+              "volume_ratio": 1.62,
+              "pe_ttm": 0,
+              "score": 80
+            },
+            {
+              "ts_code": "600025.SH",
+              "code": "600025.SH",
+              "name": "华能水电",
+              "industry": "水力发电",
+              "total_mv": 1909.68716134,
+              "turnover_rate": 0.212,
+              "volume_ratio": 1.22,
+              "pe_ttm": 22.178,
+              "score": 79
+            },
+            {
+              "ts_code": "002611.SZ",
+              "code": "002611.SZ",
+              "name": "东方精工",
+              "industry": "轻工机械",
+              "total_mv": 207.30386370000002,
+              "turnover_rate": 3.5344,
+              "volume_ratio": 1.1,
+              "pe_ttm": 28.5834,
+              "score": 79
+            },
+            {
+              "ts_code": "600089.SH",
+              "code": "600089.SH",
+              "name": "特变电工",
+              "industry": "电气设备",
+              "total_mv": 1440.5511619899999,
+              "turnover_rate": 3.8492,
+              "volume_ratio": 0.98,
+              "pe_ttm": 27.0696,
+              "score": 78
+            },
+            {
+              "ts_code": "601868.SH",
+              "code": "601868.SH",
+              "name": "中国能建",
+              "industry": "建筑工程",
+              "total_mv": 1367.47016726,
+              "turnover_rate": 5.4891,
+              "volume_ratio": 0.9,
+              "pe_ttm": 17.2052,
+              "score": 78
+            }
+          ],
+          "reason": "水利 当前由真实市场数据筛出：板块资金净流入 0.00 亿元，近端热度排名 暂无热榜数据，板块成分 258 家，近一年相关 IPO 0 家，四维度综合得分 75。"
+        },
+        {
+          "ts_code": "885615.TI",
+          "name": "体育产业",
+          "score": 75,
+          "dimensions": {
+            "social": 5,
+            "policy": 3,
+            "public": 2,
+            "business": 5
+          },
+          "metrics": {
+            "companyCount": 132,
+            "hotRank": null,
+            "hotValue": 0,
+            "ipoMatches": 0,
+            "netAmount": 0,
+            "pctChange": 4.11
+          },
+          "leadStock": "",
+          "picks": [
+            {
+              "ts_code": "605099.SH",
+              "code": "605099.SH",
+              "name": "共创草坪",
+              "industry": "文教休闲",
+              "total_mv": 167.41295649,
+              "turnover_rate": 2.0808,
+              "volume_ratio": 1.66,
+              "pe_ttm": 26.4539,
+              "score": 78
+            },
+            {
+              "ts_code": "002681.SZ",
+              "code": "002681.SZ",
+              "name": "奋达科技",
+              "industry": "元器件",
+              "total_mv": 96.37282486000001,
+              "turnover_rate": 2.069,
+              "volume_ratio": 1.12,
+              "pe_ttm": 0,
+              "score": 76
+            },
+            {
+              "ts_code": "000796.SZ",
+              "code": "000796.SZ",
+              "name": "凯撒旅业",
+              "industry": "旅游服务",
+              "total_mv": 83.71778142000001,
+              "turnover_rate": 3.7925,
+              "volume_ratio": 1.18,
+              "pe_ttm": 0,
+              "score": 75
+            },
+            {
+              "ts_code": "000888.SZ",
+              "code": "000888.SZ",
+              "name": "峨眉山A",
+              "industry": "旅游景点",
+              "total_mv": 66.23297692,
+              "turnover_rate": 2.7104,
+              "volume_ratio": 1.01,
+              "pe_ttm": 29.4459,
+              "score": 75
+            },
+            {
+              "ts_code": "002264.SZ",
+              "code": "002264.SZ",
+              "name": "新华都",
+              "industry": "互联网",
+              "total_mv": 58.95254547,
+              "turnover_rate": 3.1243,
+              "volume_ratio": 1.15,
+              "pe_ttm": 23.7927,
+              "score": 74
+            }
+          ],
+          "reason": "体育产业 当前由真实市场数据筛出：板块资金净流入 0.00 亿元，近端热度排名 暂无热榜数据，板块成分 132 家，近一年相关 IPO 0 家，四维度综合得分 75。"
+        },
+        {
+          "ts_code": "885412.TI",
+          "name": "污水处理",
+          "score": 75,
+          "dimensions": {
+            "social": 5,
+            "policy": 3,
+            "public": 2,
+            "business": 5
+          },
+          "metrics": {
+            "companyCount": 228,
+            "hotRank": null,
+            "hotValue": 0,
+            "ipoMatches": 0,
+            "netAmount": 0,
+            "pctChange": 4.24
+          },
+          "leadStock": "",
+          "picks": [
+            {
+              "ts_code": "600388.SH",
+              "code": "600388.SH",
+              "name": "龙净环保",
+              "industry": "环境保护",
+              "total_mv": 235.21257346000002,
+              "turnover_rate": 2.3737,
+              "volume_ratio": 1.8,
+              "pe_ttm": 21.1467,
+              "score": 79
+            },
+            {
+              "ts_code": "600710.SH",
+              "code": "600710.SH",
+              "name": "苏美达",
+              "industry": "商贸代理",
+              "total_mv": 165.95717812,
+              "turnover_rate": 2.837,
+              "volume_ratio": 1.98,
+              "pe_ttm": 12.2459,
+              "score": 78
+            },
+            {
+              "ts_code": "002060.SZ",
+              "code": "002060.SZ",
+              "name": "广东建工",
+              "industry": "建筑工程",
+              "total_mv": 149.04941171,
+              "turnover_rate": 3.6416,
+              "volume_ratio": 1.18,
+              "pe_ttm": 13.7737,
+              "score": 77
+            },
+            {
+              "ts_code": "301109.SZ",
+              "code": "301109.SZ",
+              "name": "军信股份",
+              "industry": "环境保护",
+              "total_mv": 132.96349188000002,
+              "turnover_rate": 7.0395,
+              "volume_ratio": 1.94,
+              "pe_ttm": 18.1031,
+              "score": 77
+            },
+            {
+              "ts_code": "600963.SH",
+              "code": "600963.SH",
+              "name": "岳阳林纸",
+              "industry": "造纸",
+              "total_mv": 81.72690521,
+              "turnover_rate": 2.2761,
+              "volume_ratio": 1.03,
+              "pe_ttm": 0,
+              "score": 75
+            }
+          ],
+          "reason": "污水处理 当前由真实市场数据筛出：板块资金净流入 0.00 亿元，近端热度排名 暂无热榜数据，板块成分 228 家，近一年相关 IPO 0 家，四维度综合得分 75。"
+        },
+        {
+          "ts_code": "885991.TI",
+          "name": "新型城镇化",
+          "score": 75,
+          "dimensions": {
+            "social": 5,
+            "policy": 3,
+            "public": 2,
+            "business": 5
+          },
+          "metrics": {
+            "companyCount": 218,
+            "hotRank": null,
+            "hotValue": 0,
+            "ipoMatches": 0,
+            "netAmount": 0,
+            "pctChange": 4.55
+          },
+          "leadStock": "",
+          "picks": [
+            {
+              "ts_code": "002271.SZ",
+              "code": "002271.SZ",
+              "name": "东方雨虹",
+              "industry": "其他建材",
+              "total_mv": 363.32124962,
+              "turnover_rate": 3.405,
+              "volume_ratio": 1.62,
+              "pe_ttm": 0,
+              "score": 80
+            },
+            {
+              "ts_code": "601868.SH",
+              "code": "601868.SH",
+              "name": "中国能建",
+              "industry": "建筑工程",
+              "total_mv": 1367.47016726,
+              "turnover_rate": 5.4891,
+              "volume_ratio": 0.9,
+              "pe_ttm": 17.2052,
+              "score": 78
+            },
+            {
+              "ts_code": "000680.SZ",
+              "code": "000680.SZ",
+              "name": "山推股份",
+              "industry": "工程机械",
+              "total_mv": 172.96644316,
+              "turnover_rate": 3.3376,
+              "volume_ratio": 1.46,
+              "pe_ttm": 14.2832,
+              "score": 78
+            },
+            {
+              "ts_code": "000065.SZ",
+              "code": "000065.SZ",
+              "name": "北方国际",
+              "industry": "建筑工程",
+              "total_mv": 165.15707501,
+              "turnover_rate": 4.9188,
+              "volume_ratio": 1.56,
+              "pe_ttm": 21.2656,
+              "score": 78
+            },
+            {
+              "ts_code": "002060.SZ",
+              "code": "002060.SZ",
+              "name": "广东建工",
+              "industry": "建筑工程",
+              "total_mv": 149.04941171,
+              "turnover_rate": 3.6416,
+              "volume_ratio": 1.18,
+              "pe_ttm": 13.7737,
+              "score": 77
+            }
+          ],
+          "reason": "新型城镇化 当前由真实市场数据筛出：板块资金净流入 0.00 亿元，近端热度排名 暂无热榜数据，板块成分 218 家，近一年相关 IPO 0 家，四维度综合得分 75。"
+        },
+        {
+          "ts_code": "885965.TI",
+          "name": "中俄贸易概念",
+          "score": 75,
+          "dimensions": {
+            "social": 5,
+            "policy": 3,
+            "public": 2,
+            "business": 5
+          },
+          "metrics": {
+            "companyCount": 178,
+            "hotRank": null,
+            "hotValue": 0,
+            "ipoMatches": 0,
+            "netAmount": 0,
+            "pctChange": 4.1
+          },
+          "leadStock": "",
+          "picks": [
+            {
+              "ts_code": "000680.SZ",
+              "code": "000680.SZ",
+              "name": "山推股份",
+              "industry": "工程机械",
+              "total_mv": 172.96644316,
+              "turnover_rate": 3.3376,
+              "volume_ratio": 1.46,
+              "pe_ttm": 14.2832,
+              "score": 78
+            },
+            {
+              "ts_code": "600415.SH",
+              "code": "600415.SH",
+              "name": "小商品城",
+              "industry": "商品城",
+              "total_mv": 715.05612307,
+              "turnover_rate": 0.9885,
+              "volume_ratio": 1.23,
+              "pe_ttm": 17.0166,
+              "score": 76
+            },
+            {
+              "ts_code": "002681.SZ",
+              "code": "002681.SZ",
+              "name": "奋达科技",
+              "industry": "元器件",
+              "total_mv": 96.37282486000001,
+              "turnover_rate": 2.069,
+              "volume_ratio": 1.12,
+              "pe_ttm": 0,
+              "score": 76
+            },
+            {
+              "ts_code": "000928.SZ",
+              "code": "000928.SZ",
+              "name": "中钢国际",
+              "industry": "建筑工程",
+              "total_mv": 93.53882929,
+              "turnover_rate": 2.2576,
+              "volume_ratio": 1.12,
+              "pe_ttm": 12.4608,
+              "score": 76
+            },
+            {
+              "ts_code": "601298.SH",
+              "code": "601298.SH",
+              "name": "青岛港",
+              "industry": "港口",
+              "total_mv": 570.5676900000001,
+              "turnover_rate": 0.2322,
+              "volume_ratio": 1.02,
+              "pe_ttm": 10.8236,
+              "score": 75
+            }
+          ],
+          "reason": "中俄贸易概念 当前由真实市场数据筛出：板块资金净流入 0.00 亿元，近端热度排名 暂无热榜数据，板块成分 178 家，近一年相关 IPO 0 家，四维度综合得分 75。"
+        },
+        {
+          "ts_code": "885690.TI",
+          "name": "PPP概念",
+          "score": 75,
+          "dimensions": {
+            "social": 5,
+            "policy": 3,
+            "public": 2,
+            "business": 5
+          },
+          "metrics": {
+            "companyCount": 199,
+            "hotRank": null,
+            "hotValue": 0,
+            "ipoMatches": 0,
+            "netAmount": 0,
+            "pctChange": 4.05
+          },
+          "leadStock": "",
+          "picks": [
+            {
+              "ts_code": "600388.SH",
+              "code": "600388.SH",
+              "name": "龙净环保",
+              "industry": "环境保护",
+              "total_mv": 235.21257346000002,
+              "turnover_rate": 2.3737,
+              "volume_ratio": 1.8,
+              "pe_ttm": 21.1467,
+              "score": 79
+            },
+            {
+              "ts_code": "002060.SZ",
+              "code": "002060.SZ",
+              "name": "广东建工",
+              "industry": "建筑工程",
+              "total_mv": 149.04941171,
+              "turnover_rate": 3.6416,
+              "volume_ratio": 1.18,
+              "pe_ttm": 13.7737,
+              "score": 77
+            },
+            {
+              "ts_code": "601033.SH",
+              "code": "601033.SH",
+              "name": "永兴股份",
+              "industry": "环境保护",
+              "total_mv": 144.36,
+              "turnover_rate": 3.294,
+              "volume_ratio": 1.42,
+              "pe_ttm": 15.7279,
+              "score": 77
+            },
+            {
+              "ts_code": "603887.SH",
+              "code": "603887.SH",
+              "name": "城地香江",
+              "industry": "软件服务",
+              "total_mv": 98.01038974000001,
+              "turnover_rate": 5.8516,
+              "volume_ratio": 1,
+              "pe_ttm": 0,
+              "score": 76
+            },
+            {
+              "ts_code": "600350.SH",
+              "code": "600350.SH",
+              "name": "山东高速",
+              "industry": "路桥",
+              "total_mv": 507.62993663,
+              "turnover_rate": 0.2354,
+              "volume_ratio": 1.25,
+              "pe_ttm": 15.3846,
+              "score": 75
+            }
+          ],
+          "reason": "PPP概念 当前由真实市场数据筛出：板块资金净流入 0.00 亿元，近端热度排名 暂无热榜数据，板块成分 199 家，近一年相关 IPO 0 家，四维度综合得分 75。"
+        }
+      ],
+      "decisions": [
+        {
+          "ts_code": "601012.SH",
+          "name": "隆基绿能",
+          "industry": "电气设备",
+          "decision": "buy",
+          "entry_zone": "数据不足",
+          "stop_loss": "数据不足",
+          "target_prices": [],
+          "position_suggest": 0.4,
+          "valid_until": "20260324",
+          "seven_factor_score": 6.7785,
+          "pe_ttm": 40,
+          "pb": 0.5
+        },
+        {
+          "ts_code": "601877.SH",
+          "name": "正泰电器",
+          "industry": "电气设备",
+          "decision": "buy",
+          "entry_zone": "数据不足",
+          "stop_loss": "数据不足",
+          "target_prices": [],
+          "position_suggest": 0.4,
+          "valid_until": "20260324",
+          "seven_factor_score": 7.3275,
+          "pe_ttm": 53,
+          "pb": 1.4
+        },
+        {
+          "ts_code": "600956.SH",
+          "name": "新天绿能",
+          "industry": "供气供热",
+          "decision": "buy",
+          "entry_zone": "数据不足",
+          "stop_loss": "数据不足",
+          "target_prices": [],
+          "position_suggest": 0.4,
+          "valid_until": "20260324",
+          "seven_factor_score": 8.5875,
+          "pe_ttm": 53,
+          "pb": 1.4
+        },
+        {
+          "ts_code": "600563.SH",
+          "name": "法拉电子",
+          "industry": "元器件",
+          "decision": "buy",
+          "entry_zone": "数据不足",
+          "stop_loss": "数据不足",
+          "target_prices": [],
+          "position_suggest": 0.4,
+          "valid_until": "20260324",
+          "seven_factor_score": 5.8061,
+          "pe_ttm": 26,
+          "pb": 0.8
+        },
+        {
+          "ts_code": "600869.SH",
+          "name": "远东股份",
+          "industry": "电气设备",
+          "decision": "buy",
+          "entry_zone": "数据不足",
+          "stop_loss": "数据不足",
+          "target_prices": [],
+          "position_suggest": 0.4,
+          "valid_until": "20260324",
+          "seven_factor_score": 5.2551,
+          "pe_ttm": 32,
+          "pb": 1.1
+        },
+        {
+          "ts_code": "600089.SH",
+          "name": "特变电工",
+          "industry": "电气设备",
+          "decision": "buy",
+          "entry_zone": "数据不足",
+          "stop_loss": "数据不足",
+          "target_prices": [],
+          "position_suggest": 0.4,
+          "valid_until": "20260324",
+          "seven_factor_score": 7.3655,
+          "pe_ttm": 27,
+          "pb": 1.1
+        },
+        {
+          "ts_code": "600711.SH",
+          "name": "盛屯矿业",
+          "industry": "小金属",
+          "decision": "buy",
+          "entry_zone": "数据不足",
+          "stop_loss": "数据不足",
+          "target_prices": [],
+          "position_suggest": 0.4,
+          "valid_until": "20260324",
+          "seven_factor_score": 4.9793,
+          "pe_ttm": 47,
+          "pb": 1.1
+        },
+        {
+          "ts_code": "600388.SH",
+          "name": "龙净环保",
+          "industry": "环境保护",
+          "decision": "buy",
+          "entry_zone": "数据不足",
+          "stop_loss": "数据不足",
+          "target_prices": [],
+          "position_suggest": 0.4,
+          "valid_until": "20260324",
+          "seven_factor_score": 8.5024,
+          "pe_ttm": 54,
+          "pb": 1.7
+        },
+        {
+          "ts_code": "601992.SH",
+          "name": "金隅集团",
+          "industry": "水泥",
+          "decision": "buy",
+          "entry_zone": "数据不足",
+          "stop_loss": "数据不足",
+          "target_prices": [],
+          "position_suggest": 0.4,
+          "valid_until": "20260324",
+          "seven_factor_score": 8.397,
+          "pe_ttm": 50,
+          "pb": 0.5
+        },
+        {
+          "ts_code": "601012.SH",
+          "name": "隆基绿能",
+          "industry": "电气设备",
+          "decision": "buy",
+          "entry_zone": "数据不足",
+          "stop_loss": "数据不足",
+          "target_prices": [],
+          "position_suggest": 0.4,
+          "valid_until": "20260324",
+          "seven_factor_score": 6.7785,
+          "pe_ttm": 40,
+          "pb": 0.5
+        }
+      ],
+      "conclusions": [
+        {
+          "rank": 1,
+          "name": "绿色电力",
+          "score": 90,
+          "reason": "绿色电力 当前由真实市场数据筛出：板块资金净流入 0.00 亿元，近端热度排名 第 1 名，板块成分 381 家，近一年相关 IPO 0 家，四维度综合得分 90。"
+        },
+        {
+          "rank": 2,
+          "name": "特高压",
+          "score": 85,
+          "reason": "特高压 当前由真实市场数据筛出：板块资金净流入 0.00 亿元，近端热度排名 第 14 名，板块成分 124 家，近一年相关 IPO 0 家，四维度综合得分 85。"
+        },
+        {
+          "rank": 3,
+          "name": "固废处理",
+          "score": 75,
+          "reason": "固废处理 当前由真实市场数据筛出：板块资金净流入 0.00 亿元，近端热度排名 暂无热榜数据，板块成分 153 家，近一年相关 IPO 0 家，四维度综合得分 75。"
+        }
+      ],
+      "risks": [
+        "方向筛选反映的是最新板块热度和资金偏好，不等于个股买点已经成熟。",
+        "概念板块存在轮动，若后续资金净流入转负，方向优先级会快速下修。",
+        "最终交易前仍需在个股层面复核财报、估值和实时行情。"
+      ]
+    }
+  },
+  "stockCode": "601012.SH",
+  "analyzeReport": {
+    "status": 200,
+    "ok": true,
+    "data": {
+      "success": true,
+      "report_id": "ANALYZE_601012.SH_20260329_1774772965713",
+      "report_path": "http://127.0.0.1:3000/report/analysis/%E9%9A%86%E5%9F%BA%E7%BB%BF%E8%83%BD_%E5%88%86%E6%9E%90%E6%8A%A5%E5%91%8A_20260329.md",
+      "stock": {
+        "name": "隆基绿能",
+        "code": "601012.SH",
+        "decision": "回避",
+        "current_price": 18.52
+      }
+    }
+  },
+  "reportId": "ANALYZE_601012.SH_20260329_1774772965713",
+  "reportList": {
+    "status": 200,
+    "ok": true,
+    "data": {
+      "success": true,
+      "reports": [
+        {
+          "id": 6,
+          "report_id": "ANALYZE_601012.SH_20260329_1774772965713",
+          "stock_code": "601012.SH",
+          "stock_name": "隆基绿能",
+          "report_json": {
+            "generatedAt": "2026-03-29T08:29:25.707Z",
+            "stock": {
+              "ts_code": "601012.SH",
+              "symbol": "601012",
+              "name": "隆基绿能",
+              "industry": "电气设备"
+            },
+            "reportScore": 5.971500000000002,
+            "decision": "回避",
+            "technical": {
+              "latest": {
+                "ts_code": "601012.SH",
+                "trade_date": "20260327",
+                "open": 18.1,
+                "high": 18.74,
+                "low": 18.08,
+                "close": 18.52,
+                "pre_close": 18.37,
+                "change": 0.15,
+                "pct_chg": 0.8165,
+                "vol": 2075887.34,
+                "amount": 3819551.092,
+                "ma5": 18.726,
+                "ma10": 18.715,
+                "ma20": 18.5115,
+                "ma60": 18.500666666666664,
+                "macd_dif": 0.07408953853641975,
+                "macd_dea": 0.08093515047050281,
+                "macd_bar": -0.013691223868166125,
+                "rsi": 52.24913494809687,
+                "bb_middle": 18.5115,
+                "bb_upper": 19.31785662085705,
+                "bb_lower": 17.705143379142953
+              },
+              "price": 18.52,
+              "change": 0.14999999999999858,
+              "pctChange": 0.8165,
+              "high": 18.74,
+              "low": 18.08,
+              "open": 18.1,
+              "preClose": 18.37,
+              "volume": 2075887.34,
+              "amount": 3819551.092,
+              "maSignal": "均线缠绕（震荡整理）",
+              "macdSignal": "MACD 死叉",
+              "rsiSignal": "中性区间",
+              "bollSignal": "布林带中轨附近运行"
+            },
+            "realtimeQuote": {
+              "code": 0,
+              "data": {
+                "symbol": "sh601012",
+                "name": "¡������",
+                "price": 18.52,
+                "open": 18.1,
+                "high": 18.74,
+                "low": 18.08,
+                "close": 18.37,
+                "volume": 207588734,
+                "amount": 3819551092,
+                "percent": "0.82",
+                "change": "0.15",
+                "time": "15:00:00",
+                "date": "2026-03-27"
+              }
+            },
+            "valuation": {
+              "ts_code": "601012.SH",
+              "trade_date": "20260327",
+              "close": 18.52,
+              "turnover_rate": 2.7393,
+              "volume_ratio": 0.59,
+              "pe": null,
+              "pe_ttm": null,
+              "pb": 2.4658,
+              "ps": 1.6995,
+              "total_mv": 14034574.9706,
+              "circ_mv": 14034560.9954,
+              "dv_ttm": null
+            },
+            "basicSummary": [
+              "所属行业为 电气设备，上市日期 未披露。",
+              "最近一期营业总收入 509.15 亿元，净利润 -34.54 亿元。",
+              "ROE -5.76%、毛利率 1.21%、资产负债率 62.43%。",
+              "总市值 1403.46 亿元，所在市场 未披露。"
+            ],
+            "latestIncome": {
+              "ts_code": "601012.SH",
+              "ann_date": "20251031",
+              "end_date": "20250930",
+              "total_revenue": 50914567855,
+              "revenue": 50914567855,
+              "n_income": -3453559769.08,
+              "operate_profit": -4045155382.84,
+              "basic_eps": -0.45
+            },
+            "latestFina": {
+              "ts_code": "601012.SH",
+              "ann_date": "20251031",
+              "end_date": "20250930",
+              "roe": -5.7551,
+              "grossprofit_margin": 1.2142,
+              "debt_to_assets": 62.431,
+              "netprofit_yoy": 47.5221,
+              "tr_yoy": -13.1042,
+              "q_sales_yoy": -9.7816,
+              "q_dt_roe": -1.9882,
+              "rd_exp": null
+            },
+            "latestThsFlow": {
+              "trade_date": "20260327",
+              "ts_code": "601012.SH",
+              "name": "隆基绿能",
+              "pct_change": 0.82,
+              "latest": 18.52,
+              "net_amount": 9455.27,
+              "net_d5_amount": -125127.52,
+              "buy_lg_amount": 14640.73,
+              "buy_lg_amount_rate": 3.83,
+              "buy_md_amount": 949.38,
+              "buy_md_amount_rate": 0.25,
+              "buy_sm_amount": -6134.84,
+              "buy_sm_amount_rate": -1.61
+            },
+            "latestFlow": {
+              "ts_code": "601012.SH",
+              "trade_date": "20260327",
+              "buy_lg_amount": 79123.91,
+              "sell_lg_amount": 77238.83,
+              "buy_elg_amount": 26841.43,
+              "sell_elg_amount": 20978.52,
+              "net_mf_amount": 9455.46
+            },
+            "latestHolder": {
+              "ts_code": "601012.SH",
+              "ann_date": "20260311",
+              "end_date": "20260227",
+              "holder_num": 947329
+            },
+            "latestNorthMoney": {
+              "trade_date": "20260327",
+              "north_money": "244568.3",
+              "south_money": "53253.43",
+              "hgt": "112683.68",
+              "sgt": "131884.62"
+            },
+            "bullPoints": [
+              "当前价格 18.52 元，均线缠绕（震荡整理），技术面没有继续摆烂。",
+              "MACD 死叉，RSI 52.25，说明动能仍有跟踪价值。",
+              "PE(TTM) 0.00、PB 2.47，估值处在 偏高区间。",
+              "最新主力净流入 9455.27 万元，资金面至少不是完全躺平。",
+              "最新财务指标显示营收同比 -13.10%、净利润同比 47.52%。"
+            ],
+            "bearPoints": [
+              "若股价重新跌破 18.51 元，趋势确认会被打回原形。",
+              "RSI 52.25 与布林带信号显示短线并非无脑上车区间。",
+              "估值中枢仍受 电气设备 景气波动影响，一旦预期降温，回撤会来得很快。",
+              "股东户数 947,329，筹码集中度变化还需继续观察。",
+              "实时行情依赖新浪财经 MCP，若外部数据源中断，盘中判断会失真。"
+            ],
+            "committeeOpinion": "风险管理委员会意见：当前不建议参与，优先等待估值或趋势重新修复。",
+            "finalSuggestion": "隆基绿能 当前赔率与胜率都不占优，先别让仓位去接飞刀。",
+            "watchPoints": [
+              "实时价格能否稳定运行在 18.51 元 上方。",
+              "下一期财报中营收同比 -13.10% 与净利润同比 47.52% 是否继续改善。",
+              "主力资金净流入和 5 日资金净额是否持续转强。",
+              "电气设备 的政策、招标、订单或新产品进展。",
+              "北向资金（日度市场口径 244568.30 百万元）是否维持风险偏好。"
+            ],
+            "buyZone": [
+              17.705143379142953,
+              18.5115
+            ],
+            "stopLoss": 17.0384,
+            "targetPrice": 19.446,
+            "strategies": {
+              "aggressive": "风险较高，建议规避，不宜追价。若已持仓，考虑在 18.51 元 下方减仓。",
+              "balanced": "暂不符合建仓条件，保持观望。等待价格企稳并重新站上 18.51 元 后再评估。",
+              "conservative": "各项指标偏弱，优先控制风险，不建议参与。当前止损参考位 17.04 元。"
+            },
+            "strategy": {
+              "firstBuyPercent": 0,
+              "maxPosition": 0,
+              "addOnConditions": [],
+              "riskProfile": "conservative"
+            },
+            "targetPrices": [
+              {
+                "period": "1个月",
+                "price": 18.715,
+                "logic": "修复到 MA10/短线情绪溢价",
+                "rise": 1.0529157667386713
+              },
+              {
+                "period": "3个月",
+                "price": 18.5115,
+                "logic": "景气与估值中枢同步修复",
+                "rise": -0.04589632829372636
+              },
+              {
+                "period": "6个月",
+                "price": 19.31785662085705,
+                "logic": "业绩验证后估值扩张",
+                "rise": 4.308081106139583
+              },
+              {
+                "period": "乐观情景",
+                "price": 21.853599999999997,
+                "logic": "超预期订单/产品获批/行业催化集中兑现",
+                "rise": 17.999999999999993
+              }
+            ],
+            "scoreFactors": {
+              "reportScore": 5.971500000000002,
+              "decision": "回避",
+              "weightedScore": 0.9582900000000001,
+              "blackSwanEvent": null,
+              "factors": {
+                "trend": {
+                  "score": 1.2,
+                  "details": {
+                    "alignmentScore": 1,
+                    "aboveMa20": 0.3,
+                    "aboveMa60": 0.2,
+                    "maSignal": "均线缠绕（震荡整理）",
+                    "rawScore": 1.5
+                  },
+                  "weight": 0.17
+                },
+                "momentum": {
+                  "score": 0.855,
+                  "details": {
+                    "macdScore": 0.2,
+                    "rsiScore": 0.7,
+                    "histogramScore": 0.4,
+                    "macdSignal": "MACD 死叉",
+                    "rsi": 52.24913494809687,
+                    "histogram": 0,
+                    "rawScore": 0.42499999999999993
+                  },
+                  "weight": 0.15
+                },
+                "valuation": {
+                  "score": 1.002,
+                  "details": {
+                    "pe": 0,
+                    "pb": 2.4658,
+                    "industryPeMedian": null,
+                    "pePercentile5y": 0.5,
+                    "peScore": 0.9,
+                    "relativePeScore": 0.5,
+                    "percentileScore": 0.4,
+                    "pbScore": 0.8,
+                    "rawScore": 0.6700000000000002
+                  },
+                  "weight": 0.15
+                },
+                "capital": {
+                  "score": 1.08,
+                  "details": {
+                    "netAmount": 9455.27,
+                    "mainForce": 0,
+                    "retailForce": 0,
+                    "netAmountScore": 1,
+                    "mainRatioScore": 0.5,
+                    "rawScore": 0.8
+                  },
+                  "weight": 0.13
+                },
+                "earnings": {
+                  "score": 0.846,
+                  "details": {
+                    "trYoy": -13.1042,
+                    "netprofitYoy": 47.5221,
+                    "roe": -5.7551,
+                    "grossMargin": 1.2142,
+                    "revenueScore": 0.2,
+                    "profitScore": 0.8,
+                    "roeScore": 0.2,
+                    "marginScore": 0.2,
+                    "rawScore": 0.41000000000000003
+                  },
+                  "weight": 0.13
+                },
+                "volatility": {
+                  "score": 1.1280000000000001,
+                  "details": {
+                    "atr": 0.6324999999999997,
+                    "atrRatio": 0.0341522678185745,
+                    "bbWidth": 0.08707954868866614,
+                    "volatilityScore": 0.8,
+                    "bbScore": 1,
+                    "rawScore": 0.88
+                  },
+                  "weight": 0.12
+                },
+                "sentiment": {
+                  "score": 0.6,
+                  "details": {
+                    "newsScore": 0.5,
+                    "eventScore": 0.5,
+                    "newsCount": 0,
+                    "eventCount": 0,
+                    "riskAdjustment": 0
+                  },
+                  "calculatedAt": "2026-03-29T08:29:25.640Z",
+                  "weight": 0.15
+                }
+              },
+              "weights": {
+                "trend": 0.17,
+                "momentum": 0.15,
+                "valuation": 0.15,
+                "capital": 0.13,
+                "earnings": 0.13,
+                "volatility": 0.12,
+                "sentiment": 0.15,
+                "_total": 1,
+                "_description": "7因子权重配置，总和为100%",
+                "_version": "1.0.0",
+                "_updated": "2026-03-22T19:21:00+08:00"
+              }
+            },
+            "decisions": {
+              "stop_loss": 17.0384,
+              "stop_profit": [
+                18.715,
+                18.5115,
+                19.31785662085705,
+                21.853599999999997
+              ],
+              "entry_zone": {
+                "low": 17.705143379142953,
+                "high": 18.5115
+              }
+            }
+          },
+          "decision": "avoid",
+          "rating": 3,
+          "stop_loss": 17.0384,
+          "stop_profit": [
+            {
+              "price": 19.446,
+              "ratio": 1,
+              "rationale": "目标价止盈"
+            }
+          ],
+          "entry_zone": [
+            17.705143379142953,
+            18.5115
+          ],
+          "add_position": null,
+          "key_events": [],
+          "created_at": "2026-03-29 08:29:25",
+          "updated_at": "2026-03-29 08:29:25"
+        },
+        {
+          "id": 5,
+          "report_id": "ANALYZE_601012.SH_20260329_1774772641684",
+          "stock_code": "601012.SH",
+          "stock_name": "隆基绿能",
+          "report_json": {
+            "generatedAt": "2026-03-29T08:24:01.664Z",
+            "stock": {
+              "ts_code": "601012.SH",
+              "symbol": "601012",
+              "name": "隆基绿能",
+              "industry": "电气设备"
+            },
+            "reportScore": 5.971500000000002,
+            "decision": "回避",
+            "technical": {
+              "latest": {
+                "ts_code": "601012.SH",
+                "trade_date": "20260327",
+                "open": 18.1,
+                "high": 18.74,
+                "low": 18.08,
+                "close": 18.52,
+                "pre_close": 18.37,
+                "change": 0.15,
+                "pct_chg": 0.8165,
+                "vol": 2075887.34,
+                "amount": 3819551.092,
+                "ma5": 18.726,
+                "ma10": 18.715,
+                "ma20": 18.5115,
+                "ma60": 18.500666666666664,
+                "macd_dif": 0.07408953853641975,
+                "macd_dea": 0.08093515047050281,
+                "macd_bar": -0.013691223868166125,
+                "rsi": 52.24913494809687,
+                "bb_middle": 18.5115,
+                "bb_upper": 19.31785662085705,
+                "bb_lower": 17.705143379142953
+              },
+              "price": 18.52,
+              "change": 0.14999999999999858,
+              "pctChange": 0.8165,
+              "high": 18.74,
+              "low": 18.08,
+              "open": 18.1,
+              "preClose": 18.37,
+              "volume": 2075887.34,
+              "amount": 3819551.092,
+              "maSignal": "均线缠绕（震荡整理）",
+              "macdSignal": "MACD 死叉",
+              "rsiSignal": "中性区间",
+              "bollSignal": "布林带中轨附近运行"
+            },
+            "realtimeQuote": {
+              "code": 0,
+              "data": {
+                "symbol": "sh601012",
+                "name": "¡������",
+                "price": 18.52,
+                "open": 18.1,
+                "high": 18.74,
+                "low": 18.08,
+                "close": 18.37,
+                "volume": 207588734,
+                "amount": 3819551092,
+                "percent": "0.82",
+                "change": "0.15",
+                "time": "15:00:00",
+                "date": "2026-03-27"
+              }
+            },
+            "valuation": {
+              "ts_code": "601012.SH",
+              "trade_date": "20260327",
+              "close": 18.52,
+              "turnover_rate": 2.7393,
+              "volume_ratio": 0.59,
+              "pe": null,
+              "pe_ttm": null,
+              "pb": 2.4658,
+              "ps": 1.6995,
+              "total_mv": 14034574.9706,
+              "circ_mv": 14034560.9954,
+              "dv_ttm": null
+            },
+            "basicSummary": [
+              "所属行业为 电气设备，上市日期 未披露。",
+              "最近一期营业总收入 509.15 亿元，净利润 -34.54 亿元。",
+              "ROE -5.76%、毛利率 1.21%、资产负债率 62.43%。",
+              "总市值 1403.46 亿元，所在市场 未披露。"
+            ],
+            "latestIncome": {
+              "ts_code": "601012.SH",
+              "ann_date": "20251031",
+              "end_date": "20250930",
+              "total_revenue": 50914567855,
+              "revenue": 50914567855,
+              "n_income": -3453559769.08,
+              "operate_profit": -4045155382.84,
+              "basic_eps": -0.45
+            },
+            "latestFina": {
+              "ts_code": "601012.SH",
+              "ann_date": "20251031",
+              "end_date": "20250930",
+              "roe": -5.7551,
+              "grossprofit_margin": 1.2142,
+              "debt_to_assets": 62.431,
+              "netprofit_yoy": 47.5221,
+              "tr_yoy": -13.1042,
+              "q_sales_yoy": -9.7816,
+              "q_dt_roe": -1.9882,
+              "rd_exp": null
+            },
+            "latestThsFlow": {
+              "trade_date": "20260327",
+              "ts_code": "601012.SH",
+              "name": "隆基绿能",
+              "pct_change": 0.82,
+              "latest": 18.52,
+              "net_amount": 9455.27,
+              "net_d5_amount": -125127.52,
+              "buy_lg_amount": 14640.73,
+              "buy_lg_amount_rate": 3.83,
+              "buy_md_amount": 949.38,
+              "buy_md_amount_rate": 0.25,
+              "buy_sm_amount": -6134.84,
+              "buy_sm_amount_rate": -1.61
+            },
+            "latestFlow": {
+              "ts_code": "601012.SH",
+              "trade_date": "20260327",
+              "buy_lg_amount": 79123.91,
+              "sell_lg_amount": 77238.83,
+              "buy_elg_amount": 26841.43,
+              "sell_elg_amount": 20978.52,
+              "net_mf_amount": 9455.46
+            },
+            "latestHolder": {
+              "ts_code": "601012.SH",
+              "ann_date": "20260311",
+              "end_date": "20260227",
+              "holder_num": 947329
+            },
+            "latestNorthMoney": {
+              "trade_date": "20260327",
+              "north_money": "244568.3",
+              "south_money": "53253.43",
+              "hgt": "112683.68",
+              "sgt": "131884.62"
+            },
+            "bullPoints": [
+              "当前价格 18.52 元，均线缠绕（震荡整理），技术面没有继续摆烂。",
+              "MACD 死叉，RSI 52.25，说明动能仍有跟踪价值。",
+              "PE(TTM) 0.00、PB 2.47，估值处在 偏高区间。",
+              "最新主力净流入 9455.27 万元，资金面至少不是完全躺平。",
+              "最新财务指标显示营收同比 -13.10%、净利润同比 47.52%。"
+            ],
+            "bearPoints": [
+              "若股价重新跌破 18.51 元，趋势确认会被打回原形。",
+              "RSI 52.25 与布林带信号显示短线并非无脑上车区间。",
+              "估值中枢仍受 电气设备 景气波动影响，一旦预期降温，回撤会来得很快。",
+              "股东户数 947,329，筹码集中度变化还需继续观察。",
+              "实时行情依赖新浪财经 MCP，若外部数据源中断，盘中判断会失真。"
+            ],
+            "committeeOpinion": "风险管理委员会意见：当前不建议参与，优先等待估值或趋势重新修复。",
+            "finalSuggestion": "隆基绿能 当前赔率与胜率都不占优，先别让仓位去接飞刀。",
+            "watchPoints": [
+              "实时价格能否稳定运行在 18.51 元 上方。",
+              "下一期财报中营收同比 -13.10% 与净利润同比 47.52% 是否继续改善。",
+              "主力资金净流入和 5 日资金净额是否持续转强。",
+              "电气设备 的政策、招标、订单或新产品进展。",
+              "北向资金（日度市场口径 244568.30 百万元）是否维持风险偏好。"
+            ],
+            "buyZone": [
+              17.705143379142953,
+              18.5115
+            ],
+            "stopLoss": 17.0384,
+            "targetPrice": 19.446,
+            "strategies": {
+              "aggressive": "风险较高，建议规避，不宜追价。若已持仓，考虑在 18.51 元 下方减仓。",
+              "balanced": "暂不符合建仓条件，保持观望。等待价格企稳并重新站上 18.51 元 后再评估。",
+              "conservative": "各项指标偏弱，优先控制风险，不建议参与。当前止损参考位 17.04 元。"
+            },
+            "strategy": {
+              "firstBuyPercent": 0,
+              "maxPosition": 0,
+              "addOnConditions": [],
+              "riskProfile": "conservative"
+            },
+            "targetPrices": [
+              {
+                "period": "1个月",
+                "price": 18.715,
+                "logic": "修复到 MA10/短线情绪溢价",
+                "rise": 1.0529157667386713
+              },
+              {
+                "period": "3个月",
+                "price": 18.5115,
+                "logic": "景气与估值中枢同步修复",
+                "rise": -0.04589632829372636
+              },
+              {
+                "period": "6个月",
+                "price": 19.31785662085705,
+                "logic": "业绩验证后估值扩张",
+                "rise": 4.308081106139583
+              },
+              {
+                "period": "乐观情景",
+                "price": 21.853599999999997,
+                "logic": "超预期订单/产品获批/行业催化集中兑现",
+                "rise": 17.999999999999993
+              }
+            ],
+            "scoreFactors": {
+              "reportScore": 5.971500000000002,
+              "decision": "回避",
+              "weightedScore": 0.9582900000000001,
+              "blackSwanEvent": null,
+              "factors": {
+                "trend": {
+                  "score": 1.2,
+                  "details": {
+                    "alignmentScore": 1,
+                    "aboveMa20": 0.3,
+                    "aboveMa60": 0.2,
+                    "maSignal": "均线缠绕（震荡整理）",
+                    "rawScore": 1.5
+                  },
+                  "weight": 0.17
+                },
+                "momentum": {
+                  "score": 0.855,
+                  "details": {
+                    "macdScore": 0.2,
+                    "rsiScore": 0.7,
+                    "histogramScore": 0.4,
+                    "macdSignal": "MACD 死叉",
+                    "rsi": 52.24913494809687,
+                    "histogram": 0,
+                    "rawScore": 0.42499999999999993
+                  },
+                  "weight": 0.15
+                },
+                "valuation": {
+                  "score": 1.002,
+                  "details": {
+                    "pe": 0,
+                    "pb": 2.4658,
+                    "industryPeMedian": null,
+                    "pePercentile5y": 0.5,
+                    "peScore": 0.9,
+                    "relativePeScore": 0.5,
+                    "percentileScore": 0.4,
+                    "pbScore": 0.8,
+                    "rawScore": 0.6700000000000002
+                  },
+                  "weight": 0.15
+                },
+                "capital": {
+                  "score": 1.08,
+                  "details": {
+                    "netAmount": 9455.27,
+                    "mainForce": 0,
+                    "retailForce": 0,
+                    "netAmountScore": 1,
+                    "mainRatioScore": 0.5,
+                    "rawScore": 0.8
+                  },
+                  "weight": 0.13
+                },
+                "earnings": {
+                  "score": 0.846,
+                  "details": {
+                    "trYoy": -13.1042,
+                    "netprofitYoy": 47.5221,
+                    "roe": -5.7551,
+                    "grossMargin": 1.2142,
+                    "revenueScore": 0.2,
+                    "profitScore": 0.8,
+                    "roeScore": 0.2,
+                    "marginScore": 0.2,
+                    "rawScore": 0.41000000000000003
+                  },
+                  "weight": 0.13
+                },
+                "volatility": {
+                  "score": 1.1280000000000001,
+                  "details": {
+                    "atr": 0.6324999999999997,
+                    "atrRatio": 0.0341522678185745,
+                    "bbWidth": 0.08707954868866614,
+                    "volatilityScore": 0.8,
+                    "bbScore": 1,
+                    "rawScore": 0.88
+                  },
+                  "weight": 0.12
+                },
+                "sentiment": {
+                  "score": 0.6,
+                  "details": {
+                    "newsScore": 0.5,
+                    "eventScore": 0.5,
+                    "newsCount": 0,
+                    "eventCount": 0,
+                    "riskAdjustment": 0
+                  },
+                  "calculatedAt": "2026-03-29T08:24:01.608Z",
+                  "weight": 0.15
+                }
+              },
+              "weights": {
+                "trend": 0.17,
+                "momentum": 0.15,
+                "valuation": 0.15,
+                "capital": 0.13,
+                "earnings": 0.13,
+                "volatility": 0.12,
+                "sentiment": 0.15,
+                "_total": 1,
+                "_description": "7因子权重配置，总和为100%",
+                "_version": "1.0.0",
+                "_updated": "2026-03-22T19:21:00+08:00"
+              }
+            },
+            "decisions": {
+              "stop_loss": 17.0384,
+              "stop_profit": [
+                18.715,
+                18.5115,
+                19.31785662085705,
+                21.853599999999997
+              ],
+              "entry_zone": {
+                "low": 17.705143379142953,
+                "high": 18.5115
+              }
+            }
+          },
+          "decision": "avoid",
+          "rating": 3,
+          "stop_loss": 17.0384,
+          "stop_profit": [
+            {
+              "price": 19.446,
+              "ratio": 1,
+              "rationale": "目标价止盈"
+            }
+          ],
+          "entry_zone": [
+            17.705143379142953,
+            18.5115
+          ],
+          "add_position": null,
+          "key_events": [],
+          "created_at": "2026-03-29 08:24:01",
+          "updated_at": "2026-03-29 08:24:01"
+        }
+      ],
+      "total": 2,
+      "limit": 50,
+      "offset": 0
+    }
+  },
+  "createConditional": {
+    "status": 200,
+    "ok": true,
+    "data": {
+      "success": true,
+      "message": "成功创建 6 个条件单",
+      "orders": [
+        {
+          "type": "stop_loss",
+          "id": 50
+        },
+        {
+          "type": "take_profit",
+          "target": 18.715,
+          "id": 51
+        },
+        {
+          "type": "take_profit",
+          "target": 18.5115,
+          "id": 52
+        },
+        {
+          "type": "take_profit",
+          "target": 19.31785662085705,
+          "id": 53
+        },
+        {
+          "type": "take_profit",
+          "target": 21.853599999999997,
+          "id": 54
+        },
+        {
+          "type": "entry",
+          "id": 55
+        }
+      ],
+      "report_id": "ANALYZE_601012.SH_20260329_1774772965713"
+    }
+  },
+  "monitorAdd": {
+    "status": 409,
+    "ok": false,
+    "data": {
+      "success": false,
+      "error": "股票已在监控池中",
+      "code": "DUPLICATE"
+    }
+  },
+  "monitorList": {
+    "status": 200,
+    "ok": true,
+    "data": {
+      "success": true,
+      "data": [
+        {
+          "id": 42,
+          "stock_code": "601012.SH",
+          "stock_name": "隆基绿能",
+          "report_path": null,
+          "added_at": "2026-03-29T08:24:17.717Z",
+          "industry_code_l1": null,
+          "industry_name_l1": null,
+          "industry_code_l2": null,
+          "industry_name_l2": null,
+          "industry_code_l3": null,
+          "industry_name_l3": null,
+          "industry_keywords": null,
+          "updated_at": "2026-03-29T08:24:17.717Z",
+          "strategy_source": null,
+          "strategy_config_id": null,
+          "strategy_config_name": null,
+          "strategy_version": null,
+          "template_id": null,
+          "template_name": null
+        },
+        {
+          "id": 41,
+          "stock_code": "600050.SH",
+          "stock_name": "中国联通",
+          "report_path": "http://127.0.0.1:3000/report/analysis/stock_report_%E4%B8%AD%E5%9B%BD%E8%81%94%E9%80%9A_600050_SH_20260329.html",
+          "added_at": "2026-03-29T05:07:56.732Z",
+          "industry_code_l1": null,
+          "industry_name_l1": null,
+          "industry_code_l2": null,
+          "industry_name_l2": null,
+          "industry_code_l3": null,
+          "industry_name_l3": null,
+          "industry_keywords": null,
+          "updated_at": "2026-03-29T05:07:56.732Z",
+          "strategy_source": "strategy_config",
+          "strategy_config_id": 7,
+          "strategy_config_name": "自动迭代版本 ITER_1774694107289_wnfrdb（导入副本）",
+          "strategy_version": "ITER_1774694107289_wnfrdb",
+          "template_id": 7,
+          "template_name": "自动迭代版本 ITER_1774694107289_wnfrdb（导入副本）"
+        },
+        {
+          "id": 40,
+          "stock_code": "111111.SZ",
+          "stock_name": "测试反馈股",
+          "report_path": null,
+          "added_at": "2026-03-29T03:39:56.176Z",
+          "industry_code_l1": null,
+          "industry_name_l1": null,
+          "industry_code_l2": null,
+          "industry_name_l2": null,
+          "industry_code_l3": null,
+          "industry_name_l3": null,
+          "industry_keywords": null,
+          "updated_at": "2026-03-29T03:39:56.176Z",
+          "strategy_source": "strategy_config",
+          "strategy_config_id": 999,
+          "strategy_config_name": "七因子高分策略（导入副本）",
+          "strategy_version": null,
+          "template_id": 888,
+          "template_name": "七因子高分策略模板"
+        },
+        {
+          "id": 39,
+          "stock_code": "333333.SZ",
+          "stock_name": "完整流程测试股",
+          "report_path": null,
+          "added_at": "2026-03-29T03:35:37.449Z",
+          "industry_code_l1": null,
+          "industry_name_l1": null,
+          "industry_code_l2": null,
+          "industry_name_l2": null,
+          "industry_code_l3": null,
+          "industry_name_l3": null,
+          "industry_keywords": null,
+          "updated_at": "2026-03-29T03:35:37.449Z",
+          "strategy_source": "strategy_config",
+          "strategy_config_id": 999,
+          "strategy_config_name": "七因子高分策略（导入副本）",
+          "strategy_version": null,
+          "template_id": 888,
+          "template_name": "七因子高分策略模板"
+        },
+        {
+          "id": 33,
+          "stock_code": "688302.SH",
+          "stock_name": "海创药业",
+          "report_path": "http://127.0.0.1:3000/report/analysis/stock_report_%E6%B5%B7%E5%88%9B%E8%8D%AF%E4%B8%9A_U_688302_SH_20260328.html",
+          "added_at": "2026-03-28T11:11:33.955Z",
+          "industry_code_l1": null,
+          "industry_name_l1": null,
+          "industry_code_l2": null,
+          "industry_name_l2": null,
+          "industry_code_l3": null,
+          "industry_name_l3": null,
+          "industry_keywords": null,
+          "updated_at": "2026-03-28T11:11:33.955Z",
+          "strategy_source": null,
+          "strategy_config_id": null,
+          "strategy_config_name": null,
+          "strategy_version": null,
+          "template_id": null,
+          "template_name": null
+        },
+        {
+          "id": 32,
+          "stock_code": "001328.SZ",
+          "stock_name": "登康口腔",
+          "report_path": "http://127.0.0.1:3000/report/analysis/stock_report_%E7%99%BB%E5%BA%B7%E5%8F%A3%E8%85%94_001328_SZ_20260328.html",
+          "added_at": "2026-03-28T11:11:32.220Z",
+          "industry_code_l1": null,
+          "industry_name_l1": null,
+          "industry_code_l2": null,
+          "industry_name_l2": null,
+          "industry_code_l3": null,
+          "industry_name_l3": null,
+          "industry_keywords": null,
+          "updated_at": "2026-03-28T11:11:32.220Z",
+          "strategy_source": null,
+          "strategy_config_id": null,
+          "strategy_config_name": null,
+          "strategy_version": null,
+          "template_id": null,
+          "template_name": null
+        },
+        {
+          "id": 31,
+          "stock_code": "688163.SH",
+          "stock_name": "赛伦生物",
+          "report_path": "http://127.0.0.1:3000/report/analysis/stock_report_%E8%B5%9B%E4%BC%A6%E7%94%9F%E7%89%A9_688163_SH_20260328.html",
+          "added_at": "2026-03-28T11:11:30.481Z",
+          "industry_code_l1": null,
+          "industry_name_l1": null,
+          "industry_code_l2": null,
+          "industry_name_l2": null,
+          "industry_code_l3": null,
+          "industry_name_l3": null,
+          "industry_keywords": null,
+          "updated_at": "2026-03-28T11:11:30.481Z",
+          "strategy_source": null,
+          "strategy_config_id": null,
+          "strategy_config_name": null,
+          "strategy_version": null,
+          "template_id": null,
+          "template_name": null
+        },
+        {
+          "id": 30,
+          "stock_code": "603193.SH",
+          "stock_name": "润本股份",
+          "report_path": "http://127.0.0.1:3000/report/analysis/stock_report_%E6%B6%A6%E6%9C%AC%E8%82%A1%E4%BB%BD_603193_SH_20260328.html",
+          "added_at": "2026-03-28T11:11:28.772Z",
+          "industry_code_l1": null,
+          "industry_name_l1": null,
+          "industry_code_l2": null,
+          "industry_name_l2": null,
+          "industry_code_l3": null,
+          "industry_name_l3": null,
+          "industry_keywords": null,
+          "updated_at": "2026-03-28T11:11:28.772Z",
+          "strategy_source": null,
+          "strategy_config_id": null,
+          "strategy_config_name": null,
+          "strategy_version": null,
+          "template_id": null,
+          "template_name": null
+        },
+        {
+          "id": 29,
+          "stock_code": "002357.SZ",
+          "stock_name": "富临运业",
+          "report_path": "http://127.0.0.1:3000/report/analysis/stock_report_%E5%AF%8C%E4%B8%B4%E8%BF%90%E4%B8%9A_002357_SZ_20260328.html",
+          "added_at": "2026-03-28T11:11:26.997Z",
+          "industry_code_l1": null,
+          "industry_name_l1": null,
+          "industry_code_l2": null,
+          "industry_name_l2": null,
+          "industry_code_l3": null,
+          "industry_name_l3": null,
+          "industry_keywords": null,
+          "updated_at": "2026-03-28T11:11:26.997Z",
+          "strategy_source": null,
+          "strategy_config_id": null,
+          "strategy_config_name": null,
+          "strategy_version": null,
+          "template_id": null,
+          "template_name": null
+        },
+        {
+          "id": 28,
+          "stock_code": "601728.SH",
+          "stock_name": "中国电信",
+          "report_path": "http://127.0.0.1:3000/report/analysis/stock_report_%E4%B8%AD%E5%9B%BD%E7%94%B5%E4%BF%A1_601728_SH_20260328.html",
+          "added_at": "2026-03-28T10:54:27.107Z",
+          "industry_code_l1": null,
+          "industry_name_l1": null,
+          "industry_code_l2": null,
+          "industry_name_l2": null,
+          "industry_code_l3": null,
+          "industry_name_l3": null,
+          "industry_keywords": null,
+          "updated_at": "2026-03-28T10:54:27.107Z",
+          "strategy_source": "strategy_config",
+          "strategy_config_id": 5,
+          "strategy_config_name": "自动迭代版本 ITER_1774574721841_quoxsv（导入副本）",
+          "strategy_version": "ITER_1774574721841_quoxsv",
+          "template_id": 5,
+          "template_name": "自动迭代版本 ITER_1774574721841_quoxsv（导入副本）"
+        },
+        {
+          "id": 18,
+          "stock_code": "000651.SZ",
+          "stock_name": "格力电器",
+          "report_path": "http://localhost:3000/report/analysis/stock_report_%E6%A0%BC%E5%8A%9B%E7%94%B5%E5%99%A8_20260323.html",
+          "added_at": "2026-03-23T11:23:54.447Z",
+          "industry_code_l1": null,
+          "industry_name_l1": null,
+          "industry_code_l2": null,
+          "industry_name_l2": null,
+          "industry_code_l3": null,
+          "industry_name_l3": null,
+          "industry_keywords": null,
+          "updated_at": "2026-03-23T11:23:54.447Z",
+          "strategy_source": null,
+          "strategy_config_id": null,
+          "strategy_config_name": null,
+          "strategy_version": null,
+          "template_id": null,
+          "template_name": null
+        },
+        {
+          "id": 17,
+          "stock_code": "600276.SH",
+          "stock_name": "恒瑞医药",
+          "report_path": "http://localhost:3000/report/analysis/stock_report_%E6%81%92%E7%91%9E%E5%8C%BB%E8%8D%AF_20260323.html",
+          "added_at": "2026-03-23T11:15:35.540Z",
+          "industry_code_l1": null,
+          "industry_name_l1": null,
+          "industry_code_l2": null,
+          "industry_name_l2": null,
+          "industry_code_l3": null,
+          "industry_name_l3": null,
+          "industry_keywords": null,
+          "updated_at": "2026-03-23T11:15:35.540Z",
+          "strategy_source": null,
+          "strategy_config_id": null,
+          "strategy_config_name": null,
+          "strategy_version": null,
+          "template_id": null,
+          "template_name": null
+        },
+        {
+          "id": 16,
+          "stock_code": "603259.SH",
+          "stock_name": "药明康德",
+          "report_path": "http://localhost:3000/report/analysis/stock_report_%E8%8D%AF%E6%98%8E%E5%BA%B7%E5%BE%B7_20260323.html",
+          "added_at": "2026-03-23T11:15:33.587Z",
+          "industry_code_l1": null,
+          "industry_name_l1": null,
+          "industry_code_l2": null,
+          "industry_name_l2": null,
+          "industry_code_l3": null,
+          "industry_name_l3": null,
+          "industry_keywords": null,
+          "updated_at": "2026-03-23T11:15:33.587Z",
+          "strategy_source": null,
+          "strategy_config_id": null,
+          "strategy_config_name": null,
+          "strategy_version": null,
+          "template_id": null,
+          "template_name": null
+        },
+        {
+          "id": 13,
+          "stock_code": "688012.SH",
+          "stock_name": "中微公司",
+          "report_path": "http://127.0.0.1:3000/report/analysis/stock_report_%E4%B8%AD%E5%BE%AE%E5%85%AC%E5%8F%B8_20260322.html",
+          "added_at": "2026-03-22T09:29:54.922Z",
+          "industry_code_l1": null,
+          "industry_name_l1": null,
+          "industry_code_l2": null,
+          "industry_name_l2": null,
+          "industry_code_l3": null,
+          "industry_name_l3": null,
+          "industry_keywords": null,
+          "updated_at": null,
+          "strategy_source": null,
+          "strategy_config_id": null,
+          "strategy_config_name": null,
+          "strategy_version": null,
+          "template_id": null,
+          "template_name": null
+        },
+        {
+          "id": 12,
+          "stock_code": "688347.SH",
+          "stock_name": "华虹公司",
+          "report_path": "http://127.0.0.1:3000/report/analysis/stock_report_%E5%8D%8E%E8%99%B9%E5%85%AC%E5%8F%B8_20260322.html",
+          "added_at": "2026-03-22T09:29:44.145Z",
+          "industry_code_l1": null,
+          "industry_name_l1": null,
+          "industry_code_l2": null,
+          "industry_name_l2": null,
+          "industry_code_l3": null,
+          "industry_name_l3": null,
+          "industry_keywords": null,
+          "updated_at": null,
+          "strategy_source": null,
+          "strategy_config_id": null,
+          "strategy_config_name": null,
+          "strategy_version": null,
+          "template_id": null,
+          "template_name": null
+        }
+      ]
+    }
+  },
+  "portfolioSummary": {
+    "status": 200,
+    "ok": true,
+    "data": {
+      "success": true,
+      "data": {
+        "account": {
+          "id": 1,
+          "account_name": "测试账户",
+          "initial_cash": 1000000,
+          "current_cash": 649378.71,
+          "total_value": 1180545.71,
+          "total_return": 180545.70999999996,
+          "return_rate": 0.18054570999999997,
+          "created_at": "2026-03-18 07:43:59",
+          "updated_at": "2026-03-29 08:29:28"
+        },
+        "positions": [
+          {
+            "id": 2,
+            "account_id": 1,
+            "ts_code": "300308.SZ",
+            "stock_name": "中际旭创",
+            "quantity": 600,
+            "avg_price": 569.2667,
+            "cost_amount": 341560,
+            "current_price": 603.19,
+            "market_value": 361914,
+            "unrealized_pnl": 20354,
+            "unrealized_pnl_rate": 0.059591,
+            "position_date": "2026-03-22",
+            "updated_at": "2026-03-29 08:24:02",
+            "latest_trade_date": "20260324"
+          },
+          {
+            "id": 4,
+            "account_id": 1,
+            "ts_code": "002920.SZ",
+            "stock_name": "德赛西威",
+            "quantity": 1500,
+            "avg_price": 125.02,
+            "cost_amount": 187530,
+            "current_price": 107.2,
+            "market_value": 160800,
+            "unrealized_pnl": -26730,
+            "unrealized_pnl_rate": -0.142537,
+            "position_date": "2026-03-22",
+            "updated_at": "2026-03-29 08:24:03",
+            "latest_trade_date": "20260324"
+          },
+          {
+            "id": 3,
+            "account_id": 1,
+            "ts_code": "300058.SZ",
+            "stock_name": "蓝色光标",
+            "quantity": 500,
+            "avg_price": 18.78,
+            "cost_amount": 9390,
+            "current_price": 13.92,
+            "market_value": 6960,
+            "unrealized_pnl": -2430,
+            "unrealized_pnl_rate": -0.258786,
+            "position_date": "2026-03-22",
+            "updated_at": "2026-03-29 08:24:02",
+            "latest_trade_date": "20260324"
+          },
+          {
+            "id": 6,
+            "account_id": 1,
+            "ts_code": "600050.SH",
+            "stock_name": "中国联通",
+            "quantity": 200,
+            "avg_price": 5.2,
+            "cost_amount": 1040,
+            "current_price": 4.54,
+            "market_value": 908,
+            "unrealized_pnl": -132,
+            "unrealized_pnl_rate": -0.126923,
+            "position_date": "2026-03-28",
+            "updated_at": "2026-03-29 08:24:03",
+            "latest_trade_date": "20260324"
+          },
+          {
+            "id": 5,
+            "account_id": 1,
+            "ts_code": "601728.SH",
+            "stock_name": "中国电信",
+            "quantity": 100,
+            "avg_price": 5.9,
+            "cost_amount": 590,
+            "current_price": 5.85,
+            "market_value": 585,
+            "unrealized_pnl": -5,
+            "unrealized_pnl_rate": -0.008475,
+            "position_date": "2026-03-28",
+            "updated_at": "2026-03-29 08:24:03",
+            "latest_trade_date": "20260324"
+          }
+        ],
+        "position_count": 5
+      }
+    }
+  },
+  "summary": {
+    "selectSuccess": true,
+    "reportCreated": true,
+    "reportListCount": 2,
+    "conditionalCreated": true,
+    "conditionalDeduplicated": false,
+    "monitorAdded": false,
+    "monitorError": "股票已在监控池中",
+    "monitorCount": 15,
+    "portfolioPositions": 5
+  }
+}

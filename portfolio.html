@@ -171,6 +171,46 @@
       border-color: var(--accent);
     }
 
+    .search-results {
+      display: none;
+      margin-top: 8px;
+      border: 1px solid rgba(154, 178, 214, 0.18);
+      border-radius: 12px;
+      background: rgba(4, 8, 17, 0.9);
+      overflow: hidden;
+    }
+
+    .search-results.active {
+      display: block;
+    }
+
+    .search-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      cursor: pointer;
+    }
+
+    .search-item:last-child {
+      border-bottom: none;
+    }
+
+    .search-item:hover {
+      background: rgba(56, 189, 248, 0.08);
+    }
+
+    .search-item-name {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .search-item-code {
+      color: var(--text-soft);
+      font-size: 13px;
+    }
+
     .form-actions {
       display: flex;
       gap: 12px;
@@ -462,7 +502,10 @@
         <div id="positions-panel" class="tab-panel active">
           <div class="status-row">
             <h2 class="section-title">当前持仓</h2>
-            <button class="button" onclick="clearAllPositions()" style="background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">清空持仓</button>
+            <div style="display:flex; gap:12px; flex-wrap:wrap;">
+              <button class="button" onclick="showManualPositionModal()">+ 手动添加持仓</button>
+              <button class="button" onclick="clearAllPositions()" style="background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">清空持仓</button>
+            </div>
           </div>
           <div id="positions-list" class="detail-grid">
             <div class="empty-state-guide">
@@ -551,6 +594,42 @@
         <div class="form-actions">
           <button type="submit" class="btn btn-primary">创建</button>
           <button type="button" class="btn btn-secondary" onclick="closeCreateModal()">取消</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="manual-position-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">手动添加持仓</h3>
+        <button class="modal-close" onclick="closeManualPositionModal()">×</button>
+      </div>
+      <form onsubmit="createManualPosition(event)">
+        <div class="form-field">
+          <label class="form-label">股票名称 / 代码</label>
+          <input type="text" id="manual-stock-search" class="form-input" placeholder="输入股票名称或代码搜索（可选）" autocomplete="off">
+          <div id="manual-stock-results" class="search-results"></div>
+        </div>
+        <div class="form-field">
+          <label class="form-label">股票代码</label>
+          <input type="text" id="manual-stock-code" class="form-input" placeholder="例如 600050.SH" required>
+        </div>
+        <div class="form-field">
+          <label class="form-label">股票名称</label>
+          <input type="text" id="manual-stock-name" class="form-input" placeholder="例如 中国联通" required>
+        </div>
+        <div class="form-field">
+          <label class="form-label">成本价</label>
+          <input type="number" id="manual-avg-price" class="form-input" placeholder="例如 18.56" min="0.01" max="100000" step="0.01" required>
+        </div>
+        <div class="form-field">
+          <label class="form-label">持仓量（股）</label>
+          <input type="number" id="manual-quantity" class="form-input" placeholder="例如 1000" min="1" max="10000000" step="1" required>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">保存持仓</button>
+          <button type="button" class="btn btn-secondary" onclick="closeManualPositionModal()">取消</button>
         </div>
       </form>
     </div>
@@ -723,7 +802,7 @@
         listEl.innerHTML = `
           <div class="empty-state-guide">
             <div class="title">当前账户暂无持仓</div>
-            <div class="desc">条件单执行买入后，这里会实时展示持仓数量、成本和浮动盈亏。</div>
+            <div class="desc">条件单执行买入后，这里会展示持仓数量、成本和浮动盈亏。也可以使用上方“手动添加持仓”录入已有仓位。</div>
           </div>
         `;
         return;
@@ -922,6 +1001,124 @@
       if (form) form.reset();
     }
 
+    function showManualPositionModal() {
+      if (!currentAccountId) {
+        alert('请先选择一个账户');
+        return;
+      }
+
+      const modal = document.getElementById('manual-position-modal');
+      const form = modal.querySelector('form');
+      form.reset();
+      document.getElementById('manual-stock-results').classList.remove('active');
+      document.getElementById('manual-stock-results').innerHTML = '';
+      modal.classList.add('show');
+    }
+
+    function closeManualPositionModal() {
+      const modal = document.getElementById('manual-position-modal');
+      if (modal) {
+        modal.classList.remove('show');
+      }
+    }
+
+    async function searchManualStocks(keyword) {
+      const resultsEl = document.getElementById('manual-stock-results');
+      const normalizedKeyword = String(keyword || '').trim();
+
+      if (!normalizedKeyword) {
+        resultsEl.classList.remove('active');
+        resultsEl.innerHTML = '';
+        return;
+      }
+
+      try {
+        const result = await api(`/api/stock/search/fuzzy?q=${encodeURIComponent(normalizedKeyword)}&limit=8`);
+        const stocks = Array.isArray(result.data) ? result.data : [];
+
+        if (!result.success || stocks.length === 0) {
+          resultsEl.innerHTML = '<div class="search-item"><span class="search-item-name">未找到匹配股票，可直接手动填写代码和名称</span></div>';
+          resultsEl.classList.add('active');
+          return;
+        }
+
+        resultsEl.innerHTML = stocks.map((stock) => `
+          <div class="search-item" onclick="selectManualStock('${stock.ts_code}', '${String(stock.name || '').replace(/'/g, '&#39;')}')">
+            <span class="search-item-name">${stock.name}</span>
+            <span class="search-item-code">${stock.ts_code}</span>
+          </div>
+        `).join('');
+        resultsEl.classList.add('active');
+      } catch (error) {
+        resultsEl.innerHTML = '<div class="search-item"><span class="search-item-name">搜索失败，可直接手动填写代码和名称</span></div>';
+        resultsEl.classList.add('active');
+      }
+    }
+
+    function selectManualStock(tsCode, stockName) {
+      document.getElementById('manual-stock-search').value = `${stockName} (${tsCode})`;
+      document.getElementById('manual-stock-code').value = tsCode;
+      document.getElementById('manual-stock-name').value = stockName;
+      document.getElementById('manual-stock-results').classList.remove('active');
+    }
+
+    async function createManualPosition(event) {
+      event.preventDefault();
+
+      if (!currentAccountId) {
+        alert('请先选择一个账户');
+        return;
+      }
+
+      const submitBtn = event.target.querySelector('button[type="submit"]');
+      const originalText = submitBtn.textContent;
+      const payload = {
+        ts_code: document.getElementById('manual-stock-code').value.trim(),
+        stock_name: document.getElementById('manual-stock-name').value.trim(),
+        avg_price: Number(document.getElementById('manual-avg-price').value),
+        quantity: Number(document.getElementById('manual-quantity').value),
+      };
+
+      if (!payload.ts_code || !payload.stock_name) {
+        alert('请先搜索并选择股票');
+        return;
+      }
+      if (!payload.avg_price || payload.avg_price <= 0) {
+        alert('请输入有效成本价');
+        return;
+      }
+      if (!payload.quantity || payload.quantity <= 0 || !Number.isInteger(payload.quantity)) {
+        alert('持仓量必须为正整数');
+        return;
+      }
+
+      try {
+        submitBtn.disabled = true;
+        submitBtn.textContent = '保存中...';
+
+        const result = await api(`/api/portfolio/account/${currentAccountId}/manual-position`, {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+
+        if (!result.success) {
+          alert('添加失败：' + (result.error || '未知错误'));
+          return;
+        }
+
+        closeManualPositionModal();
+        await loadAccountSummary(currentAccountId);
+        await loadAccounts();
+        alert('手动持仓添加成功');
+      } catch (error) {
+        console.error('手动添加持仓失败:', error);
+        alert('添加失败：' + error.message);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+      }
+    }
+
     function closeCreateModal() {
       const modal = document.getElementById('create-modal');
       if (modal) {
@@ -1049,6 +1246,10 @@
     currentAccountId = parseInt(localStorage.getItem('current_account_id')) || null;
     switchDetailTab(currentDetailTab);
     loadAccounts();
+    document.getElementById('manual-stock-search')?.addEventListener('input', (event) => {
+      searchManualStocks(event.target.value);
+    });
+
   </script>
 </body>
 </html>

@@ -134,6 +134,11 @@
     .industries-grid {
       grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     }
+    .direction-selection-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+    }
     .stocks-grid {
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     }
@@ -151,6 +156,132 @@
       border-color: var(--accent);
       background: rgba(56, 189, 248, 0.08);
       transform: translateY(-2px);
+    }
+    .direction-selection-card {
+      display: flex;
+      flex-direction: column;
+      gap: 0.875rem;
+      cursor: pointer;
+    }
+    .direction-selection-card.selected {
+      border-color: var(--accent);
+      background: rgba(56, 189, 248, 0.1);
+      box-shadow: 0 10px 28px rgba(56, 189, 248, 0.12);
+    }
+    .direction-selection-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+    .direction-selection-main {
+      display: flex;
+      gap: 0.75rem;
+      min-width: 0;
+      flex: 1;
+    }
+    .direction-checkbox {
+      width: 20px;
+      height: 20px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.04);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: transparent;
+      font-size: 0.75rem;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .direction-selection-card.selected .direction-checkbox {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+    .direction-selection-meta {
+      min-width: 0;
+      flex: 1;
+    }
+    .direction-selection-name {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 0.25rem;
+    }
+    .direction-selection-reason {
+      font-size: 0.8125rem;
+      color: var(--text-soft);
+      line-height: 1.5;
+    }
+    .direction-selection-score {
+      padding: 0.35rem 0.7rem;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.12);
+      color: var(--accent);
+      font-size: 0.8125rem;
+      font-weight: 700;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .direction-selection-dimensions {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.5rem;
+    }
+    .direction-selection-dimensions .dimension {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.25rem;
+      padding: 0.625rem 0.75rem;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.03);
+    }
+    .direction-selection-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.8125rem;
+      color: var(--text-soft);
+    }
+    .direction-selection-action {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      flex-wrap: wrap;
+    }
+    .direction-selection-summary {
+      color: var(--text-soft);
+      font-size: 0.875rem;
+    }
+    .direction-selection-summary strong {
+      color: var(--text);
+    }
+    .next-step-btn {
+      padding: 0.8rem 1.25rem;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+      color: white;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .next-step-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 24px rgba(56, 189, 248, 0.22);
+    }
+    .next-step-btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
     }
     .industry-rank, .stock-rank {
       font-size: 1.5rem;
@@ -829,6 +960,21 @@
           <div class="industries-grid" id="top3Grid"></div>
         </div>
 
+        <div class="section-header">
+          <h2>🧭 方向选择</h2>
+          <div class="section-subtitle">保留完整高分方向列表，勾选后进入个股分析。默认勾选 Top3，可手动调整。</div>
+        </div>
+
+        <div class="section-card" id="directionSelectionSection" style="display: none;">
+          <div class="direction-selection-grid" id="directionSelectionGrid"></div>
+          <div class="direction-selection-action">
+            <div class="direction-selection-summary" id="directionSelectionSummary"></div>
+            <button class="next-step-btn" id="goAnalysisBtn" type="button" onclick="goToAnalysis()" disabled>
+              进入个股分析
+            </button>
+          </div>
+        </div>
+
         <!-- Top10 股票池展示区域 -->
         <div class="section-header">
           <h2>📈 Top10 核心股票池</h2>
@@ -959,8 +1105,10 @@
 
   <script>
     // 全局数据
+    let allDirections = [];
     let top3Industries = [];
     let top10Stocks = [];
+    let selectedDirectionNames = new Set();
 
     // 配置参数（持久化到 localStorage）
     const DEFAULT_CONFIG = {
@@ -1114,6 +1262,7 @@
       const errorState = document.getElementById('errorState');
       const emptyState = document.getElementById('emptyState');
       const top3Section = document.getElementById('top3Section');
+      const directionSelectionSection = document.getElementById('directionSelectionSection');
       const top10Section = document.getElementById('top10Section');
       const generatedInfo = document.getElementById('generatedInfo');
       const errorMessage = document.getElementById('errorMessage');
@@ -1122,6 +1271,7 @@
       errorState.style.display = 'none';
       emptyState.style.display = 'none';
       top3Section.style.display = 'none';
+      directionSelectionSection.style.display = 'none';
       top10Section.style.display = 'none';
       generatedInfo.style.display = 'none';
 
@@ -1149,6 +1299,16 @@
         // 从 directions 中提取 Top3 行业和它们的 picks
         const directions = selectData.directions || [];
         const decisions = selectData.decisions || []; // TASK_API_004: 获取决策数据
+
+        allDirections = directions.map((dir, idx) => ({
+          rank: idx + 1,
+          name: dir.name,
+          score: Number(dir.score) || 0,
+          reason: dir.reason || '',
+          metrics: dir.metrics || {},
+          dimensions: dir.dimensions || {},
+          picks: Array.isArray(dir.picks) ? dir.picks : []
+        }));
 
         top3Industries = directions.slice(0, 3).map((dir, idx) => ({
           rank: idx + 1,
@@ -1185,12 +1345,15 @@
         top10Stocks = uniqueStocks.slice(0, 10);
 
         // 检查空数据
-        if (top3Industries.length === 0 && top10Stocks.length === 0) {
+        if (allDirections.length === 0 && top10Stocks.length === 0) {
           throw new Error('暂无选股数据');
         }
 
+        initializeDirectionSelection();
+
         // 渲染结果
         renderTop3Industries();
+        renderDirectionSelection();
         renderTop10Stocks();
 
         // 显示生成信息
@@ -1216,9 +1379,58 @@
         }
 
         top3Section.style.display = 'none';
+        directionSelectionSection.style.display = 'none';
         top10Section.style.display = 'none';
         generatedInfo.style.display = 'none';
       }
+    }
+
+    function readStoredDirectionNames() {
+      try {
+        const raw = JSON.parse(localStorage.getItem('selectedDirections') || '[]');
+        if (!Array.isArray(raw)) return [];
+        return raw
+          .map((item) => {
+            if (typeof item === 'string') return item.trim();
+            if (item && typeof item === 'object' && typeof item.name === 'string') return item.name.trim();
+            if (item && typeof item === 'object' && typeof item.industry === 'string') return item.industry.trim();
+            return '';
+          })
+          .filter(Boolean);
+      } catch {
+        return [];
+      }
+    }
+
+    function initializeDirectionSelection() {
+      const storedNames = readStoredDirectionNames();
+      const availableNames = new Set(allDirections.map((direction) => direction.name));
+      const nextSelection = storedNames.filter((name) => availableNames.has(name));
+
+      if (nextSelection.length === 0) {
+        top3Industries.forEach((industry) => {
+          const name = industry.industry || industry.name;
+          if (name) {
+            nextSelection.push(name);
+          }
+        });
+      }
+
+      selectedDirectionNames = new Set(nextSelection);
+      persistSelectedDirections();
+    }
+
+    function persistSelectedDirections() {
+      const payload = allDirections
+        .filter((direction) => selectedDirectionNames.has(direction.name))
+        .map((direction) => ({
+          name: direction.name,
+          score: direction.score,
+          reason: direction.reason
+        }));
+
+      localStorage.setItem('selectedDirections', JSON.stringify(payload));
+      console.log('[选股页面] 已保存选中方向到 localStorage:', payload);
     }
 
     // 渲染 Top3 行业
@@ -1271,10 +1483,104 @@
 
       section.style.display = 'block';
       document.getElementById('loadingState').style.display = 'none';
-      
-      // 修复导流逻辑：将 Top3 行业数据写入 localStorage，供 analysis.html 和 monitor-pool.html 使用
-      localStorage.setItem('selectedDirections', JSON.stringify(top3Industries));
-      console.log('[选股页面] 已保存选中方向到 localStorage:', top3Industries);
+    }
+
+    function renderDirectionSelection() {
+      const grid = document.getElementById('directionSelectionGrid');
+      const section = document.getElementById('directionSelectionSection');
+      const summary = document.getElementById('directionSelectionSummary');
+      const actionButton = document.getElementById('goAnalysisBtn');
+      grid.innerHTML = '';
+
+      if (allDirections.length === 0) {
+        section.style.display = 'none';
+        return;
+      }
+
+      allDirections.forEach((direction) => {
+        const card = document.createElement('div');
+        const isSelected = selectedDirectionNames.has(direction.name);
+        card.className = `industry-card direction-selection-card${isSelected ? ' selected' : ''}`;
+        card.setAttribute('data-direction-name', direction.name);
+        card.setAttribute('role', 'button');
+        card.setAttribute('tabindex', '0');
+        card.setAttribute('aria-pressed', String(isSelected));
+        card.innerHTML = `
+          <div class="direction-selection-header">
+            <div class="direction-selection-main">
+              <span class="direction-checkbox">${isSelected ? '✓' : ''}</span>
+              <div class="direction-selection-meta">
+                <div class="direction-selection-name">${direction.rank <= 3 ? `Top${direction.rank} · ` : ''}${direction.name}</div>
+                <div class="direction-selection-reason">${direction.reason || '已进入高分方向候选，可带入个股分析继续筛选。'}</div>
+              </div>
+            </div>
+            <div class="direction-selection-score">${direction.score.toFixed(1)} 分</div>
+          </div>
+          <div class="direction-selection-dimensions">
+            <div class="dimension">
+              <span class="dimension-label">社会</span>
+              <span class="dimension-value">${(direction.dimensions.social || 0).toFixed(1)}</span>
+            </div>
+            <div class="dimension">
+              <span class="dimension-label">政策</span>
+              <span class="dimension-value">${(direction.dimensions.policy || 0).toFixed(1)}</span>
+            </div>
+            <div class="dimension">
+              <span class="dimension-label">舆论</span>
+              <span class="dimension-value">${(direction.dimensions.public || 0).toFixed(1)}</span>
+            </div>
+            <div class="dimension">
+              <span class="dimension-label">商业</span>
+              <span class="dimension-value">${(direction.dimensions.business || 0).toFixed(1)}</span>
+            </div>
+          </div>
+          <div class="direction-selection-footer">
+            <span>候选个股 ${direction.picks.length} 只</span>
+            <span>${direction.metrics.hotRank ? `热度第 ${direction.metrics.hotRank} 名` : '热度待补充'}</span>
+          </div>
+        `;
+
+        card.addEventListener('click', () => toggleDirectionSelection(direction.name));
+        card.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            toggleDirectionSelection(direction.name);
+          }
+        });
+
+        grid.appendChild(card);
+      });
+
+      const selectedCount = selectedDirectionNames.size;
+      summary.innerHTML = `当前已选 <strong>${selectedCount}</strong> 个方向，下一步会将它们带入个股分析页面。`;
+      actionButton.disabled = selectedCount === 0;
+      actionButton.textContent = selectedCount > 0
+        ? `进入个股分析（${selectedCount} 个方向）`
+        : '进入个股分析';
+      section.style.display = 'block';
+    }
+
+    function toggleDirectionSelection(directionName) {
+      if (!directionName) return;
+      if (selectedDirectionNames.has(directionName)) {
+        selectedDirectionNames.delete(directionName);
+      } else {
+        selectedDirectionNames.add(directionName);
+      }
+      persistSelectedDirections();
+      renderDirectionSelection();
+    }
+
+    function goToAnalysis() {
+      const selectedDirections = allDirections.filter((direction) => selectedDirectionNames.has(direction.name));
+      if (selectedDirections.length === 0) {
+        return;
+      }
+
+      persistSelectedDirections();
+      const params = new URLSearchParams();
+      selectedDirections.forEach((direction) => params.append('direction', direction.name));
+      window.location.href = `./analysis.html?${params.toString()}`;
     }
 
     // 渲染 Top10 股票
@@ -1306,9 +1612,37 @@
         // TASK_API_004: 显示决策建议（含止损止盈）
         let decisionDetails = '';
         if (stock.decision) {
+          const formatEntryZone = (entryZone) => {
+            if (Array.isArray(entryZone) && entryZone.length >= 2) {
+              return `${entryZone[1]}-${entryZone[0]}`;
+            }
+            if (typeof entryZone === 'string' && entryZone.trim()) {
+              return entryZone.trim();
+            }
+            return '';
+          };
+
+          const formatTargetPrices = (targetPrices) => {
+            if (Array.isArray(targetPrices)) {
+              const values = targetPrices
+                .map((item) => Number(item?.price ?? item))
+                .filter((value) => Number.isFinite(value) && value > 0)
+                .slice(0, 2);
+              return values.length ? values.join('/') : '';
+            }
+            if (targetPrices && typeof targetPrices === 'object') {
+              const values = [targetPrices.short, targetPrices.mid]
+                .map((value) => Number(value))
+                .filter((value) => Number.isFinite(value) && value > 0);
+              return values.length ? values.join('/') : '';
+            }
+            return '';
+          };
+
           // 建仓区间
-          const entryInfo = stock.entry_zone
-            ? `<span class="decision-detail">建仓: ${stock.entry_zone[1]}-${stock.entry_zone[0]}</span>`
+          const entryText = formatEntryZone(stock.entry_zone);
+          const entryInfo = entryText
+            ? `<span class="decision-detail">建仓: ${entryText}</span>`
             : '';
 
           // 止损价
@@ -1317,8 +1651,9 @@
             : '';
 
           // 止盈目标
-          const targetInfo = stock.target_prices
-            ? `<span class="decision-detail target">止盈: ${stock.target_prices.short}/${stock.target_prices.mid}</span>`
+          const targetText = formatTargetPrices(stock.target_prices);
+          const targetInfo = targetText
+            ? `<span class="decision-detail target">止盈: ${targetText}</span>`
             : '';
 
           // TASK_FRONTEND_002: 查看详情按钮
@@ -1794,6 +2129,7 @@
         config.strategySource = 'strategy_config';
         config.strategyConfigId = copiedData.id;
         config.strategyConfigName = copiedData.name;
+        config.strategyVersion = copiedData.source_version_id || copiedData.sourceVersionId || null;
         // 向后兼容字段
         config.templateId = copiedData.id;
         config.templateName = copiedData.name;

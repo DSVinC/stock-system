@@ -74,6 +74,57 @@ function average(values) {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function normalizeSnapshotDimension(rawValue, fallback = 3) {
+  const numeric = Number(rawValue);
+  if (!Number.isFinite(numeric)) {
+    return fallback;
+  }
+  // 快照库维度字段当前主要是 0-10 口径，这里统一折算为前端展示使用的 1-5 区间。
+  return Number((clamp(numeric, 0, 10) / 2).toFixed(1));
+}
+
+function shouldExcludeTsCode(tsCode, filters = {}) {
+  const code = String(tsCode || '').trim().toUpperCase();
+  if (!code) return false;
+
+  const excludedMarkets = Array.isArray(filters.excludeMarkets)
+    ? filters.excludeMarkets.map(item => String(item || '').trim().toUpperCase())
+    : [];
+
+  if (excludedMarkets.includes('BJ') && code.endsWith('.BJ')) {
+    return true;
+  }
+
+  return false;
+}
+
+function normalizeWeightMap(input, keys, defaults) {
+  const normalized = {};
+  let sum = 0;
+
+  for (const key of keys) {
+    const raw = input && Object.prototype.hasOwnProperty.call(input, key)
+      ? Number(input[key])
+      : Number(defaults[key]);
+    const value = Number.isFinite(raw) && raw > 0 ? raw : 0;
+    normalized[key] = value;
+    sum += value;
+  }
+
+  if (sum <= 0) {
+    return { ...defaults };
+  }
+
+  for (const key of keys) {
+    normalized[key] = normalized[key] / sum;
+  }
+  return normalized;
+}
+
 function toMarkdownTable(headers, rows) {
   const normalizedRows = rows.map((row) => row.map((cell) => String(cell).replace(/\|/g, '\\|').replace(/\n/g, '<br>')));
   return [
@@ -253,7 +304,11 @@ async function buildSelectionPayloadFromSnapshot(date, strategy, filters) {
       // 动态计算七因子评分（使用传入的权重）
       let dynamicScore = row.seven_factor_score; // 默认使用预计算值
       if (filters.factorWeights) {
-        const w = filters.factorWeights;
+        const w = normalizeWeightMap(
+          filters.factorWeights,
+          ['trend', 'momentum', 'valuation', 'earnings', 'capital', 'volatility', 'sentiment'],
+          { trend: 0.14, momentum: 0.14, valuation: 0.14, earnings: 0.14, capital: 0.14, volatility: 0.15, sentiment: 0.15 }
+        );
         dynamicScore = (
           (row.trend_score || 5) * (w.trend || 0.14) +
           (row.momentum_score || 5) * (w.momentum || 0.14) +
@@ -272,6 +327,13 @@ async function buildSelectionPayloadFromSnapshot(date, strategy, filters) {
         industry: row.industry || '',
         score: dynamicScore, // 使用动态计算的分数
         netprofitGrowth: row.netprofit_growth || 0, // 用于 PEG 计算
+        snapshotDimensions: {
+          social: toNumber(row.social_score),
+          policy: toNumber(row.policy_score_raw),
+          public: toNumber(row.public_score),
+          business: toNumber(row.business_score),
+          sentiment: toNumber(row.sentiment_score_raw),
+        },
         factors: {
           pe: row.pe_ttm,
           pb: row.pb,
@@ -290,6 +352,7 @@ async function buildSelectionPayloadFromSnapshot(date, strategy, filters) {
     })
     .filter(s => {
       // 应用筛选条件
+      if (shouldExcludeTsCode(s.ts_code, filters)) return false;
       if (filters.minSevenFactorScore && s.score < filters.minSevenFactorScore) return false;
       if (filters.peMax && s.factors.pe && s.factors.pe > filters.peMax) return false;
       
@@ -304,7 +367,8 @@ async function buildSelectionPayloadFromSnapshot(date, strategy, filters) {
       // 只在价格数据可用时应用价格筛选
       if (filters.maxPrice && priceDataAvailable && s.factors.price && s.factors.price > filters.maxPrice) return false;
       
-      return s.score >= 0.75;
+      const minScoreThreshold = Number(filters.minSevenFactorScore || 0.75);
+      return s.score >= minScoreThreshold;
     })
     .sort((a, b) => b.score - a.score);
   
@@ -315,22 +379,85 @@ async function buildSelectionPayloadFromSnapshot(date, strategy, filters) {
   for (const stock of stockScores) {
     const industry = stock.industry || '其他';
     if (!industryMap.has(industry)) {
-      industryMap.set(industry, { name: industry, stocks: [], totalScore: 0 });
+      industryMap.set(industry, {
+        name: industry,
+        stocks: [],
+        totalScore: 0,
+        dimensionTotals: { social: 0, policy: 0, public: 0, business: 0, sentiment: 0 },
+        dimensionSamples: { social: new Set(), public: new Set() },
+      });
     }
     const ind = industryMap.get(industry);
     ind.stocks.push(stock);
     ind.totalScore += stock.score;
+    ind.dimensionTotals.social += stock.snapshotDimensions.social;
+    ind.dimensionTotals.policy += stock.snapshotDimensions.policy;
+    ind.dimensionTotals.public += stock.snapshotDimensions.public;
+    ind.dimensionTotals.business += stock.snapshotDimensions.business;
+    ind.dimensionTotals.sentiment += stock.snapshotDimensions.sentiment;
+    if (Number.isFinite(stock.snapshotDimensions.social)) {
+      ind.dimensionSamples.social.add(stock.snapshotDimensions.social);
+    }
+    if (Number.isFinite(stock.snapshotDimensions.public)) {
+      ind.dimensionSamples.public.add(stock.snapshotDimensions.public);
+    }
   }
   
+  const dimensionWeights = normalizeWeightMap(
+    filters.dimensionWeights,
+    ['social', 'policy', 'public', 'business'],
+    { social: 0.25, policy: 0.25, public: 0.25, business: 0.25 }
+  );
+
   // 计算行业平均分并排序
   const industries = Array.from(industryMap.values())
-    .map(ind => ({
-      ...ind,
-      avgScore: ind.totalScore / ind.stocks.length,
-      stockCount: ind.stocks.length
-    }))
+    .map(ind => {
+      const stockCount = ind.stocks.length;
+      const avgScore = ind.totalScore / stockCount;
+      const avgSocialRaw = ind.dimensionTotals.social / stockCount;
+      const avgPolicyRaw = ind.dimensionTotals.policy / stockCount;
+      const avgPublicRaw = ind.dimensionTotals.public / stockCount;
+      const avgBusinessRaw = ind.dimensionTotals.business / stockCount;
+      const avgSentimentRaw = ind.dimensionTotals.sentiment / stockCount;
+
+      // 历史回填里 social/public 曾被写成常量占位值，这里在检测到无方差时做行业级回退。
+      const socialFallbackRaw = clamp(4 + Math.min(stockCount, 50) * 0.05 + avgScore * 0.1, 0, 10);
+      const socialDisplay = normalizeSnapshotDimension(
+        ind.dimensionSamples.social.size > 1 ? avgSocialRaw : socialFallbackRaw,
+        3
+      );
+      const publicDisplay = normalizeSnapshotDimension(
+        ind.dimensionSamples.public.size > 1 ? avgPublicRaw : avgSentimentRaw,
+        3
+      );
+
+      const weightedDimensionScore = (
+        socialDisplay * dimensionWeights.social +
+        normalizeSnapshotDimension(avgPolicyRaw, 3) * dimensionWeights.policy +
+        publicDisplay * dimensionWeights.public +
+        normalizeSnapshotDimension(avgBusinessRaw, 3) * dimensionWeights.business
+      );
+      // 维度权重开启后，行业排序分对齐“股票评分 + 行业维度”双口径，避免只改权重但结果不变。
+      const rankScore = filters.dimensionWeights
+        ? (avgScore * 0.5 + weightedDimensionScore * 0.5)
+        : avgScore;
+
+      return {
+        ...ind,
+        avgScore,
+        rankScore,
+        weightedDimensionScore,
+        stockCount,
+        dimensions: {
+          social: socialDisplay,
+          policy: normalizeSnapshotDimension(avgPolicyRaw, 3),
+          public: publicDisplay,
+          business: normalizeSnapshotDimension(avgBusinessRaw, 3),
+        },
+      };
+    })
     .filter(ind => ind.stockCount >= 3)
-    .sort((a, b) => b.avgScore - a.avgScore)
+    .sort((a, b) => b.rankScore - a.rankScore)
     .slice(0, 10);
   
   console.log(`[select.js] 筛选出 ${industries.length} 个行业`);
@@ -339,9 +466,14 @@ async function buildSelectionPayloadFromSnapshot(date, strategy, filters) {
   const directions = industries.map((ind, index) => ({
     ts_code: `IND_${index}`,
     name: ind.name,
-    score: Math.round(ind.avgScore * 100),
-    dimensions: { social: 3, policy: 3, public: 3, business: 3 },
-    metrics: { companyCount: ind.stockCount, avgScore: ind.avgScore },
+    score: Math.round(ind.rankScore * 100),
+    dimensions: ind.dimensions,
+    metrics: {
+      companyCount: ind.stockCount,
+      avgScore: ind.avgScore,
+      rankScore: ind.rankScore,
+      weightedDimensionScore: ind.weightedDimensionScore
+    },
     picks: ind.stocks.slice(0, 5).map(s => ({
       ts_code: s.ts_code,
       code: s.ts_code, // 兼容决策生成阶段读取 s.code
@@ -349,7 +481,7 @@ async function buildSelectionPayloadFromSnapshot(date, strategy, filters) {
       industry: s.industry,
       score: s.score
     })),
-    reason: `${ind.name} 行业平均得分 ${ind.avgScore.toFixed(2)}，共 ${ind.stockCount} 只股票`
+    reason: `${ind.name} 行业综合得分 ${ind.rankScore.toFixed(2)}（股票均分 ${ind.avgScore.toFixed(2)}），共 ${ind.stockCount} 只股票`
   }));
 
   // TASK_API_001: 生成决策单
@@ -459,6 +591,11 @@ async function buildSelectionPayloadFromSnapshot(date, strategy, filters) {
 
   return {
     tradeDate: adjustedDate,
+    methodology: {
+      framework: '历史快照行业聚合',
+      dimensions: ['社会经济趋势', '政策方向', '舆论热度', '商业变现'],
+      sources: ['stock_factor_snapshot', 'stock_list', 'stock_daily'],
+    },
     directions,
     decisions, // TASK_API_001: 新增决策字段
     isSnapshot: true,
@@ -576,7 +713,8 @@ async function buildSelectionPayload(date, strategy, filters) {
 
   const directions = [];
   for (const direction of candidateDirections) {
-    const picks = await buildDirectionPicks(direction, dailyBasicMap, stockBasicMap);
+    const picks = (await buildDirectionPicks(direction, dailyBasicMap, stockBasicMap))
+      .filter((pick) => !shouldExcludeTsCode(pick.ts_code || pick.code, filters));
     directions.push({
       ...direction,
       picks,
@@ -830,7 +968,10 @@ router.get('/', async (req, res) => {
     const minScore = req.query.minScore;
     
     // 四维度七因子策略筛选参数
-    const filters = {};
+    const filters = {
+      // 默认排除北交所股票，避免后续回测/迭代链路出现无行情样本导致的伪失败。
+      excludeMarkets: ['BJ']
+    };
     if (strategy === 'seven_factor') {
       if (req.query.minSevenFactorScore) filters.minSevenFactorScore = parseFloat(req.query.minSevenFactorScore);
       if (req.query.peMax) filters.peMax = parseFloat(req.query.peMax);
@@ -853,6 +994,12 @@ router.get('/', async (req, res) => {
         } catch (e) {
           console.warn(`[select.js] 解析七因子权重失败：${e.message}`);
         }
+      }
+      if (req.query.excludeMarkets) {
+        filters.excludeMarkets = String(req.query.excludeMarkets)
+          .split(',')
+          .map(item => item.trim().toUpperCase())
+          .filter(Boolean);
       }
     }
     

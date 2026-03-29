@@ -348,9 +348,27 @@ function isMissingTableError(error) {
   return message.includes('no such table');
 }
 
+function inferStrategyVersion(context) {
+  const direct = String(context?.strategy_version || '').trim();
+  if (direct) {
+    return direct;
+  }
+  const candidates = [
+    context?.strategy_config_name,
+    context?.template_name
+  ].map((item) => String(item || '').trim()).filter(Boolean);
+  for (const candidate of candidates) {
+    const matched = candidate.match(/ITER_[A-Za-z0-9_]+/);
+    if (matched) {
+      return matched[0];
+    }
+  }
+  return null;
+}
+
 async function loadStrategyContext(db, orderId) {
   try {
-    return await db.getPromise(
+    const context = await db.getPromise(
       `SELECT
         strategy_source,
         strategy_config_id,
@@ -364,6 +382,34 @@ async function loadStrategyContext(db, orderId) {
       WHERE conditional_order_id = ?`,
       [orderId]
     );
+
+    if (!context) {
+      return null;
+    }
+
+    context.strategy_version = inferStrategyVersion(context) || context.strategy_version || null;
+
+    if (!context.strategy_version && context.strategy_config_id) {
+      const feedbackRow = await db.getPromise(
+        `SELECT source_version_id
+         FROM strategy_config_feedback
+         WHERE strategy_config_id = ?
+         ORDER BY id DESC
+         LIMIT 1`,
+        [context.strategy_config_id]
+      ).catch((error) => {
+        if (isMissingTableError(error)) {
+          return null;
+        }
+        throw error;
+      });
+
+      if (feedbackRow?.source_version_id) {
+        context.strategy_version = feedbackRow.source_version_id;
+      }
+    }
+
+    return context;
   } catch (error) {
     if (isMissingTableError(error)) {
       return null;

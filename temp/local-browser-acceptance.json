@@ -1,0 +1,33 @@
+[
+  {
+    "page": "select.html",
+    "checks": {
+      "configStrategyOptions": true,
+      "configPanelOpened": true,
+      "dataRendered": true
+    },
+    "details": {
+      "top3Count": 3,
+      "top10Count": 10
+    },
+    "screenshot": "/Users/vvc/.openclaw/workspace/stock-system/temp/screenshots/local-acceptance/select.png"
+  },
+  {
+    "page": "backtest.html",
+    "checks": {
+      "strategySelectExists": true,
+      "metricsAllExist": true
+    },
+    "screenshot": "/Users/vvc/.openclaw/workspace/stock-system/temp/screenshots/local-acceptance/backtest.png"
+  },
+  {
+    "page": "iteration-manager.html",
+    "checks": {
+      "strategySelectExists": true,
+      "versionListExists": true,
+      "startBtnExists": true,
+      "reportFormatSelectExists": true
+    },
+    "screenshot": "/Users/vvc/.openclaw/workspace/stock-system/temp/screenshots/local-acceptance/iteration-manager.png"
+  }
+]

@@ -866,11 +866,17 @@
 
     // 初始化页面
     async function initPage() {
-      attachNumberFieldValidation();
-      validateIterationInputs({ silent: true });
+      if (typeof attachNumberFieldValidation === 'function') {
+        attachNumberFieldValidation();
+      }
+      if (typeof validateIterationInputs === 'function') {
+        validateIterationInputs({ silent: true });
+      }
 
       const params = getUrlParams();
-      const importedResearchInput = hasImportedResearchInput(params);
+      const importedResearchInput = typeof hasImportedResearchInput === 'function'
+        ? hasImportedResearchInput(params)
+        : (Array.isArray(params.stocks) && params.stocks.length > 0 && Boolean(params.startDate) && Boolean(params.endDate));
 
       // 设置策略选择
       if (params.strategyType) {
@@ -972,7 +978,20 @@
       if (isRunning) return;
 
       const strategyType = document.getElementById('strategySelect').value;
-      const inputValidation = validateIterationInputs();
+      const inputValidation = typeof validateIterationInputs === 'function'
+        ? validateIterationInputs()
+        : (() => {
+            const maxIterationsInput = Number.parseInt(document.getElementById('maxIterations')?.value ?? '0', 10);
+            const scoreThresholdInput = Number.parseFloat(document.getElementById('scoreThreshold')?.value ?? '0');
+            const parallelTasksInput = Number.parseInt(document.getElementById('parallelTasks')?.value ?? '0', 10);
+            const maxIterations = Number.isFinite(maxIterationsInput) && maxIterationsInput > 0 ? maxIterationsInput : 10;
+            const scoreThreshold = Number.isFinite(scoreThresholdInput) ? scoreThresholdInput : 80;
+            const parallelTasks = Number.isFinite(parallelTasksInput) && parallelTasksInput > 0 ? parallelTasksInput : 4;
+            return {
+              valid: true,
+              values: { maxIterations, scoreThreshold, parallelTasks }
+            };
+          })();
       if (!inputValidation.valid) {
         return;
       }
@@ -1274,7 +1293,10 @@
       const hasInvalidResult = Boolean(summary && (summary.invalidResult || summary.invalidReason));
       const scoreValue = hasInvalidResult ? '--' : (hasScore ? Number(scoreSource).toFixed(1) : '--');
       const normalizedParams = params && typeof params === 'object' ? params : {};
-      const paramsSummary = buildParamSummary(normalizedParams, 10) || (hasInvalidResult ? '本次结果无有效参数' : '暂无可展示参数');
+      const safeBuildParamSummary = typeof buildParamSummary === 'function'
+        ? buildParamSummary
+        : () => '';
+      const paramsSummary = safeBuildParamSummary(normalizedParams, 10) || (hasInvalidResult ? '本次结果无有效参数' : '暂无可展示参数');
       const resultSummaryHtml = (() => {
         if (!summary || Object.keys(summary).length === 0) return '';
 
@@ -1635,11 +1657,11 @@
         ? formatVersionParamSummary
         : () => '';
       container.innerHTML = versions.map((v, index) => {
-        const isInvalidLegacyResult = v.invalid_legacy_result === true;
+        const isInvalidResult = v.invalid_legacy_result === true || Boolean(v.invalid_reason);
         const missingExecutionEvidence = v.has_execution_sample === false;
         const hasDisplayScore = v.display_score !== null && v.display_score !== undefined && Number.isFinite(Number(v.display_score));
         const displayScore = hasDisplayScore ? Number(v.display_score).toFixed(1) : '无效';
-        const versionScoreClass = isInvalidLegacyResult
+        const versionScoreClass = isInvalidResult
           ? 'score-low'
           : (v.backtest_score || 0) >= 80 ? 'score-high' : (v.backtest_score || 0) >= 60 ? 'score-medium' : 'score-low';
         // 已发布状态
@@ -1704,14 +1726,14 @@
               </div>
               <div style="margin-bottom: 4px;">
                 ${formatExecutionFeedbackBadges(v)}
-                ${isInvalidLegacyResult ? `<span class="feedback-badge feedback-status-caution" title="${v.invalid_message || '历史旧结果无有效交易样本'}">无效历史结果</span>` : ''}
-                ${!isInvalidLegacyResult && missingExecutionEvidence ? `<span class="feedback-badge feedback-status-mixed" title="${v.publish_blocked_reason || '缺少执行反馈样本'}">待验证样本</span>` : ''}
+                ${isInvalidResult ? `<span class="feedback-badge feedback-status-caution" title="${v.invalid_message || '该版本未通过有效性校验'}">无效结果</span>` : ''}
+                ${!isInvalidResult && missingExecutionEvidence ? `<span class="feedback-badge feedback-status-mixed" title="${v.publish_blocked_reason || '缺少执行反馈样本'}">待验证样本</span>` : ''}
               </div>
               ${safeFormatVersionParamSummary(v.config_json)}
               ${metricCards}
-              ${isInvalidLegacyResult ? `<div class="exec-summary" style="margin-bottom: 8px;"><div class="exec-summary-row"><span class="exec-label">说明:</span><span class="exec-value exec-warning">${v.invalid_message || '该版本未产生任何交易样本，旧逻辑回填的 50 分不代表有效结果。'}</span></div></div>` : ''}
-            ${!isInvalidLegacyResult && missingExecutionEvidence && v.can_publish === false ? `<div class="exec-summary" style="margin-bottom: 8px;"><div class="exec-summary-row"><span class="exec-label">发布限制:</span><span class="exec-value exec-warning">${v.publish_blocked_reason || '该版本尚无执行反馈样本，暂不允许发布到策略库。'}</span></div></div>` : ''}
-            ${!isInvalidLegacyResult && missingExecutionEvidence && v.can_publish !== false ? `<div class="exec-summary" style="margin-bottom: 8px;"><div class="exec-summary-row"><span class="exec-label">发布提示:</span><span class="exec-value exec-warning">${v.publish_warning || '当前版本暂无执行反馈样本，建议发布后尽快完成执行验证。'}</span></div></div>` : ''}
+              ${isInvalidResult ? `<div class="exec-summary" style="margin-bottom: 8px;"><div class="exec-summary-row"><span class="exec-label">说明:</span><span class="exec-value exec-warning">${v.invalid_message || '该版本未通过有效性校验，不应视作有效迭代结果。'}</span></div></div>` : ''}
+            ${!isInvalidResult && missingExecutionEvidence && v.can_publish === false ? `<div class="exec-summary" style="margin-bottom: 8px;"><div class="exec-summary-row"><span class="exec-label">发布限制:</span><span class="exec-value exec-warning">${v.publish_blocked_reason || '该版本尚无执行反馈样本，暂不允许发布到策略库。'}</span></div></div>` : ''}
+            ${!isInvalidResult && missingExecutionEvidence && v.can_publish !== false ? `<div class="exec-summary" style="margin-bottom: 8px;"><div class="exec-summary-row"><span class="exec-label">发布提示:</span><span class="exec-value exec-warning">${v.publish_warning || '当前版本暂无执行反馈样本，建议发布后尽快完成执行验证。'}</span></div></div>` : ''}
               ${formatExecutionSummary(v.execution_summary)}
             </div>
             ${publishBtn}

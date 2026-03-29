@@ -1,0 +1,20 @@
+{
+  "timestamp": "2026-03-28T07:06:02.021Z",
+  "select": {
+    "top3Count": 3,
+    "directionCount": 10,
+    "buttonText": "进入个股分析（3 个方向）",
+    "summary": "当前已选 3 个方向，下一步会将它们带入个股分析页面。",
+    "buttonAfterExtraSelect": "进入个股分析（4 个方向）"
+  },
+  "analysis": {
+    "status": "已选择 4 个方向",
+    "sourceBanner": "已从选股页带入 4 个方向，可以直接执行个股分析。",
+    "directions": [
+      "电信运营",
+      "半导体",
+      "日用化工",
+      "生物制药"
+    ]
+  }
+}

@@ -33,6 +33,9 @@ function createMockDb() {
       if (normalizedSql.includes('from sqlite_master')) {
         return { name: 'iteration_task_runs' };
       }
+      if (normalizedSql.includes('from stock_daily')) {
+        return { count: 20 };
+      }
       return null;
     },
 
@@ -127,7 +130,13 @@ function createMockSpawn(spawnCalls) {
       const payload = {
         best_score: 88 + nTrials / 100,
         best_params: { ma_short: 10, ma_long: 30, stop_loss: 0.1 },
-        trials: nTrials
+        trials: nTrials,
+        trade_count: 12,
+        metrics: {
+          tradeCount: 12,
+          sharpeRatio: 1.2,
+          maxDrawdown: 0.12
+        }
       };
       child.stdout.emit('data', JSON.stringify(payload));
       child.emit('close', 0);

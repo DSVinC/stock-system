@@ -7,7 +7,7 @@ const require = createRequire(import.meta.url);
 const { BacktestEngine } = require('../api/backtest');
 const { quickScore } = require('../api/strategy-scorer');
 const { getDatabase } = require('../api/db');
-const { normalizeToDb } = require('../utils/format');
+const { normalizeToApi, normalizeToDb } = require('../utils/format');
 
 function parseArgs(argv) {
   const args = {};
@@ -54,8 +54,33 @@ function parseStocks(rawStocks) {
       .split(',')
       .map((item) => item.trim())
       .filter(Boolean)
-      .map(normalizeToDb)
   )];
+}
+
+function buildCodeCandidates(stockCode) {
+  const raw = String(stockCode || '').trim();
+  if (!raw) {
+    return [];
+  }
+
+  const candidates = new Set([
+    raw,
+    raw.toUpperCase(),
+    raw.toLowerCase(),
+    normalizeToDb(raw),
+    normalizeToApi(raw)
+  ]);
+
+  // 兼容 "SH.600519" 与 "sh.600519" 的市场前缀写法。
+  const marketPrefixMatch = raw.match(/^([A-Za-z]{2})\.(\d{6})$/);
+  if (marketPrefixMatch) {
+    const market = marketPrefixMatch[1].toUpperCase();
+    const code = marketPrefixMatch[2];
+    candidates.add(`${code}.${market}`);
+    candidates.add(`${market.toLowerCase()}.${code}`);
+  }
+
+  return [...candidates].filter(Boolean);
 }
 
 function parseParams(rawParams) {
@@ -152,23 +177,39 @@ function buildNoTradePayload({ report, normalizedParams, scoreResult }) {
 
 async function ensureRealData(db, stocks, startDate, endDate) {
   const missingStocks = [];
+  const resolvedStocks = [];
 
   for (const stock of stocks) {
-    const row = await db.getPromise(
-      `SELECT COUNT(1) AS count
-       FROM stock_daily
-       WHERE ts_code = ? AND trade_date BETWEEN ? AND ?`,
-      [stock, startDate, endDate]
-    );
+    const candidates = buildCodeCandidates(stock);
+    let bestCode = null;
+    let bestCount = 0;
 
-    if (!row || Number(row.count) === 0) {
-      missingStocks.push(stock);
+    for (const candidate of candidates) {
+      const row = await db.getPromise(
+        `SELECT COUNT(1) AS count
+         FROM stock_daily
+         WHERE ts_code = ? AND trade_date BETWEEN ? AND ?`,
+        [candidate, startDate, endDate]
+      );
+      const count = Number(row?.count || 0);
+      if (count > bestCount) {
+        bestCount = count;
+        bestCode = candidate;
+      }
     }
+
+    if (!bestCode || bestCount === 0) {
+      missingStocks.push(stock);
+      continue;
+    }
+    resolvedStocks.push(bestCode);
   }
 
   if (missingStocks.length > 0) {
     throw new Error(`指定区间内缺少真实数据: ${missingStocks.join(', ')}`);
   }
+
+  return [...new Set(resolvedStocks)];
 }
 
 async function run() {
@@ -222,13 +263,13 @@ async function run() {
     silenceConsole();
 
     const db = getDatabase();
-    await ensureRealData(db, stocks, startDate, endDate);
+    const resolvedStocks = await ensureRealData(db, stocks, startDate, endDate);
 
     const engine = new BacktestEngine({
       startDate,
       endDate,
       strategy,
-      stocks
+      stocks: resolvedStocks
     });
 
     engine.generateMockDataForStock = () => {

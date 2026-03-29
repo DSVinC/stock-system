@@ -70,6 +70,10 @@ function createMockSpawn() {
         best_params: {
           fast_period: 8,
           slow_period: 24
+        },
+        trade_count: 12,
+        metrics: {
+          tradeCount: 12
         }
       }));
       child.emit('close', 0);
@@ -178,6 +182,9 @@ async function main() {
     assert.equal(task.strategyType, 'double_ma');
     assert.deepStrictEqual(task.inputSummary, {
       stocks: ['000001.SZ', '600519.SH'],
+      excludedStocks: [],
+      autoExcludedStocks: [],
+      autoAddedStocks: [],
       startDate: '2024-01-01',
       endDate: '2024-12-31',
       config: {

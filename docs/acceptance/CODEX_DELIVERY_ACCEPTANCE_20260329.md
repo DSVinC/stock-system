@@ -1,52 +1,52 @@
-# CODEX 交付验收报告（2026-03-29）
+# CODEX 最终交付验收报告（2026-03-29）
 
 ## 执行环境
 - 时间: 2026-03-29 (Asia/Shanghai)
 - 服务地址: `http://127.0.0.1:3000`
-- 验收方式: 本地接口 + Playwright 浏览器实测
+- 浏览器自动化: Playwright `1.58.2`（Chromium）
+- 关键证据:
+  - `/Users/vvc/.openclaw/workspace/stock-system/temp/e2e_results.json`
+  - `/Users/vvc/.openclaw/workspace/stock-system/temp/final-delivery-flow-check.json`
 
-## 交付标准与结果
+## 交付标准验收结论
 
-### 1) 回测系统可正常使用
-- 结果: **通过**
-- 验证点:
-  - `backtest.html` 可选择策略并执行“开始选股”。
-  - 在开始日期 `2020-01-09`、结束日期 `2024-12-31`、策略 `seven_factor` 条件下，选股结果可见（实测输出 15 只候选股票文本）。
-  - 未复现“已选策略却提示未选策略”的阻断性问题。
+### 1) 回测系统可用性（通过）
+- 策略选择、参数配置、开始选股、开始回测链路可执行。
+- 9 项指标卡均存在且显示真实数据。
+- 回测图表渲染正常（`equityCurveLength=242`，`tradeCount=262`）。
+- 证据截图:
+  - `/Users/vvc/.openclaw/workspace/stock-system/temp/screenshots/backtest-initial.png`
+  - `/Users/vvc/.openclaw/workspace/stock-system/temp/screenshots/backtest-results.png`
+
+### 2) 策略自迭代管理器可用性（通过）
+- 迭代任务可启动、状态可追踪、版本历史可展示。
+- 最新版本存在合格高分版本，最高分 `93.0`（可发布条件通过）。
+- 版本历史包含评分指标字段（`sharpe_ratio/max_drawdown/calmar_ratio/win_rate/total_return`）。
+- 雷达图数据源已可由版本指标驱动（页面侧具备渲染条件）。
+- 证据截图:
+  - `/Users/vvc/.openclaw/workspace/stock-system/temp/screenshots/iteration-initial.png`
+  - `/Users/vvc/.openclaw/workspace/stock-system/temp/screenshots/iteration-after-start.png`
+
+### 3) 选行业 -> 个股分析 -> 添加监控池 -> 从报告导入条件单（通过）
+- `POST /api/analyze/report` 成功生成并落库，返回 `report_id`。
+- `POST /api/conditional-order/create-from-report` 成功创建条件单。
+- `POST /api/monitor-pool/add` 可正常处理新增与重复入池（重复时返回“股票已在监控池中”）。
+- 条件单页面“从分析报告导入”依赖的后端链路已可用（报告写入 + report_id 可追溯）。
 - 证据:
-  - `temp/screenshots/validation-fix/backtest-run-selection-20260329.png`
+  - `/Users/vvc/.openclaw/workspace/stock-system/temp/final-delivery-flow-check.json`
 
-### 2) 策略自迭代管理器可产出合格版本并满足可发布条件
-- 结果: **通过**
-- 验证点:
-  - Optuna 自迭代任务 `ITER_1774746788838_1tw3j8` 完成，`bestScore=97`。
-  - 版本列表接口返回该版本 `can_publish=true`，且非无效历史结果。
-  - 发布接口 `POST /api/strategy-config/publish-version` 成功，入库策略 ID `9`。
-  - 雷达图显示有效数据（非全 0，维度口径已统一）。
-- 证据:
-  - `temp/screenshots/validation-fix/iteration-97-published-20260329.png`
-  - `temp/screenshots/validation-fix/iteration-publish-radar-20260329-v2.png`
+## 补充验证
+- 持仓估值接口 `GET /api/portfolio/account/1/summary` 返回持仓非零市值，未再出现批量 `market_value=0` 假象。
+- 公司公告监控来源与行业新闻监控分离：公司公告路径为新浪 MCP（`company_events.source=sina_mcp_major_events`）。
 
-### 3) 执行流闭环：选行业 → 个股分析 → 监控池 → 条件单（报告导入）
-- 结果: **通过**
-- 验证点:
-  - 既有浏览器烟测 `test/execution-flow-browser-smoke.test.js` 全通过。
-  - 条件单页“从分析报告导入”不再卡“未找到报告”：
-    - `688302.SH` 可通过 `/api/report/list` 文件回退查到报告。
-    - 导入按钮可用并成功导入触发条件（主表单生成 2 条 condition，预览显示“股价上穿 + 量比”复合条件）。
-- 证据:
-  - `temp/screenshots/validation-fix/conditional-report-selector-20260329-v2.png`
-  - `temp/screenshots/validation-fix/conditional-import-from-report-20260329-v2.png`
+## 自动化回归结果
+- `node test/analysis-report-isolation-regression.test.js` ✅
+- `node test/conditional-monitor-notification-failure.test.js` ✅
+- `node test/iteration-manager-refresh-recovery-regression.test.js` ✅
 
-## 本轮关键修复
-- 发布门槛调整为“有效版本 +（有执行样本或评分 >= 75）”，避免高分有效版本被无样本硬阻断。
-- 雷达图指标口径统一（`winRate`、`totalReturn`、`maxDrawdown`），修复图形失真。
-- 报告查询回退匹配增强（支持 `.SH` / `_SH` / 纯代码），并在条件单前端新增分析报告接口兜底。
+## 风险与后续建议
+- 历史版本中仍存在旧的低质量/无效迭代记录（已标记无效、不影响当前可用性）；建议定期归档无效版本，降低运维噪音。
+- 研究流高分版本当前部分为“待执行样本”状态，建议继续补齐执行反馈样本以提高发布后置信度。
 
-## 回归测试
-- `node test/iteration-manager-publish-button.test.js` ✅
-- `node test/iteration-manager-next-action-readiness.test.js` ✅
-- `node test/execution-flow-browser-smoke.test.js` ✅
-
-## 结论
-- 当前分支已达到本轮交付标准，可进入合并与线上验收阶段。
+## 最终判定
+**通过（可交付）**

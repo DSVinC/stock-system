@@ -79,14 +79,21 @@ async function main() {
     const conditionalContent = fs.readFileSync(conditionalApi, 'utf8');
     const conditionalFunctions = [
       'checkCondition',
-      'createOrder',
-      'toggleOrder',
-      'deleteOrder'
+      'createConditionalOrder',
+      'toggleConditionalOrder',
+      'deleteConditionalOrder'
     ];
-    
+    const missingConditionalFns = [];
+
     for (const fn of conditionalFunctions) {
       const exists = conditionalContent.includes(fn);
+      if (!exists) {
+        missingConditionalFns.push(fn);
+      }
       console.log(`   - ${fn}: ${exists ? '✅' : '❌'}`);
+    }
+    if (missingConditionalFns.length > 0) {
+      throw new Error(`条件单 API 缺失函数: ${missingConditionalFns.join(', ')}`);
     }
     console.log('✅ 条件单 API 完整');
 

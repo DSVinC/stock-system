@@ -429,6 +429,30 @@ async function createFromReport(req, res) {
     
     // 读取分析报告
     const db = await getDatabase();
+    const resolvedAccountId = Number(account_id) || 1;
+
+    // 去重保护：同一账户 + 同一股票 + 同一报告只允许导入一次，避免重复堆积
+    const duplicated = await db.getPromise(
+      `
+        SELECT COUNT(*) AS count
+        FROM conditional_order_context coc
+        INNER JOIN conditional_order co ON co.id = coc.conditional_order_id
+        WHERE coc.report_id = ?
+          AND co.ts_code = ?
+          AND co.account_id = ?
+      `,
+      [report_id, stock_code, resolvedAccountId]
+    );
+    if (Number(duplicated?.count || 0) > 0) {
+      return res.json({
+        success: true,
+        deduplicated: true,
+        message: '该分析报告已导入过条件单，已跳过重复导入',
+        orders: [],
+        report_id
+      });
+    }
+
     const report = await db.getPromise(
       'SELECT * FROM stock_analysis_reports WHERE report_id = ? AND stock_code = ?',
       [report_id, stock_code]
@@ -464,8 +488,8 @@ async function createFromReport(req, res) {
     
     // 1. 创建止损条件单
     if (decisions.stop_loss) {
-      const stopLossOrder = {
-        account_id: account_id || 1,
+        const stopLossOrder = {
+        account_id: resolvedAccountId,
         ts_code: stock_code,
         stock_name: report.stock_name,
         order_type: 'stop_loss',
@@ -500,7 +524,7 @@ async function createFromReport(req, res) {
       
       for (const target of stopProfits) {
         const stopProfitOrder = {
-          account_id: account_id || 1,
+          account_id: resolvedAccountId,
           ts_code: stock_code,
           stock_name: report.stock_name,
           order_type: 'take_profit',
@@ -532,7 +556,7 @@ async function createFromReport(req, res) {
     if (decisions.entry_zone) {
       const entryZone = decisions.entry_zone;
       const entryOrder = {
-        account_id: account_id || 1,
+        account_id: resolvedAccountId,
         ts_code: stock_code,
         stock_name: report.stock_name,
         order_type: 'entry',

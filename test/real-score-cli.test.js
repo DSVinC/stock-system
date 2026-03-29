@@ -3,8 +3,35 @@
 const assert = require('node:assert');
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
+const { pathToFileURL } = require('node:url');
 
-function main() {
+async function testHelperExports() {
+  const scriptPath = path.join(__dirname, '..', 'scripts', 'real_score_cli.mjs');
+  const module = await import(pathToFileURL(scriptPath).href);
+
+  assert.strictEqual(module.extractTradeCount({ summary: { tradeCount: 7 } }), 7);
+  assert.strictEqual(module.extractTradeCount({ metrics: { tradeCount: 3 } }), 3);
+  assert.strictEqual(module.extractTradeCount({}), 0);
+
+  const successPayload = module.buildSuccessPayload({
+    report: { summary: { tradeCount: 12 } },
+    scoreResult: { scoreTotal: 83, level: 'B', metrics: { winRate: 0.56 } },
+    normalizedParams: { fast_period: 5, slow_period: 20 }
+  });
+  assert.strictEqual(successPayload.success, true);
+  assert.strictEqual(successPayload.tradeCount, 12);
+
+  const noTradePayload = module.buildNoTradePayload({
+    report: { summary: { tradeCount: 0 }, metrics: { tradeCount: 0 } },
+    normalizedParams: { fast_period: 5, slow_period: 20 },
+    scoreResult: { scoreTotal: 50, level: 'C', metrics: { tradeCount: 0 } }
+  });
+  assert.strictEqual(noTradePayload.success, false);
+  assert.strictEqual(noTradePayload.error, 'no_trade_samples');
+  assert.strictEqual(noTradePayload.tradeCount, 0);
+}
+
+function testCliSmoke() {
   const scriptPath = path.join(__dirname, '..', 'scripts', 'real_score_cli.mjs');
   const result = spawnSync(
     process.execPath,
@@ -39,8 +66,18 @@ function main() {
   assert.strictEqual(payload.success, true, 'CLI should succeed');
   assert.strictEqual(typeof payload.scoreTotal, 'number', 'scoreTotal should be a number');
   assert.ok(Number.isFinite(payload.scoreTotal), 'scoreTotal should be finite');
+  assert.strictEqual(typeof payload.tradeCount, 'number', 'tradeCount should be a number');
+  assert.ok(payload.tradeCount > 0, 'tradeCount should be greater than zero in smoke scenario');
 
   console.log('✅ real-score-cli smoke test passed');
 }
 
-main();
+async function main() {
+  await testHelperExports();
+  testCliSmoke();
+}
+
+main().catch((error) => {
+  console.error(`❌ real-score-cli smoke test failed: ${error.message}`);
+  process.exit(1);
+});

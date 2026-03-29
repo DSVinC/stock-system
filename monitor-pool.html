@@ -195,6 +195,7 @@
         strategySource: input.strategySource,
         strategyConfigId: input.strategyConfigId,
         strategyConfigName: input.strategyConfigName,
+        strategyVersion: input.strategyVersion,
         templateId: input.templateId,
         templateName: input.templateName
       };
@@ -335,6 +336,7 @@
 
       const source = stock.strategy_source || stock.strategySource;
       const strategyConfigName = stock.strategy_config_name || stock.strategyConfigName;
+      const strategyVersion = stock.strategy_version || stock.strategyVersion;
       const templateName = stock.template_name || stock.templateName;
 
       let sourceLabel = '';
@@ -357,6 +359,9 @@
       }
       if (name) {
         parts.push(`<span>${name}</span>`);
+      }
+      if (strategyVersion) {
+        parts.push(`<span style="opacity:0.72;">${strategyVersion}</span>`);
       }
 
       return `<div style="margin-top:4px; font-size:12px; color:var(--text-secondary);">${parts.join('')}</div>`;
@@ -415,6 +420,8 @@
         if (stock.strategy_config_id != null) checkbox.dataset.strategyConfigId = String(stock.strategy_config_id);
         if (stock.strategyConfigName) checkbox.dataset.strategyConfigName = stock.strategyConfigName;
         if (stock.strategy_config_name) checkbox.dataset.strategyConfigName = stock.strategy_config_name;
+        if (stock.strategyVersion) checkbox.dataset.strategyVersion = stock.strategyVersion;
+        if (stock.strategy_version) checkbox.dataset.strategyVersion = stock.strategy_version;
         if (stock.templateId != null) checkbox.dataset.templateId = String(stock.templateId);
         if (stock.template_id != null) checkbox.dataset.templateId = String(stock.template_id);
         if (stock.templateName) checkbox.dataset.templateName = stock.templateName;
@@ -614,6 +621,9 @@
         }
         if (cb.dataset.strategyConfigName) {
           result.strategyConfigName = cb.dataset.strategyConfigName;
+        }
+        if (cb.dataset.strategyVersion) {
+          result.strategyVersion = cb.dataset.strategyVersion;
         }
         if (cb.dataset.templateId !== undefined && cb.dataset.templateId !== null) {
           result.templateId = parseInt(cb.dataset.templateId, 10);

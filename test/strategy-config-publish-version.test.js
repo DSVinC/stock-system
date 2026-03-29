@@ -500,20 +500,21 @@ async function runTests() {
 
     await strategyConfig.publishVersionToStrategyLibrary(mockReqNoFeedback, mockResNoFeedback);
 
-    test('无反馈时发布成功', () => {
-      assert.strictEqual(mockResNoFeedback.jsonData.success, true);
+    test('无反馈时发布被阻断', () => {
+      assert.strictEqual(mockResNoFeedback.statusCode, 409);
     });
 
-    test('无反馈时 status = no_data', () => {
-      assert.strictEqual(mockData.strategy_config_feedback[0].execution_feedback_status, 'no_data');
+    test('无反馈时返回明确错误信息', () => {
+      assert.strictEqual(mockResNoFeedback.jsonData.success, false);
+      assert.match(mockResNoFeedback.jsonData.error, /尚无执行反馈样本/);
     });
 
-    test('无反馈时 confidence = none', () => {
-      assert.strictEqual(mockData.strategy_config_feedback[0].execution_feedback_confidence, 'none');
+    test('无反馈时不创建 strategy_configs', () => {
+      assert.strictEqual(mockData.strategy_configs.length, 0);
     });
 
-    test('无反馈时 total_trades = 0', () => {
-      assert.strictEqual(mockData.strategy_config_feedback[0].total_trades, 0);
+    test('无反馈时不写入 strategy_config_feedback', () => {
+      assert.strictEqual(mockData.strategy_config_feedback.length, 0);
     });
 
     // ----------------------------------------

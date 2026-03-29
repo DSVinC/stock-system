@@ -1569,58 +1569,6 @@
           </div>
         </details>
 
-        <!-- 选股配置 -->
-        <details class="selection-config">
-          <summary>
-            <span>🎯</span>
-            <span>选股配置</span>
-          </summary>
-          <div class="config-content">
-            <div class="params-form">
-              <div class="param-group">
-                <label>股票数量</label>
-                <div class="input-with-unit">
-                  <input type="number" id="selectionLimit" value="15" min="1" max="50">
-                  <span class="unit">只</span>
-                </div>
-              </div>
-              <div class="param-group">
-                <label>最低评分</label>
-                <div class="input-with-unit">
-                  <input type="number" id="selectionMinScore" value="0" min="0" max="100" step="5">
-                  <span class="unit">分</span>
-                </div>
-              </div>
-              <div class="param-group">
-                <label>选股时点</label>
-                <div class="input-with-unit">
-                  <input type="text" id="selectionDate" class="form-input" style="padding: 10px 12px; border-radius: 8px;" placeholder="选择交易日">
-                </div>
-              </div>
-            </div>
-            <div style="margin-top: 16px; display: flex; align-items: center; gap: 12px;">
-              <button class="selection-btn" onclick="runSelection()" id="runSelectionBtn">
-                🎯 开始选股
-              </button>
-              <span id="selectionLoading" class="selection-loading" style="display: none;">
-                <span class="spinner"></span>
-                选股中...
-              </span>
-            </div>
-            <div id="selectionResult" class="selection-result">
-              <div class="selection-result-header">
-                <span class="selection-result-title">✓ 选股完成</span>
-                <button onclick="applySelectionToStocks()" style="padding: 6px 12px; border-radius: 6px; border: 1px solid rgba(74, 222, 128, 0.3); background: rgba(74, 222, 128, 0.1); color: #4ade80; font-size: 12px; cursor: pointer;">应用到已选股票</button>
-              </div>
-              <div class="selection-result-info" id="selectionResultInfo"></div>
-              <div class="selection-result-stocks" id="selectionResultStocks"></div>
-            </div>
-            <div class="config-hint">
-              💡 选股说明：此处选股仅用于历史回测样本构建，属于研究流程。选股结果不直接进入监控池或条件单，需经策略库发布后由执行流程调用。
-            </div>
-          </div>
-        </details>
-
         <!-- 策略选择 -->
         <div class="param-item" style="margin-top: 20px;">
           <label>选择策略</label>
@@ -1869,6 +1817,52 @@
             </div>
           </div>
         </div>
+
+        <!-- 选股配置（位于策略选择之后、添加回测股票之前） -->
+        <details class="selection-config">
+          <summary>
+            <span>🎯</span>
+            <span>选股配置</span>
+          </summary>
+          <div class="config-content">
+            <div class="params-form">
+              <div class="param-group">
+                <label>股票数量</label>
+                <div class="input-with-unit">
+                  <input type="number" id="selectionLimit" value="15" min="1" max="50">
+                  <span class="unit">只</span>
+                </div>
+              </div>
+              <div class="param-group">
+                <label>最低评分</label>
+                <div class="input-with-unit">
+                  <input type="number" id="selectionMinScore" value="0" min="0" max="100" step="5">
+                  <span class="unit">分</span>
+                </div>
+              </div>
+            </div>
+            <div style="margin-top: 16px; display: flex; align-items: center; gap: 12px;">
+              <button class="selection-btn" onclick="runSelection()" id="runSelectionBtn">
+                🎯 开始选股
+              </button>
+              <span id="selectionLoading" class="selection-loading" style="display: none;">
+                <span class="spinner"></span>
+                选股中...
+              </span>
+            </div>
+            <div id="selectionResult" class="selection-result">
+              <div class="selection-result-header">
+                <span class="selection-result-title">✓ 选股完成</span>
+                <button onclick="applySelectionToStocks()" style="padding: 6px 12px; border-radius: 6px; border: 1px solid rgba(74, 222, 128, 0.3); background: rgba(74, 222, 128, 0.1); color: #4ade80; font-size: 12px; cursor: pointer;">应用到已选股票</button>
+              </div>
+              <div class="selection-result-info" id="selectionResultInfo"></div>
+              <div class="selection-result-stocks" id="selectionResultStocks"></div>
+            </div>
+            <div class="config-hint">
+              💡 选股说明：此处选股仅用于历史回测样本构建，属于研究流程。选股结果不直接进入监控池或条件单，需经策略库发布后由执行流程调用。
+            </div>
+          </div>
+        </details>
 
         <!-- 股票选择 -->
         <div class="param-item" style="margin-top: 24px;">
@@ -2253,7 +2247,6 @@
     // 交易日数据缓存
     let tradingDaysArray = [];
     let tradingDaysLoaded = false;
-    let selectionDateFlatpickr = null;
 
     // 加载交易日列表
     async function loadTradingDays() {
@@ -2264,24 +2257,6 @@
           tradingDaysArray = data.data;
           tradingDaysLoaded = true;
           console.log('[交易日] 已加载', tradingDaysArray.length, '个交易日');
-          
-          // 初始化 Flatpickr 日历组件（禁用非交易日）
-          const selectionDateInput = document.getElementById('selectionDate');
-          if (selectionDateInput && !selectionDateFlatpickr) {
-            selectionDateFlatpickr = flatpickr(selectionDateInput, {
-              locale: 'zh',
-              dateFormat: 'Y-m-d',
-              enable: tradingDaysArray,
-              minDate: data.meta?.minDate,
-              maxDate: data.meta?.maxDate,
-              defaultDate: data.meta?.minDate,
-              disableMobile: true,
-              onChange: function(selectedDates, dateStr, instance) {
-                console.log('[选股日期] 已选择:', dateStr);
-              }
-            });
-            console.log('[Flatpickr] 已初始化，非交易日已禁用');
-          }
           
           // 同步设置 startDate 和 endDate 的 min/max
           if (data.meta) {
@@ -2374,28 +2349,15 @@
       // 初始化市场环境模式选择器
       initMarketModeSelector();
 
-      // 初始化选股日期为开始日期（Flatpickr 会自动在交易日列表中选择最近的）
-      const startDate = document.getElementById('startDate').value;
-      if (startDate && selectionDateFlatpickr) {
-        selectionDateFlatpickr.setDate(startDate, true);
-      }
-
-      // 同步选股日期与开始日期
       document.getElementById('startDate').addEventListener('change', function() {
         // 验证交易日
         validateTradingDate(this.value, this);
-        // 同步到 Flatpickr
-        if (selectionDateFlatpickr) {
-          selectionDateFlatpickr.setDate(this.value, true);
-        }
       });
 
       // 验证结束日期
       document.getElementById('endDate').addEventListener('change', function() {
         validateTradingDate(this.value, this);
       });
-
-      // Flatpickr 已经禁用非交易日，validateTradingDate 作为兜底验证保留
 
       const urlParams = new URLSearchParams(window.location.search);
       const importType = urlParams.get('import');
@@ -2919,7 +2881,7 @@
 
       const limit = parseInt(document.getElementById('selectionLimit').value) || 15;
       const minScore = parseFloat(document.getElementById('selectionMinScore').value) || 0;
-      const date = document.getElementById('selectionDate').value || document.getElementById('startDate').value;
+      const date = document.getElementById('startDate').value;
       const strategy = document.getElementById('strategySelect').value;
 
       btn.disabled = true;
@@ -2996,9 +2958,12 @@
       );
 
       // 去重
-      const uniqueStocks = allPicks.filter((s, i, arr) =>
-        arr.findIndex(x => x.code === s.code) === i
-      ).slice(0, limit);
+      const uniqueStocks = allPicks
+        .filter((s) => !String(s.code || '').toUpperCase().endsWith('.BJ'))
+        .filter((s, i, arr) =>
+          arr.findIndex(x => x.code === s.code) === i
+        )
+        .slice(0, limit);
 
       // 更新结果信息
       const industryCount = Math.min(directions.length, 3);
@@ -3046,6 +3011,49 @@
 
       // 滚动到已选股票区域
       document.getElementById('selectedStocks').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    // 兼容联合回测返回结构，统一成 displayResults 需要的字段
+    function normalizeJointBacktestPayload(data) {
+      if (!data || typeof data !== 'object') {
+        return data;
+      }
+
+      const coreDetails = data?.rawResults?.core?.details || data?.core?.details || data?.details || {};
+      const equityCurve = Array.isArray(data.equityCurve) && data.equityCurve.length > 0
+        ? data.equityCurve
+        : (Array.isArray(coreDetails.equityCurve) ? coreDetails.equityCurve : []);
+      const trades = Array.isArray(data.trades) && data.trades.length > 0
+        ? data.trades
+        : (Array.isArray(coreDetails.trades) ? coreDetails.trades : []);
+
+      const normalizedTrades = trades.map((trade) => {
+        const quantityRaw = trade?.quantity ?? trade?.shares ?? trade?.volume ?? 0;
+        const priceRaw = Number(trade?.price ?? 0);
+        const amountRaw = Number(trade?.amount ?? 0);
+        const actionRaw = String(trade?.action || '').toLowerCase();
+        const normalizedAction = actionRaw === 'buy' || actionRaw === 'sell'
+          ? actionRaw
+          : (actionRaw === 'b' ? 'buy' : (actionRaw === 's' ? 'sell' : actionRaw));
+
+        return {
+          ...trade,
+          action: normalizedAction || 'buy',
+          quantity: Number(quantityRaw) || 0,
+          price: Number.isFinite(priceRaw) ? priceRaw : 0,
+          amount: Number.isFinite(amountRaw) && amountRaw > 0
+            ? amountRaw
+            : (Number(quantityRaw) || 0) * (Number.isFinite(priceRaw) ? priceRaw : 0),
+          stock_name: trade?.stock_name || trade?.stockName || trade?.name || '',
+          ts_code: trade?.ts_code || trade?.stockCode || trade?.code || ''
+        };
+      });
+
+      return {
+        ...data,
+        equityCurve,
+        trades: normalizedTrades
+      };
     }
 
     // 运行回测
@@ -3100,7 +3108,7 @@
         const result = await response.json();
 
         if (result.success) {
-          displayResults(result.data);
+          displayResults(normalizeJointBacktestPayload(result.data));
         } else {
           showError(result.error || '回测失败');
         }
@@ -3363,6 +3371,11 @@
       if (data.trades && data.trades.length > 0) {
         data.trades.forEach(trade => {
           const row = document.createElement('tr');
+          const action = String(trade.action || '').toLowerCase();
+          const quantity = Number(trade.quantity ?? trade.shares ?? trade.volume ?? 0) || 0;
+          const price = Number(trade.price ?? 0) || 0;
+          const amount = Number(trade.amount ?? (quantity * price)) || 0;
+          const stockName = trade.stock_name || trade.stockName || trade.ts_code || '-';
           // TASK_FRONTEND_001: 添加决策信息列
           let decisionCell = '-';
           if (trade.decision) {
@@ -3378,11 +3391,11 @@
           }
           row.innerHTML = `
             <td>${trade.date}</td>
-            <td>${trade.stock_name || trade.ts_code}</td>
-            <td><span class="badge badge-${trade.action}">${trade.action === 'buy' ? '买入' : '卖出'}</span></td>
-            <td>${trade.quantity}</td>
-            <td>¥${trade.price.toFixed(2)}</td>
-            <td>¥${trade.amount.toFixed(2)}</td>
+            <td>${stockName}</td>
+            <td><span class="badge badge-${action}">${action === 'buy' ? '买入' : '卖出'}</span></td>
+            <td>${quantity}</td>
+            <td>¥${price.toFixed(2)}</td>
+            <td>¥${amount.toFixed(2)}</td>
             <td>${trade.profit ? (trade.profit > 0 ? '+' : '') + '¥' + trade.profit.toFixed(2) : '-'}</td>
             <td>${decisionCell}</td>
           `;
@@ -3678,14 +3691,18 @@
 
       // 数据行
       trades.forEach(trade => {
+        const action = String(trade.action || '').toLowerCase();
+        const quantity = Number(trade.quantity ?? trade.shares ?? trade.volume ?? 0) || 0;
+        const price = Number(trade.price ?? 0) || 0;
+        const amount = Number(trade.amount ?? (quantity * price)) || 0;
         rows.push([
           trade.date,
           trade.ts_code || trade.stockCode || '',
           trade.stock_name || trade.stockName || '',
-          trade.action === 'buy' ? '买入' : '卖出',
-          trade.quantity,
-          trade.price.toFixed(2),
-          trade.amount.toFixed(2),
+          action === 'buy' ? '买入' : '卖出',
+          quantity,
+          price.toFixed(2),
+          amount.toFixed(2),
           trade.profit ? trade.profit.toFixed(2) : ''
         ].join(','));
       });

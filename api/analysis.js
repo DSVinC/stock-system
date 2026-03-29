@@ -99,6 +99,25 @@ function slugify(value) {
     .slice(0, 50) || 'stock';
 }
 
+function reportMatchesStock(fileName, tsCode) {
+  const normalizedCode = slugify(tsCode);
+  if (!fileName || !normalizedCode) {
+    return false;
+  }
+
+  if (fileName.includes(`_${normalizedCode}_`)) {
+    return true;
+  }
+
+  const filePath = path.join(HTML_REPORT_DIR, fileName);
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    return content.includes(tsCode);
+  } catch (error) {
+    return false;
+  }
+}
+
 function toNumber(value, fallback = 0) {
   const result = Number(value);
   return Number.isFinite(result) ? result : fallback;
@@ -574,7 +593,7 @@ async function buildAnalysisResponse(req, res, withReport = false) {
 
     fs.mkdirSync(HTML_REPORT_DIR, { recursive: true });
     const dateStamp = String(v1Payload.generated_at || '').slice(0, 10).replace(/-/g, '') || new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const fileName = `stock_report_${slugify(v1Payload.stock?.name)}_${dateStamp}.html`;
+    const fileName = `stock_report_${slugify(v1Payload.stock?.name)}_${slugify(v1Payload.stock?.ts_code)}_${dateStamp}.html`;
     const fullPath = path.join(HTML_REPORT_DIR, fileName);
     fs.writeFileSync(fullPath, buildHtmlReport(v1Payload), 'utf8');
 
@@ -670,12 +689,12 @@ router.get('/reports/:ts_code', async (req, res) => {
     const files = fs.readdirSync(HTML_REPORT_DIR);
     const reports = files
       .filter(f => f.startsWith('stock_report_') && f.endsWith('.html'))
+      .filter(f => reportMatchesStock(f, ts_code))
       .map(f => {
-        // 文件名格式: stock_report_NAME_YYYYMMDD.html
+        // 文件名格式: stock_report_NAME_TSCODE_YYYYMMDD.html
         const parts = f.replace('.html', '').split('_');
         const dateStr = parts[parts.length - 1];
-        // 尝试获取股票名，这取决于 slugify 的结果
-        const namePart = parts.slice(2, parts.length - 1).join('_');
+        const namePart = parts.slice(2, Math.max(parts.length - 2, 2)).join('_');
         
         return {
           filename: f,
@@ -685,9 +704,6 @@ router.get('/reports/:ts_code', async (req, res) => {
           url: `/report/analysis/${f}`
         };
       })
-      // 我们需要一种方式来确认这个报告属于指定的 ts_code
-      // 由于文件名中没有 ts_code，我们可能需要读取文件或改变命名规则
-      // 为了简单起见，我们先返回所有报告，由前端过滤或我们在这里做简单匹配
       .sort((a, b) => b.date.localeCompare(a.date));
 
     res.json({ success: true, reports });

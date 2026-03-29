@@ -15,12 +15,13 @@ const express = require('express');
 const { StrategyScorer, quickScore } = require('./strategy-scorer');
 const { BacktestEngine } = require('./backtest');
 const { getDatabase } = require('./db');
-const { normalizeToDb } = require('../utils/format');
+const { normalizeToDb, normalizeToApi } = require('../utils/format');
 const { spawn } = require('child_process');
 const path = require('path');
 
 const router = express.Router();
 const DB_PATH = process.env.STOCK_DB || '/Volumes/SSD500/openclaw/stock-system/stock_system.db';
+const MIN_VALID_TRADE_SAMPLES = 5;
 
 // 活跃任务存储
 const activeTasks = new Map();
@@ -82,6 +83,69 @@ function normalizeParallelTasks(value) {
   return Math.min(parsed, 256);
 }
 
+async function augmentSevenFactorStocks(db, stocks, startDate, endDate, targetSize = 20) {
+  const base = Array.isArray(stocks)
+    ? [...new Set(stocks.map(item => String(item || '').trim()).filter(Boolean))]
+    : [];
+  if (base.length >= targetSize) {
+    return { stocks: base, added: [] };
+  }
+
+  const startDb = normalizeToDb(startDate);
+  const endDb = normalizeToDb(endDate);
+  const room = Math.max(targetSize - base.length, 0);
+  if (room <= 0) {
+    return { stocks: base, added: [] };
+  }
+
+  let rows = await db.allPromise(
+    `
+      SELECT ts_code, COUNT(1) AS sample_count, AVG(amount) AS avg_amount
+      FROM stock_daily
+      WHERE trade_date BETWEEN ? AND ?
+        AND (
+          ts_code LIKE 'sh.6%'
+          OR ts_code LIKE 'sz.0%'
+          OR ts_code LIKE 'sz.3%'
+        )
+      GROUP BY ts_code
+      HAVING COUNT(1) >= 60
+      ORDER BY avg_amount DESC, sample_count DESC
+      LIMIT 400
+    `,
+    [startDb, endDb]
+  );
+
+  // 指定区间样本过少时，再回退到因子快照库补齐候选
+  if (!Array.isArray(rows) || rows.length === 0) {
+    rows = await db.allPromise(
+      `
+      SELECT ts_code, COUNT(1) AS sample_count, 0 AS avg_amount
+      FROM stock_factor_snapshot
+      WHERE trade_date BETWEEN ? AND ?
+        AND ts_code NOT LIKE '%.BJ'
+      GROUP BY ts_code
+      HAVING COUNT(1) >= 5
+      ORDER BY sample_count DESC
+      LIMIT 200
+    `,
+      [startDb, endDb]
+    );
+  }
+
+  const next = [...base];
+  const added = [];
+  for (const row of rows) {
+    const code = normalizeToApi(String(row?.ts_code || '').trim().toUpperCase());
+    if (!code || next.includes(code)) continue;
+    next.push(code);
+    added.push(code);
+    if (added.length >= room) break;
+  }
+
+  return { stocks: next, added };
+}
+
 function parseOptionalFiniteNumber(value) {
   if (value === null || value === undefined || value === '') return null;
   const parsed = Number(value);
@@ -103,6 +167,24 @@ async function filterStocksByRealDataCoverage(stocks, startDate, endDate) {
   const db = await getDatabase();
   const supportedStocks = [];
   const excludedStocks = [];
+
+  // 测试环境或精简库中可能不存在 stock_daily，此时不应阻塞任务启动。
+  try {
+    const stockDailyTable = await db.getPromise(
+      `SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'stock_daily'`
+    );
+    if (!stockDailyTable || String(stockDailyTable.name || '').toLowerCase() !== 'stock_daily') {
+      return {
+        supportedStocks: normalizedStocks,
+        excludedStocks: []
+      };
+    }
+  } catch (error) {
+    return {
+      supportedStocks: normalizedStocks,
+      excludedStocks: []
+    };
+  }
 
   for (const stock of normalizedStocks) {
     const dbStockCode = normalizeToDb(stock);
@@ -130,6 +212,7 @@ function normalizeInvalidResultReason(reason) {
   const value = String(reason || '').trim().toLowerCase();
   if (!value) return '';
   if (value === 'no_trade_samples') return 'no_trade_samples';
+  if (value === 'insufficient_trade_samples') return 'insufficient_trade_samples';
   if (value === 'no_valid_samples') return 'no_valid_samples';
   if (value === 'threshold_not_reached') return 'threshold_not_reached';
   if (value === 'invalid_optuna_result') return 'invalid_optuna_result';
@@ -144,6 +227,8 @@ function formatInvalidResultMessage(reason, details = {}) {
   switch (normalizeInvalidResultReason(reason)) {
     case 'no_trade_samples':
       return `无有效交易样本，交易次数为 ${tradeCount ?? 0}，本次结果不能作为有效迭代结果。`;
+    case 'insufficient_trade_samples':
+      return `有效交易样本不足（当前 ${tradeCount ?? 0} 笔，至少需要 ${MIN_VALID_TRADE_SAMPLES} 笔），本次结果不能作为有效迭代结果。`;
     case 'no_valid_samples':
       return '所有迭代轮次都未产生有效样本，本次结果不能作为有效迭代结果。';
     case 'threshold_not_reached':
@@ -172,6 +257,11 @@ function hasValidIterationSample(metrics) {
   return tradeCount !== null && tradeCount > 0;
 }
 
+function hasSufficientTradeSamples(metrics) {
+  const tradeCount = extractTradeCountFromMetrics(metrics);
+  return tradeCount !== null && tradeCount >= MIN_VALID_TRADE_SAMPLES;
+}
+
 function finalizeTaskAsFailed(task, invalidReason, message, extra = {}) {
   task.status = 'failed';
   task.error = message || formatInvalidResultMessage(invalidReason, {
@@ -183,6 +273,25 @@ function finalizeTaskAsFailed(task, invalidReason, message, extra = {}) {
   task.invalidReason = normalizeInvalidResultReason(invalidReason);
   task.finishedAt = new Date().toISOString();
   task.resultSummary = buildTaskResultSummary(task);
+}
+
+function inferInvalidReasonFromError(errorMessage) {
+  const message = String(errorMessage || '').toLowerCase();
+  if (!message) return 'invalid_optuna_result';
+  if (
+    message.includes('no_trade_samples') ||
+    message.includes('无有效交易样本') ||
+    message.includes('tradecount') && message.includes('0')
+  ) {
+    return 'no_trade_samples';
+  }
+  if (
+    message.includes('insufficient_trade_samples') ||
+    message.includes('样本不足')
+  ) {
+    return 'insufficient_trade_samples';
+  }
+  return 'invalid_optuna_result';
 }
 
 function getLatestMetricsFromHistory(task) {
@@ -286,7 +395,12 @@ function deriveNextActionSuggestion(task) {
   const deploymentReadiness = deriveDeploymentReadiness(task);
   const invalidReason = normalizeInvalidResultReason(task.invalidReason || task.resultSummary?.invalidReason);
 
-  if (invalidReason === 'no_trade_samples' || invalidReason === 'no_valid_samples' || invalidReason === 'invalid_optuna_result') {
+  if (
+    invalidReason === 'no_trade_samples' ||
+    invalidReason === 'insufficient_trade_samples' ||
+    invalidReason === 'no_valid_samples' ||
+    invalidReason === 'invalid_optuna_result'
+  ) {
     return {
       action: 'expand_sample_and_fix_constraints',
       title: '先补齐有效交易样本',
@@ -1198,7 +1312,23 @@ router.post('/start', async (req, res) => {
     const normalizedParallelTasks = normalizeParallelTasks(parallelTasks);
     const { supportedStocks, excludedStocks } = await filterStocksByRealDataCoverage(stocks, startDate, endDate);
 
-    if (supportedStocks.length === 0) {
+    let finalStocks = supportedStocks;
+    let autoAddedStocks = [];
+    let autoExcludedStocks = [];
+    if (String(strategyType || '').toLowerCase() === 'seven_factor') {
+      try {
+        const db = await getDatabase();
+        const augmented = await augmentSevenFactorStocks(db, supportedStocks, startDate, endDate, 20);
+        autoAddedStocks = augmented.added;
+        const rechecked = await filterStocksByRealDataCoverage(augmented.stocks, startDate, endDate);
+        finalStocks = rechecked.supportedStocks;
+        autoExcludedStocks = rechecked.excludedStocks.filter(code => augmented.added.includes(code));
+      } catch (augmentError) {
+        console.warn('[迭代管理器] seven_factor 股票池自动扩展失败，回退原始股票池:', augmentError.message);
+      }
+    }
+
+    if (finalStocks.length === 0) {
       return res.status(400).json({
         success: false,
         error: '当前股票池在指定区间内缺少真实行情数据，无法启动迭代任务',
@@ -1213,8 +1343,10 @@ router.post('/start', async (req, res) => {
       optimizationBackend: normalizedOptimizationBackend,
       config: config || {},
       inputSummary: {
-        stocks: supportedStocks,
+        stocks: finalStocks,
         excludedStocks,
+        autoExcludedStocks,
+        autoAddedStocks,
         startDate,
         endDate,
         config: config || {},
@@ -1223,7 +1355,7 @@ router.post('/start', async (req, res) => {
       },
       maxIterations: normalizedMaxIterations,
       scoreThreshold: normalizedScoreThreshold,
-      stocks: supportedStocks,
+      stocks: finalStocks,
       startDate,
       endDate,
       parallelTasks: normalizedParallelTasks,
@@ -1258,9 +1390,11 @@ router.post('/start', async (req, res) => {
           });
           return;
         }
-        t.status = 'failed';
-        t.error = err.message;
-        t.resultSummary = buildTaskResultSummary(t);
+        finalizeTaskAsFailed(
+          t,
+          inferInvalidReasonFromError(err?.message),
+          err?.message || '任务执行失败'
+        );
         persistIterationTaskRun(t).catch(persistError => {
           console.error(`[迭代任务 ${taskId}] 失败快照保存失败:`, persistError);
         });
@@ -1270,10 +1404,22 @@ router.post('/start', async (req, res) => {
     res.json({
       success: true,
       taskId,
-      message: excludedStocks.length > 0
-        ? `迭代任务已启动，已自动排除 ${excludedStocks.length} 只缺少真实行情数据的股票`
-        : '迭代任务已启动',
-      excludedStocks
+      message: (() => {
+        const parts = ['迭代任务已启动'];
+        if (excludedStocks.length > 0) {
+          parts.push(`已自动排除 ${excludedStocks.length} 只缺少真实行情数据的股票`);
+        }
+        if (autoAddedStocks.length > 0) {
+          parts.push(`seven_factor 已自动补充 ${autoAddedStocks.length} 只高覆盖样本股票`);
+        }
+        if (autoExcludedStocks.length > 0) {
+          parts.push(`其中 ${autoExcludedStocks.length} 只补充股票因缺少真实行情已自动剔除`);
+        }
+        return parts.join('，');
+      })(),
+      excludedStocks,
+      autoAddedStocks,
+      autoExcludedStocks
     });
   } catch (error) {
     console.error('[迭代管理器] 启动失败:', error);
@@ -1344,6 +1490,19 @@ router.get('/status/:taskId', async (req, res) => {
       return res.status(404).json({
         success: false,
         error: '任务不存在'
+      });
+    }
+
+    if (snapshot.status === 'running' || snapshot.status === 'pending') {
+      // 进程内没有活跃任务，说明原执行进程已丢失（例如服务重启中断）。
+      snapshot.status = 'failed';
+      snapshot.error = snapshot.error || '迭代任务执行进程已中断，请重新发起任务。';
+      snapshot.invalidResult = true;
+      snapshot.invalidReason = snapshot.invalidReason || 'process_interrupted';
+      snapshot.finishedAt = snapshot.finishedAt || new Date().toISOString();
+      snapshot.resultSummary = buildTaskResultSummary(snapshot);
+      persistIterationTaskRun(snapshot).catch(persistError => {
+        console.error(`[迭代任务 ${taskId}] 中断态快照保存失败:`, persistError);
       });
     }
 
@@ -1660,6 +1819,85 @@ async function enrichVersionsWithPublishStatus(db, versions) {
   });
 }
 
+async function enrichVersionsWithTaskSnapshot(db, versions) {
+  if (!Array.isArray(versions) || versions.length === 0) {
+    return versions;
+  }
+
+  const versionIds = versions.map(v => v.version_id).filter(Boolean);
+  if (versionIds.length === 0) {
+    return versions;
+  }
+
+  let snapshots = [];
+  try {
+    snapshots = await db.allPromise(`
+      SELECT task_id, status, result_summary_json
+      FROM iteration_task_runs
+      WHERE task_id IN (${versionIds.map(() => '?').join(',')})
+    `, versionIds);
+  } catch (error) {
+    if (String(error.message || error).includes('no such table')) {
+      return versions;
+    }
+    throw error;
+  }
+
+  const snapshotLookup = new Map();
+  for (const row of snapshots) {
+    snapshotLookup.set(row.task_id, row);
+  }
+
+  return versions.map((version) => {
+    const snapshot = snapshotLookup.get(version.version_id);
+    if (!snapshot) {
+      return version;
+    }
+
+    const resultSummary = safeJsonParse(snapshot.result_summary_json, {}) || {};
+    const invalidReason = normalizeInvalidResultReason(resultSummary.invalidReason);
+    const snapshotStatus = String(snapshot.status || '').toLowerCase();
+    const isFailedSnapshot = snapshotStatus === 'failed' || snapshotStatus === 'stopped';
+    const hasInvalidResult = Boolean(resultSummary.invalidResult) || Boolean(invalidReason);
+
+    if (!isFailedSnapshot && !hasInvalidResult) {
+      return version;
+    }
+
+    const tradeCount = parseOptionalFiniteNumber(resultSummary.tradeCount);
+    const invalidMessage = String(resultSummary.invalidMessage || '').trim() || formatInvalidResultMessage(
+      invalidReason || 'invalid_optuna_result',
+      {
+        tradeCount,
+        bestScore: parseOptionalFiniteNumber(version?.backtest_score ?? 0),
+        scoreThreshold: parseOptionalFiniteNumber(resultSummary?.scoreThreshold ?? null)
+      }
+    );
+
+    return {
+      ...version,
+      invalid_reason: invalidReason || 'invalid_optuna_result',
+      invalid_message: invalidMessage,
+      can_publish: false,
+      publish_warning: null,
+      publish_blocked_reason: invalidMessage
+    };
+  });
+}
+
+function ensureVersionFeedbackDefaults(version) {
+  const executionSummary = version?.execution_summary && typeof version.execution_summary === 'object'
+    ? version.execution_summary
+    : { ...DEFAULT_EXECUTION_SUMMARY };
+
+  return {
+    ...version,
+    execution_summary: executionSummary,
+    execution_feedback_status: version?.execution_feedback_status || 'no_data',
+    execution_feedback_confidence: version?.execution_feedback_confidence || 'none'
+  };
+}
+
 /**
  * 获取版本历史
  * GET /api/iteration/versions/:strategyType
@@ -1686,6 +1924,9 @@ router.get('/versions/:strategyType', async (req, res) => {
 
     // 补充发布状态字段
     versionsWithSummary = await enrichVersionsWithPublishStatus(db, versionsWithSummary);
+    // 对齐任务快照中的 invalid_reason / invalid_message，避免失败任务在版本列表中被误判为可用
+    versionsWithSummary = await enrichVersionsWithTaskSnapshot(db, versionsWithSummary);
+    versionsWithSummary = versionsWithSummary.map(ensureVersionFeedbackDefaults);
     const dedupedVersions = [];
     const seenDisplayNames = new Set();
     const seenSemanticKeys = new Set();
@@ -1960,16 +2201,39 @@ async function runOptunaIterationTask(task) {
 
       let stdout = '';
       let stderr = '';
+      const updateOptunaProgress = (textChunk) => {
+        if (!textChunk) return;
+        const regex = /OPTUNA_PROGRESS:(\d+)\/(\d+)/g;
+        let match;
+        while ((match = regex.exec(textChunk)) !== null) {
+          const completed = Number(match[1]);
+          const total = Number(match[2]);
+          if (!Number.isFinite(completed) || !Number.isFinite(total) || total <= 0) {
+            continue;
+          }
+          task.currentIteration = Math.min(completed, total);
+          task.progress = Math.max(0, Math.min(100, Math.round((task.currentIteration / total) * 100)));
+          task.optunaTrialsRequested = total;
+          task.optunaTrialsCompleted = task.currentIteration;
+          persistIterationTaskRun(task).catch(error => {
+            console.error(`[迭代任务 ${taskId}] Optuna 进度快照保存失败:`, error);
+          });
+        }
+      };
 
       if (child.stdout) {
         child.stdout.on('data', chunk => {
-          stdout += chunk.toString();
+          const text = chunk.toString();
+          stdout += text;
+          updateOptunaProgress(text);
         });
       }
 
       if (child.stderr) {
         child.stderr.on('data', chunk => {
-          stderr += chunk.toString();
+          const text = chunk.toString();
+          stderr += text;
+          updateOptunaProgress(text);
         });
       }
 
@@ -2020,7 +2284,7 @@ async function runOptunaIterationTask(task) {
   const bestParams = result.best_params ?? result.bestParams ?? null;
   const completedTrialsRaw = result.trials ?? result.completed_trials ?? result.completedTrials ?? result.n_trials ?? result.nTrials ?? maxIterations;
   const completedTrials = parseOptionalFiniteNumber(completedTrialsRaw);
-  const bestMetrics = result.metrics && typeof result.metrics === 'object' ? result.metrics : {};
+  const bestMetrics = result.metrics && typeof result.metrics === 'object' ? { ...result.metrics } : {};
   const validation = result.validation && typeof result.validation === 'object' ? result.validation : null;
   const tradeCount = parseOptionalFiniteNumber(
     result.trade_count ??
@@ -2028,6 +2292,14 @@ async function runOptunaIterationTask(task) {
     result.total_trades ??
     result.totalTrades
   );
+  if (tradeCount !== null) {
+    if (bestMetrics.tradeCount === undefined) {
+      bestMetrics.tradeCount = tradeCount;
+    }
+    if (bestMetrics.totalTrades === undefined) {
+      bestMetrics.totalTrades = tradeCount;
+    }
+  }
 
   task.currentIteration = maxIterations;
   task.progress = 100;
@@ -2049,8 +2321,12 @@ async function runOptunaIterationTask(task) {
 
   if (!bestParams || typeof bestParams !== 'object') {
     finalizeTaskAsFailed(task, 'invalid_optuna_result');
-  } else if (tradeCount !== null && tradeCount <= 0) {
+  } else if (tradeCount === null) {
+    finalizeTaskAsFailed(task, 'invalid_optuna_result', null, { tradeCount: 0 });
+  } else if (tradeCount <= 0) {
     finalizeTaskAsFailed(task, 'no_trade_samples', null, { tradeCount });
+  } else if (tradeCount < MIN_VALID_TRADE_SAMPLES) {
+    finalizeTaskAsFailed(task, 'insufficient_trade_samples', null, { tradeCount });
   } else if (task.bestScore < task.scoreThreshold) {
     finalizeTaskAsFailed(task, 'threshold_not_reached');
   } else {
@@ -2178,7 +2454,8 @@ async function runHeuristicIterationTask(task) {
       }
 
       // 检查是否达到目标
-      if (score >= scoreThreshold) {
+      const hasEnoughTradeSamples = hasSufficientTradeSamples(metrics);
+      if (score >= scoreThreshold && hasEnoughTradeSamples) {
         console.log(`[迭代任务 ${taskId}] 达到目标分数 ${scoreThreshold}`);
         task.status = 'completed';
         task.completedAt = new Date().toISOString();
@@ -2213,6 +2490,8 @@ async function runHeuristicIterationTask(task) {
       finalizeTaskAsFailed(task, latestTradeCount === 0 ? 'no_trade_samples' : 'no_valid_samples', null, {
         tradeCount: latestTradeCount
       });
+    } else if (latestTradeCount !== null && latestTradeCount < MIN_VALID_TRADE_SAMPLES) {
+      finalizeTaskAsFailed(task, 'insufficient_trade_samples', null, { tradeCount: latestTradeCount });
     } else if (bestScore < scoreThreshold) {
       finalizeTaskAsFailed(task, 'threshold_not_reached');
     } else {

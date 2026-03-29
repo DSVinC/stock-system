@@ -155,6 +155,7 @@ async function bootstrap() {
     router.put('/account/:id', portfolio.updateAccount);
     router.delete('/account/:id', portfolio.deleteAccount);
     router.get('/account/:id/summary', portfolio.getAccountSummary);
+    router.post('/account/:id/manual-position', portfolio.addManualPosition);
     router.post('/account/:id/clear-positions', portfolio.clearPositions);
     router.get('/account/:id/conditional-orders', portfolio.getAccountConditionalOrders);
     router.get('/position', portfolio.getPositions);

@@ -1,6 +1,6 @@
 # 股票系统 - 项目进度总览
 
-**最后更新**: 2026-03-29 02:40  
+**最后更新**: 2026-03-29 17:16  
 **项目经理**: Codex  
 **程序员**: subagent / Claude Code（按任务分配）  
 **验收员**: Codex / Gemini CLI（按任务分配）  
@@ -199,6 +199,19 @@
 
 ### 🔄 近期任务状态
 
+- TASK_FLOW_REFACTOR_044K: 已生成交接状态单并同步接力计划（已完成项/未完成项/优先级/验收命令）；灵爪可按文档直接接手推进迭代稳定性与最终交付复验
+- TASK_FLOW_REFACTOR_044J: 已完成持仓监控公司公告链路稳健化；公告同步保留新浪 MCP 主路径，MCP 不可用或失败时自动回退 `tushare anns_d`，并新增回退回归测试 `position-signals-announcement-fallback.test.js`（通过）
+- TASK_FLOW_REFACTOR_044I: 已收口 iteration-manager 回归失败 5 项（前端隔离兼容 + 后端 stock_daily 缺表回退 + 用例对齐），全量总测恢复 `52/52` 通过
+- TASK_FLOW_REFACTOR_044H: 已修复 `analysis.html#importToConditional()` 回归（`inferStrategyVersionFromConfig` 在局部测试上下文缺失导致导入失败）；已补函数存在性保护与兜底推断，相关 2 条回归测试通过
+- TASK_FLOW_REFACTOR_044G: 已修复条件单页“手动输入股票代码时报告不加载”问题；手动输入 `ts_code` 现会自动触发 `loadReports`，浏览器回归确认 `#report-selector` 可加载 `ANALYZE_...` 报告列表
+- TASK_FLOW_REFACTOR_044F: 已完成本地最终交付验收并生成验收报告，研究流与执行流关键链路全部通过；新增 `CODEX_DELIVERY_ACCEPTANCE_20260329.md`，并固化 E2E/链路证据到 `temp/e2e_results.json`、`temp/final-delivery-flow-check.json`
+- TASK_FLOW_REFACTOR_044E: 已为持仓估值增加实时行情兜底（`stock_daily` 未命中时走 `getRealtimeQuote`），`/api/portfolio/account/1/summary` 实测 5 只持仓均返回非零市值
+- TASK_FLOW_REFACTOR_044D: 已为 `create-from-report` 增加去重保护（`account_id + stock_code + report_id`），同一分析报告重复导入不再生成重复条件单
+- TASK_FLOW_REFACTOR_044C: 已修复条件单列表“未识别条件”展示问题，报告导入产生的 `field/operator/value` 条件现可正常渲染；浏览器验收 `unknownCount=0`
+- TASK_FLOW_REFACTOR_044B: 已修复“个股分析报告生成后条件单页仍显示无报告”的根因；`POST /api/analyze/report` 现会同步写入 `stock_analysis_reports` 并返回 `report_id`，`/api/report/list?stock_code=...` 可直接查询到新报告
+- TASK_FLOW_REFACTOR_044A: 已修复回测页“开始选股”流程割裂（顺序统一为“选择策略 → 选股配置 → 添加回测股票”），并移除重复的“选股时点”输入，选股时点固定跟随开始日期；浏览器实测可正常返回选股结果。同时复核持仓监控公司公告来源为新浪 MCP（`company_events.source=sina_mcp_major_events`）
+- TASK_FLOW_REFACTOR_043Z: seven_factor 真实 Optuna 迭代 `40` 轮已跑出 `93` 分（阈值 `90`），版本 `ITER_1774766085148_1pbgra` 已成功发布到策略库（`strategy_config.id=11`）；页面验收确认版本历史指标可见、发布状态为“✅ 已发布”、雷达图有有效数据集
+- TASK_FLOW_REFACTOR_043Y: 已修复回测成交明细 `quantity=undefined`（统一 `shares/BUY/stockName` 字段映射并补渲染兜底）；同时为 Optuna 增加 trial 级进度回传，`iteration/status` 可见 `currentIteration/progress` 实时推进，不再长期固定 `0/N`
 - TASK_FLOW_REFACTOR_043B: 已统一七因子回测分值口径（0~10 快照分 -> 0~1 决策阈值），并将四维权重接入回测决策分与 Optuna 搜索；同一股票池仅更换权重即可使 `scoreTotal` 从 `40` 提升到 `60`，自动迭代已能产出新的 `dimensionWeights`
 - TASK_FLOW_REFACTOR_043C: 已将七因子权重接入 Optuna 搜索，`best_params` 现可直接返回 `dimensionWeights + factorWeights + filters + 风控参数` 的完整研究配置结构
 - TASK_FLOW_REFACTOR_043D: 已为 `real_score_cli` 增加 trial 级超时保护（45s），浏览器实测 `ITER_1774724164656_73owxo` 在 `2/2` 后正常收敛为终态，页面可见完整 `dimensionWeights/factorWeights` 最佳参数
@@ -748,6 +761,40 @@
 *2026-03-29 09:16* - TASK_FLOW_REFACTOR_043F 完成，条件单“从分析报告导入”已补齐双路兜底（`/api/report/list` + `/api/analysis/reports`），`688302.SH` 实测可拉取报告且导入按钮可用
 *2026-03-29 09:16* - TASK_FLOW_REFACTOR_043F 完成，条件单页“导入选定报告策略”已实测写入触发条件（2 条 condition + 条件预览），回测页 `2020-01-09` 复现场景下“开始选股”结果可见且无“未选策略”误报
 *2026-03-29 09:28* - TASK_FLOW_REFACTOR_043G 完成，新增交付验收报告 `docs/acceptance/CODEX_DELIVERY_ACCEPTANCE_20260329.md`，本轮交付口径三条主链路均已浏览器+接口实测通过
+*2026-03-29 09:59* - TASK_FLOW_REFACTOR_043I 完成，自迭代任务新增最小有效样本门槛（`MIN_VALID_TRADE_SAMPLES=5`），`tradeCount<5` 不再被视作有效完成
+*2026-03-29 09:59* - TASK_FLOW_REFACTOR_043I 完成，新增 `insufficient_trade_samples` 失败原因与统一提示，下一步建议已收口为“先补齐有效样本”
+*2026-03-29 10:07* - TASK_FLOW_REFACTOR_043J 完成，`trade_count` 已回填到迭代任务 `history.metrics`，并在缺失时按 `invalid_optuna_result` 直接失败
+*2026-03-29 10:07* - TASK_FLOW_REFACTOR_043J 完成，版本历史已同步 `iteration_task_runs` 快照中的 `invalid_reason`，失败版本统一“无效结果 + 不可发布”
+*2026-03-29 10:12* - TASK_FLOW_REFACTOR_043K 完成，回测页已补联合回测结果归一化，`rawResults.core.details.equityCurve/trades` 可稳定驱动图表与交易表
+*2026-03-29 10:12* - TASK_FLOW_REFACTOR_043K 完成，浏览器 E2E 脚本图表判定已改为“页面真实渲染口径”，`select/backtest/iteration` 三模块复测全绿
+*2026-03-29 10:22* - TASK_FLOW_REFACTOR_043L 完成，Optuna 异常路径已补 invalidReason 自动归类，`failed` 任务不再出现“原因为空”
+*2026-03-29 10:22* - TASK_FLOW_REFACTOR_043L 完成，`double_ma + 002594.SZ + 2020-2021` 迭代实测产出 `97` 分有效版本 `ITER_1774750893035_mkpqay`（`tradeCount=11`）
+*2026-03-29 10:22* - TASK_FLOW_REFACTOR_043L 完成，高分版本发布链路实测通过，已发布到策略库（`strategy_config.id=10`）
+*2026-03-29 10:31* - TASK_FLOW_REFACTOR_043M 完成，seven_factor 启动已支持自动补池（排除 BJ）并二次真实行情过滤，启动响应新增 `autoAddedStocks/autoExcludedStocks`
+*2026-03-29 10:31* - TASK_FLOW_REFACTOR_043M 完成，seven_factor Optuna 搜索空间改为全局范围，避免 seed 收窄导致无样本空跑
+*2026-03-29 10:31* - TASK_FLOW_REFACTOR_043M 完成，窄股票池场景已实测从“无交易样本”提升到有效样本结果（`ITER_1774751346777_u0mtt1`: `score=80`, `tradeCount=30`, `completed`）
+*2026-03-29 11:06* - TASK_FLOW_REFACTOR_043N 完成，`real_score_cli` 已改为股票代码多格式自动解析（`600519.SH` / `sh.600519` 均可命中真实数据）
+*2026-03-29 11:06* - TASK_FLOW_REFACTOR_043N 完成，真实评分链路已实测通过（`--stocks sh.600519` 返回 `success=true, tradeCount=6`），不再误报“指定区间内缺少真实数据”
+*2026-03-29 11:14* - TASK_FLOW_REFACTOR_043O 完成，股票搜索已改为本地库优先（`stocks/stock_list`），Tushare 改为兜底，离线环境不再频繁“未找到匹配股票”
+*2026-03-29 11:14* - TASK_FLOW_REFACTOR_043O 完成，`/api/stock/search/fuzzy?q=中国电信` 实测返回 `601728.SH`，回测/条件单页面股票搜索可用性恢复
+*2026-03-29 11:20* - TASK_FLOW_REFACTOR_043P 完成，模拟账户持仓估值已支持 API/DB 代码格式自动匹配，修复“持仓市值=0”误判
+*2026-03-29 11:20* - TASK_FLOW_REFACTOR_043P 完成，`/api/portfolio/account/1/summary` 实测 5 只持仓均已刷新到最新收盘价口径（trade_date `20260324`）
+*2026-03-29 11:24* - TASK_FLOW_REFACTOR_043Q 完成，执行流浏览器烟测回归通过（analysis -> monitor -> conditional 全链路）
+*2026-03-29 11:24* - TASK_FLOW_REFACTOR_043Q 完成，迭代发布按钮与 next-action 规则测试全通过（`publish-button 15/15` + `next-action`）
+*2026-03-29 11:33* - TASK_FLOW_REFACTOR_043R 完成，`dimensionWeights` 已从“仅回显”改为真实参与行业排序，七因子迭代权重可直接影响选股结果
+*2026-03-29 11:33* - TASK_FLOW_REFACTOR_043R 完成，`factorWeights` 已增加归一化计算，避免权重和漂移导致评分失真；`minScore` 阈值口径已与筛选逻辑对齐
+*2026-03-29 11:36* - TASK_FLOW_REFACTOR_043S 完成，seven_factor Optuna 采样已改为“raw 采样 + 归一化权重”，维度/因子权重和为 1
+*2026-03-29 11:36* - TASK_FLOW_REFACTOR_043S 完成，`build_cli_params` 已剔除 `*_raw` 中间字段，real_score_cli 下发参数保持干净可解释
+*2026-03-29 11:39* - TASK_FLOW_REFACTOR_043T 完成，`select/backtest/iteration` 全链路 E2E 回归通过（权重改造后无回归）
+*2026-03-29 11:39* - TASK_FLOW_REFACTOR_043T 完成，回归后已自动释放本地 3000 端口，避免后台进程堆积
+*2026-03-29 11:44* - TASK_FLOW_REFACTOR_043U 完成，账户管理闭环实测通过（手动添加持仓 -> summary 估值刷新）
+*2026-03-29 11:44* - TASK_FLOW_REFACTOR_043U 完成，临时账户链路验证后已自动清理测试数据并释放端口
+*2026-03-29 11:50* - TASK_FLOW_REFACTOR_043V 完成，条件单监控 E2E 函数校验已对齐当前 API（create/toggle/deleteConditionalOrder），消除假阳性日志
+*2026-03-29 11:50* - TASK_FLOW_REFACTOR_043V 完成，新增“执行失败仍触发通知分支”回归用例并通过（`conditional-monitor-notification-failure.test.js`）
+*2026-03-29 11:53* - TASK_FLOW_REFACTOR_043W 完成，通知链路改造后 `monitor-to-conditional` 浏览器 smoke 回归通过
+*2026-03-29 11:53* - TASK_FLOW_REFACTOR_043W 完成，回归过程已自动拉起/回收本地服务，避免端口与进程堆积
+*2026-03-29 12:01* - TASK_FLOW_REFACTOR_043X 完成，迭代管理器恢复链路测试已对齐新增输入校验与样本门槛规则，相关测试恢复全绿
+*2026-03-29 12:01* - TASK_FLOW_REFACTOR_043X 完成，总 E2E 回归再次通过（`select/backtest/iteration=true`）
 *2026-03-25 21:10* - V4 修复阶段规划完成，V5 自动迭代系统规划完成（TASK_V5_000 创建）
 
 ---

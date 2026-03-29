@@ -1,0 +1,8 @@
+{
+  "flatpickrVisible": true,
+  "selectionDateDisabled": true,
+  "runSelectionButtonAfterStrategy": true,
+  "strategyRequiredError": "请先选择策略，再开始选股",
+  "pegValidationMessage": "PEG 最大值 ⓘ最多保留 1 位小数",
+  "selectionInfo": ""
+}

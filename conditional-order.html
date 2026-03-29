@@ -686,7 +686,7 @@
               <select id="stock-selector" class="form-select" onchange="onStockSelected()">
                 <option value="">从监控池选择...</option>
               </select>
-              <input type="text" id="stock-code-manual" class="form-input" name="ts_code" placeholder="或手动输入代码 300308.SZ" style="display:none;">
+              <input type="text" id="stock-code-manual" class="form-input" name="ts_code" placeholder="或手动输入代码 300308.SZ" style="display:none;" onblur="onManualStockCodeInput()" onkeydown="onManualStockCodeKeydown(event)">
               <button type="button" class="button button-secondary" id="toggle-stock-btn" onclick="toggleStockInput()" style="margin-top:8px;">手动输入</button>
             </div>
           </div>
@@ -1276,7 +1276,10 @@
           return preview;
         }
       }
-      if (condition?.type && condition?.operator && condition?.value !== undefined) {
+      const field = condition?.type || condition?.field;
+      const operator = condition?.operator;
+      const value = condition?.value;
+      if (field && operator && value !== undefined) {
         const fieldMap = {
           price: '股价',
           pct_change: '涨跌幅',
@@ -1286,7 +1289,15 @@
           main_force_net: '主力净额',
           pe: 'PE'
         };
-        return `${fieldMap[condition.type] || condition.type}${condition.operator}${condition.value}`;
+        if (operator === 'between' && Array.isArray(value) && value.length >= 2) {
+          const low = Number(value[0]);
+          const high = Number(value[1]);
+          if (Number.isFinite(low) && Number.isFinite(high)) {
+            return `${fieldMap[field] || field}介于${Math.min(low, high)}~${Math.max(low, high)}`;
+          }
+          return `${fieldMap[field] || field}介于${value[0]}~${value[1]}`;
+        }
+        return `${fieldMap[field] || field}${operator}${value}`;
       }
       return '未识别条件';
     }
@@ -2888,6 +2899,41 @@
       }
     }
 
+    async function onManualStockCodeInput() {
+      const manualInput = document.getElementById('stock-code-manual');
+      const nameInput = document.getElementById('stock-name-input');
+      const form = getCreateForm();
+      const normalizedCode = normalizeTsCode(manualInput?.value);
+
+      if (!normalizedCode) {
+        loadReports('');
+        return;
+      }
+
+      form.ts_code.value = normalizedCode;
+
+      try {
+        const stockInfo = await fetchStockInfo(normalizedCode);
+        if (stockInfo && normalizeTsCode(stockInfo.ts_code) === normalizedCode) {
+          if (nameInput) {
+            nameInput.value = stockInfo.stock_name || stockInfo.name || nameInput.value;
+          }
+        }
+      } catch (error) {
+        console.warn('手动输入股票代码时查询股票信息失败:', error);
+      }
+
+      loadReports(normalizedCode);
+    }
+
+    function onManualStockCodeKeydown(event) {
+      if (event.key !== 'Enter') {
+        return;
+      }
+      event.preventDefault();
+      onManualStockCodeInput();
+    }
+
     // 切换手动输入模式
     function toggleStockInput() {
       const selector = document.getElementById('stock-selector');
@@ -2903,6 +2949,7 @@
         manualInput.style.display = 'none';
         selector.style.display = 'block';
         toggleBtn.textContent = '手动输入';
+        manualInput.value = '';
         loadMonitorPoolStocks();
       }
     }

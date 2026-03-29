@@ -12,6 +12,23 @@
 
 const { getDatabase } = require('./db');
 
+function inferStrategyVersion({ strategyVersion, strategyConfigName, templateName } = {}) {
+  const direct = String(strategyVersion || '').trim();
+  if (direct) {
+    return direct;
+  }
+  const candidates = [strategyConfigName, templateName]
+    .map((item) => String(item || '').trim())
+    .filter(Boolean);
+  for (const candidate of candidates) {
+    const matched = candidate.match(/ITER_[A-Za-z0-9_]+/);
+    if (matched) {
+      return matched[0];
+    }
+  }
+  return null;
+}
+
 async function ensureMonitorPoolContextTable(db) {
   await db.runPromise(`
     CREATE TABLE IF NOT EXISTS monitor_pool_context (
@@ -27,6 +44,7 @@ async function ensureMonitorPoolContextTable(db) {
       FOREIGN KEY (monitor_pool_id) REFERENCES monitor_pool(id) ON DELETE CASCADE
     )
   `);
+  await db.runPromise('ALTER TABLE monitor_pool_context ADD COLUMN strategy_version TEXT').catch(() => {});
 }
 
 /**
@@ -34,7 +52,7 @@ async function ensureMonitorPoolContextTable(db) {
  */
 async function addToPool(req, res) {
   try {
-    const { stock_code, stock_name, report_path, industry_code_l1, industry_name_l1, industry_code_l2, industry_name_l2, industry_code_l3, industry_name_l3, industry_keywords, strategySource, strategyConfigId, strategyConfigName, templateId, templateName } = req.body;
+    const { stock_code, stock_name, report_path, industry_code_l1, industry_name_l1, industry_code_l2, industry_name_l2, industry_code_l3, industry_name_l3, industry_keywords, strategySource, strategyConfigId, strategyConfigName, strategyVersion, templateId, templateName } = req.body;
     
     if (!stock_code || !stock_name) {
       return res.status(400).json({
@@ -78,23 +96,26 @@ async function addToPool(req, res) {
       industry_keywords || null, now, now
     ]);
 
-    if (strategySource || strategyConfigId || strategyConfigName || templateId || templateName) {
+    const normalizedStrategyVersion = inferStrategyVersion({ strategyVersion, strategyConfigName, templateName });
+    if (strategySource || strategyConfigId || strategyConfigName || normalizedStrategyVersion || templateId || templateName) {
       await db.runPromise(`
         INSERT INTO monitor_pool_context (
           monitor_pool_id,
           strategy_source,
           strategy_config_id,
           strategy_config_name,
+          strategy_version,
           template_id,
           template_name,
           created_at,
           updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `, [
         result.lastID,
         strategySource || null,
         strategyConfigId || null,
         strategyConfigName || null,
+        normalizedStrategyVersion,
         templateId || null,
         templateName || null,
         now,
@@ -133,6 +154,7 @@ async function getPoolList(req, res) {
         mpc.strategy_source,
         mpc.strategy_config_id,
         mpc.strategy_config_name,
+        mpc.strategy_version,
         mpc.template_id,
         mpc.template_name
       FROM monitor_pool mp

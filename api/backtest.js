@@ -7,7 +7,7 @@
 
 const { getDatabase } = require('./db');
 const { checkCondition } = require('./conditional-order');
-const { normalizeToDb, normalizeArrayToDb } = require('../utils/format');
+const { normalizeToApi, normalizeToDb, normalizeArrayToDb } = require('../utils/format');
 const { adjustBacktestDateRange } = require('./utils/trading-day');
 
 /**
@@ -104,6 +104,88 @@ function toNumber(value) {
   return Number.isFinite(numeric) ? numeric : null;
 }
 
+function normalizeRatio(value, fallback) {
+  const numeric = toNumber(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return fallback;
+  }
+
+  if (numeric > 1 && numeric <= 100) {
+    return numeric / 100;
+  }
+
+  if (numeric > 1) {
+    return fallback;
+  }
+
+  return numeric;
+}
+
+function normalizeScoreValue(value) {
+  const numeric = toNumber(value);
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+
+  if (numeric >= 0 && numeric <= 1) {
+    return numeric;
+  }
+
+  if (numeric > 1 && numeric <= 10) {
+    return numeric / 10;
+  }
+
+  if (numeric > 10 && numeric <= 100) {
+    return numeric / 100;
+  }
+
+  return null;
+}
+
+function normalizeWeightMap(source, defaults) {
+  const base = source && typeof source === 'object' ? source : {};
+  const keys = Object.keys(defaults);
+  const weighted = {};
+  let sum = 0;
+
+  for (const key of keys) {
+    const value = toNumber(base[key]);
+    const candidate = Number.isFinite(value) && value > 0 ? value : defaults[key];
+    weighted[key] = candidate;
+    sum += candidate;
+  }
+
+  if (!Number.isFinite(sum) || sum <= 0) {
+    return { ...defaults };
+  }
+
+  const normalized = {};
+  for (const key of keys) {
+    normalized[key] = weighted[key] / sum;
+  }
+  return normalized;
+}
+
+function weightedNormalizedScore(scoreMap, weights) {
+  let score = 0;
+  let effectiveWeight = 0;
+
+  for (const [key, weight] of Object.entries(weights || {})) {
+    const normalized = normalizeScoreValue(scoreMap[key]);
+    if (!Number.isFinite(normalized)) {
+      continue;
+    }
+    score += normalized * weight;
+    effectiveWeight += weight;
+  }
+
+  if (!Number.isFinite(effectiveWeight) || effectiveWeight <= 0) {
+    return null;
+  }
+
+  return score / effectiveWeight;
+}
+
 async function loadConditionalOrdersForBacktest(db, strategy, accountId) {
   const params = strategy?.params || {};
   const orderId = params.orderId || params.order_id;
@@ -155,6 +237,7 @@ class BacktestEngine {
 
     // 历史价格缓存（用于技术指标计算）
     this.priceHistory = {}; // {ts_code: [prices]}
+    this.factorHistory = {}; // {ts_code: [seven_factor_score]}
     this.conditionalOrders = Array.isArray(config.conditionalOrders) ? config.conditionalOrders : [];
 
     // 统计指标
@@ -225,10 +308,42 @@ class BacktestEngine {
       const dbCode = normalizeToDb(tsCode);
 
       const rows = await db.allPromise(`
-        SELECT trade_date, ts_code, stock_name, close as price, pe, pb, market_cap, amount as turnover
-        FROM stock_daily
-        WHERE ts_code = ? AND trade_date BETWEEN ? AND ?
-        ORDER BY trade_date ASC
+        SELECT
+          d.trade_date,
+          d.ts_code,
+          d.stock_name,
+          d.close as price,
+          d.pe,
+          d.pb,
+          d.market_cap,
+          d.amount as turnover,
+          s.social_score,
+          s.policy_score_raw,
+          s.public_score,
+          s.business_score,
+          s.trend_score,
+          s.momentum_score,
+          s.valuation_score,
+          s.earnings_score,
+          s.capital_score_raw,
+          s.volatility_score,
+          s.sentiment_score_raw,
+          s.pe_ttm,
+          s.netprofit_growth,
+          s.seven_factor_score,
+          s.industry_total_score
+        FROM stock_daily d
+        LEFT JOIN stock_factor_snapshot s
+          ON s.ts_code = (
+            CASE
+              WHEN instr(d.ts_code, '.') = 3
+                THEN substr(d.ts_code, 4) || '.' || upper(substr(d.ts_code, 1, 2))
+              ELSE d.ts_code
+            END
+          )
+         AND s.trade_date = replace(d.trade_date, '-', '')
+        WHERE d.ts_code = ? AND d.trade_date BETWEEN ? AND ?
+        ORDER BY d.trade_date ASC
       `, [dbCode, this.config.startDate, this.config.endDate]);
       
       if (rows.length === 0) {
@@ -245,13 +360,28 @@ class BacktestEngine {
         }
         
         dataByDate[date].push({
-          ts_code: row.ts_code,
+          ts_code: normalizeToApi(row.ts_code),
           stock_name: row.stock_name || this.getStockName(tsCode),
           price: parseFloat(row.price) || 0,
           pe: parseFloat(row.pe) || 0,
           pb: parseFloat(row.pb) || 0,
           market_cap: parseFloat(row.market_cap) || 0,
-          turnover: parseFloat(row.turnover) || 0
+          turnover: parseFloat(row.turnover) || 0,
+          social_score: toNumber(row.social_score),
+          policy_score_raw: toNumber(row.policy_score_raw),
+          public_score: toNumber(row.public_score),
+          business_score: toNumber(row.business_score),
+          trend_score: toNumber(row.trend_score),
+          momentum_score: toNumber(row.momentum_score),
+          valuation_score: toNumber(row.valuation_score),
+          earnings_score: toNumber(row.earnings_score),
+          capital_score_raw: toNumber(row.capital_score_raw),
+          volatility_score: toNumber(row.volatility_score),
+          sentiment_score_raw: toNumber(row.sentiment_score_raw),
+          pe_ttm: toNumber(row.pe_ttm),
+          netprofit_growth: toNumber(row.netprofit_growth),
+          seven_factor_score: toNumber(row.seven_factor_score),
+          industry_total_score: toNumber(row.industry_total_score)
         });
       }
     }
@@ -324,6 +454,15 @@ class BacktestEngine {
         this.priceHistory[stock.ts_code] = [];
       }
       this.priceHistory[stock.ts_code].push(stock.price);
+      if (!this.factorHistory[stock.ts_code]) {
+        this.factorHistory[stock.ts_code] = [];
+      }
+      if (strategyType === 'seven_factor') {
+        const decisionScore = this.getSevenFactorDecisionScore(stock, strategy.params).decisionScore;
+        this.factorHistory[stock.ts_code].push(Number.isFinite(decisionScore) ? decisionScore : normalizeScoreValue(stock.seven_factor_score));
+      } else {
+        this.factorHistory[stock.ts_code].push(toNumber(stock.seven_factor_score));
+      }
 
       const prices = this.priceHistory[stock.ts_code];
       let shouldBuy = false;
@@ -354,6 +493,18 @@ class BacktestEngine {
           const bollResult = this.evaluateBollinger(prices, stock.price, strategy.params);
           shouldBuy = bollResult.buy;
           shouldSell = bollResult.sell;
+          break;
+
+        case 'seven_factor':
+          const sevenFactorResult = this.evaluateSevenFactor(
+            stock,
+            prices,
+            this.factorHistory[stock.ts_code],
+            this.state.positions[stock.ts_code],
+            strategy.params
+          );
+          shouldBuy = sevenFactorResult.buy;
+          shouldSell = sevenFactorResult.sell;
           break;
 
         case 'conditional':
@@ -500,6 +651,162 @@ class BacktestEngine {
     const sell = currentPrice >= boll.upper;
 
     return { buy, sell };
+  }
+
+  evaluateSevenFactor(stock, prices, scoreHistory, position, params) {
+    const { factorScore, decisionScore } = this.getSevenFactorDecisionScore(stock, params);
+    if (!Number.isFinite(decisionScore)) {
+      return { buy: false, sell: false };
+    }
+    const filters = params?.filters && typeof params.filters === 'object' ? params.filters : {};
+
+    const buyThreshold = toNumber(
+      params?.min_seven_factor_score ??
+      params?.min_score ??
+      filters?.minScore ??
+      params?.buy_score_threshold ??
+      params?.buyScoreThreshold
+    ) ?? 0.75;
+    const peMax = toNumber(
+      params?.pe_max ??
+      params?.peMax ??
+      filters?.peMax
+    );
+    const pegMax = toNumber(
+      params?.peg_max ??
+      params?.pegMax ??
+      filters?.pegMax
+    );
+    const maxPrice = toNumber(
+      params?.max_price ??
+      params?.maxPrice ??
+      filters?.maxPrice
+    );
+    const scoreStopLossThreshold = toNumber(
+      params?.score_stop_loss ??
+      params?.scoreStopLoss ??
+      params?.min_hold_score ??
+      params?.minHoldScore
+    ) ?? 0.65;
+    const stopLossRatio = normalizeRatio(
+      params?.stop_loss ??
+      params?.stopLoss ??
+      params?.risk?.stop_loss ??
+      params?.riskControl?.stop_loss,
+      0.08
+    );
+    const takeProfitRatio = normalizeRatio(
+      params?.take_profit ??
+      params?.takeProfit ??
+      params?.risk?.take_profit ??
+      params?.riskControl?.take_profit,
+      0.15
+    );
+
+    const previousScore = Array.isArray(scoreHistory) && scoreHistory.length > 1
+      ? toNumber(scoreHistory[scoreHistory.length - 2])
+      : null;
+    const trendConfirmPeriod = Math.max(1, Math.floor(toNumber(
+      params?.trend_confirm_period ??
+      params?.trendConfirmPeriod
+    ) ?? 3));
+    const breakoutMargin = Math.max(0, toNumber(
+      params?.breakout_margin ??
+      params?.breakoutMargin
+    ) ?? 0);
+    const shortMA = trendConfirmPeriod > 1 && prices.length >= trendConfirmPeriod
+      ? calculateSMA(prices, trendConfirmPeriod)
+      : null;
+    const hasTrendConfirmation = !shortMA || stock.price >= shortMA;
+    const isScoreBreakout = previousScore === null || previousScore < (buyThreshold - breakoutMargin);
+    const effectivePe = toNumber(stock.pe_ttm) ?? toNumber(stock.pe);
+    const growth = toNumber(stock.netprofit_growth);
+    const peg = Number.isFinite(effectivePe) && Number.isFinite(growth) && growth > 0
+      ? effectivePe / growth
+      : null;
+    const passesFilters = (
+      (!Number.isFinite(maxPrice) || stock.price <= maxPrice) &&
+      (!Number.isFinite(peMax) || (Number.isFinite(effectivePe) && effectivePe > 0 && effectivePe <= peMax)) &&
+      (!Number.isFinite(pegMax) || (Number.isFinite(peg) && peg > 0 && peg <= pegMax))
+    );
+
+    const buy = !position
+      && decisionScore >= buyThreshold
+      && passesFilters
+      && hasTrendConfirmation
+      && isScoreBreakout;
+
+    if (!position) {
+      return { buy, sell: false };
+    }
+
+    const stopLossPrice = position.avgPrice * (1 - stopLossRatio);
+    const takeProfitPrice = position.avgPrice * (1 + takeProfitRatio);
+    const sell = factorScore <= scoreStopLossThreshold
+      || stock.price <= stopLossPrice
+      || stock.price >= takeProfitPrice;
+
+    return { buy: false, sell };
+  }
+
+  getSevenFactorDecisionScore(stock, params) {
+    const factorWeights = normalizeWeightMap(params?.factorWeights, {
+      trend: 0.17,
+      momentum: 0.15,
+      valuation: 0.15,
+      earnings: 0.13,
+      capital: 0.13,
+      volatility: 0.12,
+      sentiment: 0.15
+    });
+    const dimensionWeights = normalizeWeightMap(params?.dimensionWeights, {
+      social: 0.25,
+      policy: 0.30,
+      public: 0.20,
+      business: 0.25
+    });
+
+    const factorScore = weightedNormalizedScore({
+      trend: stock.trend_score,
+      momentum: stock.momentum_score,
+      valuation: stock.valuation_score,
+      earnings: stock.earnings_score,
+      capital: stock.capital_score_raw,
+      volatility: stock.volatility_score,
+      sentiment: stock.sentiment_score_raw
+    }, factorWeights) ?? normalizeScoreValue(stock.seven_factor_score);
+
+    const dimensionScore = weightedNormalizedScore({
+      social: stock.social_score,
+      policy: stock.policy_score_raw,
+      public: stock.public_score,
+      business: stock.business_score
+    }, dimensionWeights) ?? normalizeScoreValue(stock.industry_total_score);
+
+    const decisionScore = Number.isFinite(dimensionScore)
+      ? (() => {
+          const factorRatio = toNumber(
+            params?.decision_factor_weight ??
+            params?.decisionFactorWeight
+          );
+          const dimensionRatio = toNumber(
+            params?.decision_dimension_weight ??
+            params?.decisionDimensionWeight
+          );
+          const safeFactor = Number.isFinite(factorRatio) ? Math.max(0, factorRatio) : 0.7;
+          const safeDimension = Number.isFinite(dimensionRatio) ? Math.max(0, dimensionRatio) : (1 - safeFactor);
+          const weightSum = safeFactor + safeDimension;
+          const factorWeight = weightSum > 0 ? safeFactor / weightSum : 0.7;
+          const dimensionWeight = weightSum > 0 ? safeDimension / weightSum : 0.3;
+          return (factorScore * factorWeight) + (dimensionScore * dimensionWeight);
+        })()
+      : factorScore;
+
+    return {
+      factorScore,
+      dimensionScore,
+      decisionScore
+    };
   }
   
   /**

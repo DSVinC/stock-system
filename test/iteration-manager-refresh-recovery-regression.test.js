@@ -71,9 +71,9 @@ function buildLocalStorage(initial = {}) {
 function buildElements() {
   return {
     strategySelect: { value: 'seven_factor', addEventListener: () => {} },
-    maxIterations: { value: '12' },
-    scoreThreshold: { value: '70' },
-    parallelTasks: { value: '4' },
+    maxIterations: { value: '12', addEventListener: () => {}, focus: () => {}, title: '' },
+    scoreThreshold: { value: '70', addEventListener: () => {}, focus: () => {}, title: '' },
+    parallelTasks: { value: '4', addEventListener: () => {}, focus: () => {}, title: '' },
     startBtn: { disabled: false },
     stopBtn: { disabled: true },
     totalCount: { textContent: '20' },
@@ -139,6 +139,10 @@ function buildSandbox({ search = '', storage = {}, fetchImpl }) {
     },
     updateRadarChart: () => {},
     radarChart: null,
+    attachNumberFieldValidation: () => {},
+    validateIterationInputs: () => ({ valid: true, values: { maxIterations: 12, scoreThreshold: 70, parallelTasks: 4 } }),
+    hasImportedResearchInput: () => false,
+    applyOptimizationBackendToUI: () => {},
     isRunning: false,
     currentTaskId: null,
     ITERATION_TASK_STORAGE_KEYS: {
@@ -227,6 +231,9 @@ async function runRestoreSuccessScenario(script) {
     'renderResearchInputSummary',
     'updateStatusBadge',
     'updateProgress',
+    'formatCompactParamValue',
+    'flattenConfigSummary',
+    'buildParamSummary',
     'updateBestConfig',
     'loadVersionHistory',
     'restoreLastIterationTaskFromStorage',

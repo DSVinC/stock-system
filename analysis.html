@@ -172,6 +172,15 @@
     .strategy-content .strategy-prices .buy { color: var(--good); }
     .strategy-content .strategy-prices .stop { color: var(--bad); }
     .strategy-content .strategy-prices .pos { color: var(--accent); }
+    .direction-source-banner {
+      margin-top: 0.75rem;
+      font-size: 0.8125rem;
+      color: var(--text-soft);
+      padding: 0.7rem 0.9rem;
+      border-radius: 10px;
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.14);
+    }
   </style>
 </head>
 <body>
@@ -201,6 +210,7 @@
             <a href="./select.html" class="button-link button-secondary">返回重新选股</a>
           </div>
         </div>
+        <div id="direction-source-banner" class="direction-source-banner" hidden></div>
       </div>
     </section>
 
@@ -250,10 +260,12 @@
     const addCustomButton = document.getElementById("add-custom-button");
     const selectedCount = document.getElementById("selected-count");
     const strategyContextBanner = document.getElementById("strategy-context-banner");
+    const directionSourceBanner = document.getElementById("direction-source-banner");
 
     let directions = [];
     let stocks = [];
     let stockV2Data = new Map(); // 存储 v2 结构化数据
+    let lastDirectionSource = "storage";
 
     function safeJsonParse(rawValue) {
       try {
@@ -338,6 +350,68 @@
       };
     }
 
+    function resolveStrategySummaryText(strategy) {
+      if (!strategy || typeof strategy !== "object") {
+        return "";
+      }
+      if (typeof strategy.summary_text === "string") {
+        return strategy.summary_text;
+      }
+      if (strategy.summary_text && typeof strategy.summary_text === "object") {
+        return typeof strategy.summary_text.summary_text === "string"
+          ? strategy.summary_text.summary_text
+          : "";
+      }
+      return "";
+    }
+
+    function resolvePrimaryAction(strategy) {
+      if (!strategy || !Array.isArray(strategy.actions)) {
+        const fallbackActions = Array.isArray(strategy?.summary_text?.actions) ? strategy.summary_text.actions : [];
+        return fallbackActions.find((action) => action && action.action_type === "buy")
+          || fallbackActions[0]
+          || null;
+      }
+      return strategy.actions.find((action) => action && action.action_type === "buy")
+        || (Array.isArray(strategy.summary_text?.actions)
+          ? strategy.summary_text.actions.find((action) => action && action.action_type === "buy")
+          : null)
+        || strategy.actions[0]
+        || null;
+    }
+
+    function resolveBuyPrice(strategy) {
+      const primaryAction = resolvePrimaryAction(strategy);
+      const conditions = Array.isArray(primaryAction?.trigger_conditions) ? primaryAction.trigger_conditions : [];
+      const priceCondition = conditions.find((item) => item?.field === "price" || item?.type === "price") || conditions[0];
+      const priceValue = Number(priceCondition?.value);
+      return Number.isFinite(priceValue) && priceValue > 0 ? priceValue : null;
+    }
+
+    function resolveStopLoss(strategy, fallbackValue) {
+      const primaryAction = resolvePrimaryAction(strategy);
+      const stopLossValue = Number(primaryAction?.stop_loss ?? fallbackValue);
+      return Number.isFinite(stopLossValue) && stopLossValue > 0 ? stopLossValue : null;
+    }
+
+    function inferStrategyVersionFromConfig(config) {
+      const directVersion = typeof config?.strategyVersion === "string" ? config.strategyVersion.trim() : "";
+      if (directVersion) {
+        return directVersion;
+      }
+      const candidates = [
+        config?.strategyConfigName,
+        config?.templateName
+      ].filter((item) => typeof item === "string" && item.trim());
+      for (const candidate of candidates) {
+        const matched = candidate.match(/ITER_[A-Za-z0-9_]+/);
+        if (matched) {
+          return matched[0];
+        }
+      }
+      return "";
+    }
+
     function openSafeUrl(rawUrl) {
       if (typeof rawUrl !== "string" || !rawUrl.trim()) {
         return false;
@@ -365,9 +439,11 @@
       const params = new URLSearchParams(window.location.search);
       const urlDirections = normalizeDirections(params.getAll("direction"));
       if (urlDirections.length > 0) {
+        lastDirectionSource = "url";
         localStorage.setItem(DIRECTIONS_STORAGE_KEY, JSON.stringify(urlDirections));
         return urlDirections;
       }
+      lastDirectionSource = "storage";
       return normalizeDirections(localStorage.getItem(DIRECTIONS_STORAGE_KEY));
     }
 
@@ -404,6 +480,8 @@
 
       if (directions.length === 0) {
         directionStatus.textContent = "未找到已选方向，请返回首页重新选择";
+        directionSourceBanner.hidden = true;
+        directionSourceBanner.textContent = "";
         const emptyTag = document.createElement("span");
         emptyTag.className = "tag";
         emptyTag.textContent = "暂无方向";
@@ -419,6 +497,10 @@
       });
 
       directionStatus.textContent = `已选择 ${directions.length} 个方向`;
+      directionSourceBanner.hidden = false;
+      directionSourceBanner.textContent = lastDirectionSource === "url"
+        ? `已从选股页带入 ${directions.length} 个方向，可以直接执行个股分析。`
+        : `已从本地记录恢复 ${directions.length} 个方向，如需更新可返回选股页重新选择。`;
     }
 
     function getDecisionClass(decision) {
@@ -503,11 +585,11 @@
           // 构建各策略内容
           const strategiesHtml = ['aggressive', 'balanced', 'conservative'].map((type, idx) => {
             const strategy = strategies[type] || {};
-            const firstAction = strategy?.actions?.[0] || {};
-            const buyPrice = firstAction?.trigger_conditions?.[0]?.value;
-            const stopLoss = firstAction?.stop_loss || v2Data.stop_loss;
-            const position = firstAction?.position_percent || 0;
-            const summaryText = typeof strategy?.summary_text === 'string' ? strategy.summary_text : '';
+            const primaryAction = resolvePrimaryAction(strategy) || {};
+            const buyPrice = resolveBuyPrice(strategy);
+            const stopLoss = resolveStopLoss(strategy, v2Data.stop_loss);
+            const position = primaryAction?.position_percent || 0;
+            const summaryText = resolveStrategySummaryText(strategy);
 
             return `
               <div class="strategy-content ${idx === 0 ? 'active' : ''}" data-strategy="${type}">
@@ -670,11 +752,11 @@
       // 构建各策略内容
       const strategiesHtml = ['aggressive', 'balanced', 'conservative'].map((type, idx) => {
         const strategy = strategies[type] || {};
-        const firstAction = strategy?.actions?.[0] || {};
-        const buyPrice = firstAction?.trigger_conditions?.[0]?.value;
-        const stopLoss = firstAction?.stop_loss || v2Data.stop_loss;
-        const position = firstAction?.position_percent || 0;
-        const summaryText = typeof strategy?.summary_text === 'string' ? strategy.summary_text : '';
+        const primaryAction = resolvePrimaryAction(strategy) || {};
+        const buyPrice = resolveBuyPrice(strategy);
+        const stopLoss = resolveStopLoss(strategy, v2Data.stop_loss);
+        const position = primaryAction?.position_percent || 0;
+        const summaryText = resolveStrategySummaryText(strategy);
 
         return `
           <div class="strategy-content ${idx === 0 ? 'active' : ''}" data-strategy="${type}">
@@ -763,6 +845,19 @@
         if (config.strategySource) importPayload.strategySource = config.strategySource;
         if (config.strategyConfigId !== undefined) importPayload.strategyConfigId = config.strategyConfigId;
         if (config.strategyConfigName) importPayload.strategyConfigName = config.strategyConfigName;
+        const strategyVersion = (typeof inferStrategyVersionFromConfig === 'function')
+          ? inferStrategyVersionFromConfig(config)
+          : (() => {
+              if (config.strategyVersion) return config.strategyVersion;
+              if (config.strategyConfigId !== undefined && config.strategyConfigId !== null) {
+                return `strategy_config_${config.strategyConfigId}`;
+              }
+              if (config.templateId !== undefined && config.templateId !== null) {
+                return `template_${config.templateId}`;
+              }
+              return null;
+            })();
+        if (strategyVersion) importPayload.strategyVersion = strategyVersion;
         if (config.templateId !== undefined) importPayload.templateId = config.templateId;
         if (config.templateName) importPayload.templateName = config.templateName;
 
@@ -902,6 +997,8 @@
       if (config.strategySource) strategyContext.strategySource = config.strategySource;
       if (config.strategyConfigId !== undefined) strategyContext.strategyConfigId = config.strategyConfigId;
       if (config.strategyConfigName) strategyContext.strategyConfigName = config.strategyConfigName;
+      const strategyVersion = inferStrategyVersionFromConfig(config);
+      if (strategyVersion) strategyContext.strategyVersion = strategyVersion;
       if (config.templateId !== undefined) strategyContext.templateId = config.templateId;
       if (config.templateName) strategyContext.templateName = config.templateName;
 

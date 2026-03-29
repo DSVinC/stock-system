@@ -9,6 +9,264 @@
  */
 
 const { getDatabase } = require('./db');
+const { tushareRequest } = require('./market-data');
+const { execFile } = require('node:child_process');
+const { promisify } = require('node:util');
+const fs = require('node:fs');
+
+const execFileAsync = promisify(execFile);
+
+const ANN_IMPORT_LOOKBACK_DAYS = 30;
+const ANN_MAJOR_LOOKBACK_DAYS = 3;
+const SINA_MCP_CALL_TOOL = '/Users/vvc/.openclaw/workspace/skills/sina-ashare-mcp/scripts/call-tool.cjs';
+
+const ANN_RISK_KEYWORDS = [
+  { keyword: '立案调查', eventType: 'regulatory_investigation', signalType: 'SELL', signalLevel: 'HIGH', riskTag: 'high' },
+  { keyword: '行政处罚', eventType: 'regulatory_penalty', signalType: 'SELL', signalLevel: 'HIGH', riskTag: 'high' },
+  { keyword: '终止上市', eventType: 'delisting', signalType: 'SELL', signalLevel: 'HIGH', riskTag: 'high' },
+  { keyword: '退市风险', eventType: 'delisting_risk', signalType: 'SELL', signalLevel: 'HIGH', riskTag: 'high' },
+  { keyword: '财务造假', eventType: 'financial_fraud', signalType: 'SELL', signalLevel: 'HIGH', riskTag: 'high' },
+  { keyword: '业绩预亏', eventType: 'earnings_warning', signalType: 'WARNING', signalLevel: 'MEDIUM', riskTag: 'medium' },
+  { keyword: '减持', eventType: 'shareholder_reduction', signalType: 'WARNING', signalLevel: 'MEDIUM', riskTag: 'medium' },
+  { keyword: '重大合同', eventType: 'major_contract', signalType: 'WARNING', signalLevel: 'LOW', riskTag: 'low' },
+  { keyword: '中标', eventType: 'major_contract', signalType: 'WARNING', signalLevel: 'LOW', riskTag: 'low' },
+  { keyword: '回购', eventType: 'buyback', signalType: 'WARNING', signalLevel: 'LOW', riskTag: 'low' },
+  { keyword: '业绩预增', eventType: 'earnings_positive', signalType: 'WARNING', signalLevel: 'LOW', riskTag: 'low' }
+];
+
+function toTradeDateString(date) {
+  return date.toISOString().slice(0, 10).replace(/-/g, '');
+}
+
+function toSinaSymbol(tsCode) {
+  const code = String(tsCode || '').trim().toUpperCase();
+  if (!code) return '';
+  if (/^(SH|SZ)\d{6}$/.test(code)) return code.toLowerCase();
+  const normalized = code.replace('.', '');
+  if (/^(SH|SZ)\d{6}$/.test(normalized)) return normalized.toLowerCase();
+  const [digits, market] = code.split('.');
+  if (!digits || !/^\d{6}$/.test(digits)) return '';
+  if (market === 'SH') return `sh${digits}`;
+  if (market === 'SZ') return `sz${digits}`;
+  if (digits.startsWith('6') || digits.startsWith('9')) return `sh${digits}`;
+  return `sz${digits}`;
+}
+
+function normalizeEventDate(dateText, timeText) {
+  const d = String(dateText || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+    return null;
+  }
+  const t = /^\d{2}:\d{2}:\d{2}$/.test(String(timeText || '').trim()) ? String(timeText).trim() : '00:00:00';
+  return `${d}T${t}+08:00`;
+}
+
+function parseSinaMajorEventsPayload(payload) {
+  const grouped = payload?.structuredContent?.result?.data;
+  if (!Array.isArray(grouped)) return [];
+  const flattened = [];
+  for (const group of grouped) {
+    if (!Array.isArray(group?.value)) continue;
+    for (const event of group.value) {
+      flattened.push(event);
+    }
+  }
+  return flattened;
+}
+
+async function fetchSinaMajorEvents(sinaSymbol, pageSize = 50) {
+  const { stdout } = await execFileAsync(
+    'node',
+    [
+      SINA_MCP_CALL_TOOL,
+      'globalStockMajorEvents',
+      JSON.stringify({
+        market: '0',
+        symbols: sinaSymbol,
+        pageSize: String(pageSize)
+      })
+    ],
+    {
+      timeout: 20000,
+      maxBuffer: 1024 * 1024 * 4
+    }
+  );
+  const parsed = JSON.parse(String(stdout || '{}'));
+  return parseSinaMajorEventsPayload(parsed);
+}
+
+function isSinaMcpToolAvailable() {
+  return fs.existsSync(SINA_MCP_CALL_TOOL);
+}
+
+async function fetchTushareAnnouncements(tsCode, startDateStr, endDateStr) {
+  const rows = await tushareRequest(
+    'anns_d',
+    {
+      ts_code: tsCode,
+      start_date: startDateStr,
+      end_date: endDateStr
+    },
+    ['ts_code', 'name', 'ann_date', 'title']
+  );
+  if (!Array.isArray(rows)) return [];
+  return rows.map((item) => ({
+    ts_code: tsCode,
+    name: item.name || null,
+    ann_date: String(item.ann_date || '').trim(),
+    ann_time: null,
+    title: String(item.title || '').trim(),
+    content: '',
+    symbol: toSinaSymbol(tsCode),
+    event_type: null,
+    source: 'tushare_anns_d'
+  })).filter(item => item.ann_date && item.title);
+}
+
+function classifyAnnouncementTitle(title) {
+  const text = String(title || '');
+  for (const rule of ANN_RISK_KEYWORDS) {
+    if (text.includes(rule.keyword)) {
+      return rule;
+    }
+  }
+  return {
+    keyword: null,
+    eventType: 'general_announcement',
+    signalType: 'WARNING',
+    signalLevel: 'LOW',
+    riskTag: 'low'
+  };
+}
+
+async function syncCompanyAnnouncements(db, holdings, options = {}) {
+  const tsCodes = [...new Set((holdings || []).map(item => String(item.ts_code || '').trim()).filter(Boolean))];
+  if (tsCodes.length === 0) {
+    return { synced: 0, inserted: 0 };
+  }
+
+  const nowDate = options.now instanceof Date ? options.now : new Date();
+  const endDate = nowDate;
+  const startDate = new Date(nowDate.getTime() - ANN_IMPORT_LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
+  const startDateStr = toTradeDateString(startDate); // yyyyMMdd for fast compare
+  const endDateStr = toTradeDateString(endDate); // yyyyMMdd
+  const stockNameByCode = new Map((holdings || []).map(item => [item.ts_code, item.stock_name || null]));
+  const fetchSinaEvents = typeof options.fetchSinaMajorEvents === 'function' ? options.fetchSinaMajorEvents : fetchSinaMajorEvents;
+  const fetchTushareEvents = typeof options.fetchTushareAnnouncements === 'function' ? options.fetchTushareAnnouncements : fetchTushareAnnouncements;
+
+  let synced = 0;
+  let inserted = 0;
+  const canUseSinaMcp = typeof options.canUseSinaMcp === 'boolean'
+    ? options.canUseSinaMcp
+    : isSinaMcpToolAvailable();
+  for (const tsCode of tsCodes) {
+    let rows = [];
+    const sinaSymbol = toSinaSymbol(tsCode);
+    if (!sinaSymbol) {
+      continue;
+    }
+
+    if (canUseSinaMcp) {
+      try {
+        const events = await fetchSinaEvents(sinaSymbol, 100);
+        rows = (events || [])
+          .map((item) => {
+            const dateStr = String(item.date || '').replace(/-/g, '');
+            if (!dateStr || dateStr < startDateStr || dateStr > endDateStr) {
+              return null;
+            }
+            return {
+              ts_code: tsCode,
+              name: item.name || stockNameByCode.get(tsCode) || null,
+              ann_date: dateStr,
+              ann_time: item.time || null,
+              title: String(item.title || '').trim(),
+              content: String(item.content || '').trim(),
+              symbol: item.symbol || sinaSymbol,
+              event_type: item.event_type || null,
+              source: 'sina_mcp_major_events'
+            };
+          })
+          .filter(Boolean);
+      } catch (error) {
+        console.warn(`[position-signals] 新浪公告同步失败 ${tsCode}: ${error.message}，回退 Tushare anns_d`);
+      }
+    }
+
+    if (rows.length === 0) {
+      try {
+        rows = await fetchTushareEvents(tsCode, startDateStr, endDateStr);
+      } catch (error) {
+        console.warn(`[position-signals] Tushare 公告同步失败 ${tsCode}:`, error.message);
+        continue;
+      }
+    }
+
+    if (!Array.isArray(rows) || rows.length === 0) {
+      continue;
+    }
+
+    synced += rows.length;
+    for (const row of rows) {
+      const title = String(row.title || '').trim();
+      if (!title) continue;
+      const annDate = String(row.ann_date || '').trim().replace(/-/g, '');
+      const eventTime = annDate && annDate.length === 8
+        ? normalizeEventDate(`${annDate.slice(0, 4)}-${annDate.slice(4, 6)}-${annDate.slice(6, 8)}`, row.ann_time) || new Date().toISOString()
+        : new Date().toISOString();
+      const classify = classifyAnnouncementTitle(title);
+      const contentText = String(row.content || '').trim();
+      const content = contentText || `新浪重大事项（${row.symbol || tsCode}）`;
+
+      const exists = await db.getPromise(
+        `SELECT id FROM company_events WHERE ts_code = ? AND event_time = ? AND title = ? LIMIT 1`,
+        [tsCode, eventTime, title]
+      );
+      if (exists) continue;
+
+      await db.runPromise(
+        `INSERT INTO company_events (ts_code, stock_name, event_type, event_time, title, content, source, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+        [
+          tsCode,
+          row.name || stockNameByCode.get(tsCode) || null,
+          classify.eventType,
+          eventTime,
+          title,
+          content,
+          row.source || 'sina_mcp_major_events'
+        ]
+      );
+      inserted += 1;
+    }
+  }
+
+  return { synced, inserted };
+}
+
+async function getRecentMajorAnnouncements(db, tsCode, days = ANN_MAJOR_LOOKBACK_DAYS) {
+  const rows = await db.allPromise(
+    `SELECT event_type, event_time, title, source
+       FROM company_events
+      WHERE ts_code = ?
+        AND event_time >= datetime('now', ?)
+      ORDER BY event_time DESC
+      LIMIT 20`,
+    [tsCode, `-${days} days`]
+  );
+  return (rows || []).map((row) => {
+    const classify = classifyAnnouncementTitle(row.title);
+    return {
+      title: row.title,
+      eventType: row.event_type || classify.eventType,
+      signalType: classify.signalType,
+      signalLevel: classify.signalLevel,
+      riskTag: classify.riskTag,
+      eventTime: row.event_time,
+      source: row.source
+    };
+  });
+}
 
 /**
  * Generate signals for a holding
@@ -71,6 +329,27 @@ function generateSignals(holding, currentFactors, historicalFactors, news) {
       reason: `负面新闻 (${news.negativeCount}条)`,
       negative_news_count: news.negativeCount
     });
+  }
+
+  // Rule 4: Major company announcements (Sina MCP major events -> company_events)
+  if (Array.isArray(news.majorAnnouncements) && news.majorAnnouncements.length > 0) {
+    const highRiskAnnouncements = news.majorAnnouncements.filter(item => item.riskTag === 'high');
+    const mediumRiskAnnouncements = news.majorAnnouncements.filter(item => item.riskTag === 'medium');
+    if (highRiskAnnouncements.length > 0) {
+      signals.push({
+        type: 'SELL',
+        level: 'HIGH',
+        reason: `重大公告风险：${highRiskAnnouncements.slice(0, 2).map(item => item.title).join('；')}`,
+        announcement_count: highRiskAnnouncements.length
+      });
+    } else if (mediumRiskAnnouncements.length > 0) {
+      signals.push({
+        type: 'WARNING',
+        level: 'MEDIUM',
+        reason: `公告需关注：${mediumRiskAnnouncements.slice(0, 2).map(item => item.title).join('；')}`,
+        announcement_count: mediumRiskAnnouncements.length
+      });
+    }
   }
   
   // Add holding info to all signals
@@ -272,6 +551,16 @@ async function runFullMonitoring() {
   if (holdings.length === 0) {
     return { success: true, message: '无持仓，跳过监控', signals: [] };
   }
+
+  // 先同步持仓股重大事项：公司公告走新浪 MCP，不依赖行业新闻库。
+  try {
+    const annSync = await syncCompanyAnnouncements(db, holdings);
+    if (annSync.inserted > 0) {
+      console.log(`[Monitor] 公告同步完成，拉取 ${annSync.synced} 条，新增 ${annSync.inserted} 条`);
+    }
+  } catch (error) {
+    console.warn('[Monitor] 公告同步失败，继续执行监控:', error.message);
+  }
   
   const allSignals = [];
   const { buildReportPayload } = require('./analyze');
@@ -300,9 +589,11 @@ async function runFullMonitoring() {
       };
       
       // 3. 获取舆情和黑天鹅数据
+      const majorAnnouncements = await getRecentMajorAnnouncements(db, holding.ts_code);
       const news = {
         negativeCount: currentData.scoreFactors.factors.sentiment.details.negativeCount || 0,
-        blackSwanEvents: currentData.scoreFactors.blackSwanEvent ? [currentData.scoreFactors.blackSwanEvent.title] : []
+        blackSwanEvents: currentData.scoreFactors.blackSwanEvent ? [currentData.scoreFactors.blackSwanEvent.title] : [],
+        majorAnnouncements
       };
       
       // 4. 生成信号
@@ -398,5 +689,11 @@ module.exports = {
   markSignalRead,
   handleGetSignals,
   handleGetOverview,
-  handleMarkRead
+  handleMarkRead,
+  _internal: {
+    toSinaSymbol,
+    classifyAnnouncementTitle,
+    parseSinaMajorEventsPayload,
+    syncCompanyAnnouncements
+  }
 };
