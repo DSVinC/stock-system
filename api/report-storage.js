@@ -5,6 +5,48 @@
 
 const { getDatabase } = require('./db');
 const { v4: uuidv4 } = require('uuid');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const REPORT_ANALYSIS_DIR = path.join(__dirname, '..', '..', 'report', 'analysis');
+
+function toFilenameToken(stockCode = '') {
+  return String(stockCode || '').trim().replace('.', '_');
+}
+
+function listReportFilesByStockCode(stockCode) {
+  if (!stockCode) {
+    return [];
+  }
+
+  const normalizedCode = String(stockCode || '').trim();
+  const token = toFilenameToken(normalizedCode);
+  const rawToken = normalizedCode;
+  const codePrefix = normalizedCode.split('.')[0];
+  const matchTokens = [token, rawToken, codePrefix].filter(Boolean);
+  if (!fs.existsSync(REPORT_ANALYSIS_DIR)) {
+    return [];
+  }
+
+  return fs.readdirSync(REPORT_ANALYSIS_DIR)
+    .filter((fileName) => {
+      if (!fileName.endsWith('.html')) return false;
+      const lower = fileName.toLowerCase();
+      return matchTokens.some((t) => lower.includes(String(t).toLowerCase()));
+    })
+    .map((fileName) => {
+      const fullPath = path.join(REPORT_ANALYSIS_DIR, fileName);
+      const stat = fs.statSync(fullPath);
+      return {
+        report_id: path.basename(fileName, '.html'),
+        stock_code: normalizedCode,
+        stock_name: null,
+        created_at: stat.mtime.toISOString(),
+        source: 'html_file'
+      };
+    })
+    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+}
 
 /**
  * 存储分析报告
@@ -209,7 +251,19 @@ async function getReportList(req, res) {
     }
     
     const countResult = await db.getPromise(countQuery, countParams);
-    
+
+    if (parsedReports.length === 0 && stockCode) {
+      const fallbackReports = listReportFilesByStockCode(stockCode);
+      return res.json({
+        success: true,
+        reports: fallbackReports.slice(parseInt(offset), parseInt(offset) + parseInt(limit)),
+        total: fallbackReports.length,
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        source: 'filesystem_fallback'
+      });
+    }
+
     res.json({
       success: true,
       reports: parsedReports,

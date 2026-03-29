@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
 
 const require = createRequire(import.meta.url);
 const { BacktestEngine } = require('../api/backtest');
@@ -86,7 +87,67 @@ function normalizeStrategyParams(strategyType, params) {
     }
   }
 
+  if (strategyType === 'seven_factor') {
+    const filters = normalized.filters && typeof normalized.filters === 'object' ? normalized.filters : {};
+
+    if (normalized.min_seven_factor_score === undefined && normalized.min_score !== undefined) {
+      normalized.min_seven_factor_score = normalized.min_score;
+    }
+    if (normalized.min_seven_factor_score === undefined && filters.minScore !== undefined) {
+      normalized.min_seven_factor_score = filters.minScore;
+    }
+    if (normalized.pe_max === undefined && filters.peMax !== undefined) {
+      normalized.pe_max = filters.peMax;
+    }
+    if (normalized.peg_max === undefined && filters.pegMax !== undefined) {
+      normalized.peg_max = filters.pegMax;
+    }
+    if (normalized.max_price === undefined && filters.maxPrice !== undefined) {
+      normalized.max_price = filters.maxPrice;
+    }
+  }
+
   return normalized;
+}
+
+function extractTradeCount(report) {
+  const candidates = [
+    report?.summary?.tradeCount,
+    report?.metrics?.tradeCount,
+    report?.summary?.totalTrades,
+    report?.metrics?.totalTrades
+  ];
+
+  for (const candidate of candidates) {
+    const value = Number(candidate);
+    if (Number.isFinite(value)) {
+      return value;
+    }
+  }
+
+  return 0;
+}
+
+function buildSuccessPayload({ report, scoreResult, normalizedParams }) {
+  return {
+    success: true,
+    scoreTotal: scoreResult.scoreTotal,
+    level: scoreResult.level,
+    tradeCount: extractTradeCount(report),
+    metrics: scoreResult.metrics,
+    params: normalizedParams
+  };
+}
+
+function buildNoTradePayload({ report, normalizedParams, scoreResult }) {
+  return {
+    success: false,
+    error: 'no_trade_samples',
+    message: '无有效交易样本，本次评分结果无效',
+    tradeCount: extractTradeCount(report),
+    metrics: scoreResult?.metrics || report?.metrics || {},
+    params: normalizedParams
+  };
 }
 
 async function ensureRealData(db, stocks, startDate, endDate) {
@@ -191,16 +252,40 @@ async function run() {
 
     engine.calculateMetrics();
     const report = engine.generateReport();
-    const scoreResult = quickScore(report.metrics);
+    const metricsForScoring = (() => {
+      const m = report?.metrics && typeof report.metrics === 'object' ? { ...report.metrics } : {};
+      // 评分器使用收益率口径；部分回测结果会给出总收益金额(totalReturn)
+      if (!Number.isFinite(Number(m.totalReturn)) || Number(m.totalReturn) > 1 || Number(m.totalReturn) < -1) {
+        const returnRate = Number(m.returnRate);
+        if (Number.isFinite(returnRate)) {
+          m.totalReturn = returnRate;
+        }
+      }
+      return m;
+    })();
+    const scoreResult = quickScore(metricsForScoring);
+    const tradeCount = extractTradeCount(report);
 
     restoreConsole();
-    outputJson({
-      success: true,
-      scoreTotal: scoreResult.scoreTotal,
-      level: scoreResult.level,
-      metrics: scoreResult.metrics,
-      params: normalizedParams
-    });
+    if (tradeCount <= 0) {
+      outputJson(
+        buildNoTradePayload({
+          report,
+          normalizedParams,
+          scoreResult
+        }),
+        2
+      );
+      return;
+    }
+
+    outputJson(
+      buildSuccessPayload({
+        report,
+        scoreResult,
+        normalizedParams
+      })
+    );
   } catch (error) {
     restoreConsole();
     outputJson({
@@ -210,4 +295,21 @@ async function run() {
   }
 }
 
-run();
+const isEntrypoint = process.argv[1]
+  ? pathToFileURL(process.argv[1]).href === import.meta.url
+  : false;
+
+if (isEntrypoint) {
+  run();
+}
+
+export {
+  buildNoTradePayload,
+  buildSuccessPayload,
+  extractTradeCount,
+  normalizeStrategyParams,
+  parseArgs,
+  parseParams,
+  parseStocks,
+  run
+};

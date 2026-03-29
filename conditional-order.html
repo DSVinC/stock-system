@@ -1782,6 +1782,19 @@
       window.history.replaceState({}, '', url.pathname + url.search + url.hash);
     }
 
+    function resolveImportedActions(strategy) {
+      if (!strategy || typeof strategy !== 'object') {
+        return [];
+      }
+
+      const directActions = Array.isArray(strategy.actions) ? strategy.actions : [];
+      const summaryActions = Array.isArray(strategy.summary_text?.actions) ? strategy.summary_text.actions : [];
+      const merged = [...directActions, ...summaryActions]
+        .filter((action) => action && typeof action === 'object');
+
+      return merged;
+    }
+
     function parseImportPayload(rawImport) {
       let decoded = rawImport;
       try {
@@ -1808,7 +1821,8 @@
       if (!stockCode || !stockName || !strategy || typeof strategy !== 'object') {
         throw new Error('导入数据缺少股票或策略信息');
       }
-      if (!Array.isArray(strategy.actions) || strategy.actions.length === 0) {
+      const resolvedActions = resolveImportedActions(strategy);
+      if (resolvedActions.length === 0) {
         throw new Error('导入策略缺少可用动作');
       }
 
@@ -1816,11 +1830,15 @@
         stockCode,
         stockName,
         stopLoss: payload.stop_loss,
-        strategy,
+        strategy: {
+          ...strategy,
+          actions: resolvedActions
+        },
         strategyContext: {
           strategySource: payload.strategySource ?? payload.strategy_source ?? null,
           strategyConfigId: payload.strategyConfigId ?? payload.strategy_config_id ?? null,
           strategyConfigName: payload.strategyConfigName ?? payload.strategy_config_name ?? null,
+          strategyVersion: payload.strategyVersion ?? payload.strategy_version ?? null,
           templateId: payload.templateId ?? payload.template_id ?? null,
           templateName: payload.templateName ?? payload.template_name ?? null
         }
@@ -1920,7 +1938,8 @@
     }
 
     function pickImportAction(strategy) {
-      const action = strategy.actions.find(item =>
+      const actions = resolveImportedActions(strategy);
+      const action = actions.find(item =>
         ['buy', 'sell'].includes(item?.action_type) &&
         Array.isArray(item?.trigger_conditions) &&
         item.trigger_conditions.length > 0
@@ -2210,6 +2229,7 @@
           strategySource: stock.strategySource,
           strategyConfigId: stock.strategyConfigId,
           strategyConfigName: stock.strategyConfigName,
+          strategyVersion: stock.strategyVersion,
           templateId: stock.templateId,
           templateName: stock.templateName
         };
@@ -2752,23 +2772,40 @@
       reportSelector.innerHTML = '<option value="">正在加载报告...</option>';
       
       try {
-        // 使用新的 /api/report/list 接口
+        // 优先使用 /api/report/list；若为空则回退到 /api/analysis/reports/:ts_code
+        let reports = [];
         const response = await fetch(`/api/report/list?stock_code=${tsCode}`);
         const result = await response.json();
+        if (result.success && Array.isArray(result.reports) && result.reports.length > 0) {
+          reports = result.reports.map((r) => ({
+            report_id: r.report_id,
+            created_at: r.created_at
+          }));
+        } else {
+          const fallbackResponse = await fetch(`/api/analysis/reports/${encodeURIComponent(tsCode)}`);
+          const fallbackResult = await fallbackResponse.json();
+          if (fallbackResult.success && Array.isArray(fallbackResult.reports) && fallbackResult.reports.length > 0) {
+            reports = fallbackResult.reports.map((r) => ({
+              report_id: r.report_id || r.filename || r.url || 'unknown',
+              created_at: r.date || ''
+            }));
+          }
+        }
 
-        if (result.success && result.reports && result.reports.length > 0) {
-          reportSelector.innerHTML = result.reports.map(r =>
-            `<option value="${r.report_id}" data-id="${r.report_id}">${r.created_at ? r.created_at.split('T')[0] : ''} - ${r.report_id}</option>`
+        if (reports.length > 0) {
+          reportSelector.innerHTML = reports.map(r =>
+            `<option value="${r.report_id}" data-id="${r.report_id}">${r.created_at ? String(r.created_at).split('T')[0] : ''} - ${r.report_id}</option>`
           ).join('');
           importBtn.disabled = false;
         } else {
-          reportSelector.innerHTML = '<option value="">未找到该股票报告</option>';
-          importBtn.disabled = true;
+          reportSelector.innerHTML = '<option value="">未找到该股票报告（可直接按风格导入）</option>';
+          // 仍允许按风格从实时分析导入策略，不强依赖历史报告记录
+          importBtn.disabled = false;
         }
       } catch (error) {
         console.error('加载报告失败:', error);
-        reportSelector.innerHTML = '<option value="">加载失败</option>';
-        importBtn.disabled = true;
+        reportSelector.innerHTML = '<option value="">加载失败（可直接按风格导入）</option>';
+        importBtn.disabled = false;
       }
     }
 

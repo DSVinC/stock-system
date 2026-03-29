@@ -1145,11 +1145,18 @@ async function importStrategy(req, res) {
 
     const result = await db.runPromise(sql, params);
     const newStrategy = await db.getPromise('SELECT * FROM strategy_configs WHERE id = ?', [result.lastID]);
+    const sourceFeedback = await db.getPromise(
+      'SELECT source_version_id FROM strategy_config_feedback WHERE strategy_config_id = ? ORDER BY id DESC LIMIT 1',
+      [source.id]
+    ).catch(() => null);
 
     res.json({
       success: true,
       message: '策略导入成功',
-      data: newStrategy
+      data: {
+        ...newStrategy,
+        source_version_id: sourceFeedback?.source_version_id || null
+      }
     });
   } catch (error) {
     console.error('[策略配置] 导入失败:', error);
@@ -1273,11 +1280,18 @@ async function copyStrategy(req, res) {
 
     const result = await db.runPromise(sql, params);
     const newStrategy = await db.getPromise('SELECT * FROM strategy_configs WHERE id = ?', [result.lastID]);
+    const sourceFeedback = await db.getPromise(
+      'SELECT source_version_id FROM strategy_config_feedback WHERE strategy_config_id = ? ORDER BY id DESC LIMIT 1',
+      [source.id]
+    ).catch(() => null);
 
     res.json({
       success: true,
       message: '策略复制成功',
-      data: newStrategy
+      data: {
+        ...newStrategy,
+        source_version_id: sourceFeedback?.source_version_id || null
+      }
     });
   } catch (error) {
     console.error('[策略配置] 复制失败:', error);
@@ -1404,6 +1418,17 @@ async function aggregateExecutionFeedback(versionId) {
   };
 }
 
+function canPublishVersion(feedbackAggregation, backtestScore = 0) {
+  const totalTrades = Number(feedbackAggregation?.total_trades || 0);
+  const status = feedbackAggregation?.status || 'no_data';
+  const score = Number(backtestScore || 0);
+  if (totalTrades > 0 && status !== 'no_data') {
+    return true;
+  }
+  // 允许高分版本先发布，再通过执行反馈持续校验
+  return Number.isFinite(score) && score >= 75;
+}
+
 /**
  * 从 strategy_versions 发布到 strategy_configs
  * POST /api/strategy-config/publish-version
@@ -1502,6 +1527,15 @@ async function publishVersionToStrategyLibrary(req, res) {
       backtest_period: configJson.backtest_period || null
     };
 
+    // 聚合执行反馈；缺少执行样本时直接阻断发布
+    const feedbackAggregation = await aggregateExecutionFeedback(version_id);
+    if (!canPublishVersion(feedbackAggregation, Number(sourceVersion.backtest_score || 0))) {
+      return res.status(409).json({
+        success: false,
+        error: '该版本尚无执行反馈样本且评分未达 75 分，暂不允许发布到策略库'
+      });
+    }
+
     // 插入 strategy_configs
     const insertSql = `
       INSERT INTO strategy_configs (
@@ -1554,9 +1588,6 @@ async function publishVersionToStrategyLibrary(req, res) {
 
     const result = await db.runPromise(insertSql, params);
     const newConfigId = result.lastID;
-
-    // 聚合执行反馈
-    const feedbackAggregation = await aggregateExecutionFeedback(version_id);
 
     // 写入 strategy_config_feedback
     await db.runPromise(
