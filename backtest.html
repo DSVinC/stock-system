@@ -1416,11 +1416,11 @@
         <div class="form-grid" style="margin-top: 20px;">
           <div class="param-item">
             <label>开始日期</label>
-            <input type="date" id="startDate" class="form-input" value="2024-01-01">
+            <input type="text" id="startDate" class="form-input" value="2024-01-02" placeholder="选择开始交易日">
           </div>
           <div class="param-item">
             <label>结束日期</label>
-            <input type="date" id="endDate" class="form-input" value="2024-12-31">
+            <input type="text" id="endDate" class="form-input" value="2024-12-31" placeholder="选择结束交易日">
           </div>
           <div class="param-item">
             <label>初始资金</label>
@@ -1569,58 +1569,6 @@
           </div>
         </details>
 
-        <!-- 选股配置 -->
-        <details class="selection-config">
-          <summary>
-            <span>🎯</span>
-            <span>选股配置</span>
-          </summary>
-          <div class="config-content">
-            <div class="params-form">
-              <div class="param-group">
-                <label>股票数量</label>
-                <div class="input-with-unit">
-                  <input type="number" id="selectionLimit" value="15" min="1" max="50">
-                  <span class="unit">只</span>
-                </div>
-              </div>
-              <div class="param-group">
-                <label>最低评分</label>
-                <div class="input-with-unit">
-                  <input type="number" id="selectionMinScore" value="0" min="0" max="100" step="5">
-                  <span class="unit">分</span>
-                </div>
-              </div>
-              <div class="param-group">
-                <label>选股时点</label>
-                <div class="input-with-unit">
-                  <input type="text" id="selectionDate" class="form-input" style="padding: 10px 12px; border-radius: 8px;" placeholder="选择交易日">
-                </div>
-              </div>
-            </div>
-            <div style="margin-top: 16px; display: flex; align-items: center; gap: 12px;">
-              <button class="selection-btn" onclick="runSelection()" id="runSelectionBtn">
-                🎯 开始选股
-              </button>
-              <span id="selectionLoading" class="selection-loading" style="display: none;">
-                <span class="spinner"></span>
-                选股中...
-              </span>
-            </div>
-            <div id="selectionResult" class="selection-result">
-              <div class="selection-result-header">
-                <span class="selection-result-title">✓ 选股完成</span>
-                <button onclick="applySelectionToStocks()" style="padding: 6px 12px; border-radius: 6px; border: 1px solid rgba(74, 222, 128, 0.3); background: rgba(74, 222, 128, 0.1); color: #4ade80; font-size: 12px; cursor: pointer;">应用到已选股票</button>
-              </div>
-              <div class="selection-result-info" id="selectionResultInfo"></div>
-              <div class="selection-result-stocks" id="selectionResultStocks"></div>
-            </div>
-            <div class="config-hint">
-              💡 选股说明：此处选股仅用于历史回测样本构建，属于研究流程。选股结果不直接进入监控池或条件单，需经策略库发布后由执行流程调用。
-            </div>
-          </div>
-        </details>
-
         <!-- 策略选择 -->
         <div class="param-item" style="margin-top: 20px;">
           <label>选择策略</label>
@@ -1633,7 +1581,6 @@
             <option value="seven_factor">四维度七因子策略</option>
           </select>
         </div>
-
         <!-- 双均线策略参数 -->
         <div id="params_double_ma" class="strategy-params">
           <h4 class="params-title">双均线策略参数</h4>
@@ -1870,7 +1817,63 @@
           </div>
         </div>
 
-        <!-- 股票选择 -->
+        <!-- 选股配置 -->
+        <details class="selection-config" open style="margin-top: 24px;">
+          <summary>
+            <span>🎯</span>
+            <span>选股配置</span>
+          </summary>
+          <div class="config-content">
+            <div class="params-form">
+              <div class="param-group">
+                <label>股票数量</label>
+                <div class="input-with-unit">
+                  <input type="number" id="selectionLimit" value="15" min="1" max="50">
+                  <span class="unit">只</span>
+                </div>
+              </div>
+              <div class="param-group">
+                <label>最低评分</label>
+                <div class="input-with-unit">
+                  <input type="number" id="selectionMinScore" value="0" min="0" max="100" step="5">
+                  <span class="unit">分</span>
+                </div>
+              </div>
+              <div class="param-group">
+                <label>选股时点</label>
+                <div class="input-with-unit">
+                  <input type="text" id="selectionDate" class="form-input" style="padding: 10px 12px; border-radius: 8px; opacity: 0.72; cursor: not-allowed;" value="默认使用开始日期" readonly disabled>
+                </div>
+                <div class="config-hint" style="margin-top: 8px;">选股时点已统一为“开始日期”，不再单独设置，避免研究参数出现双口径。</div>
+              </div>
+            </div>
+
+            <div style="margin-top: 24px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+              <button class="selection-btn" onclick="runSelection()" id="runSelectionBtn">
+                🎯 开始选股
+              </button>
+              <span id="selectionLoading" class="selection-loading" style="display: none;">
+                <span class="spinner"></span>
+                选股中...
+              </span>
+              <span id="selectionStrategyHint" style="color: var(--text-soft); font-size: 12px;">请先选择策略，选股时点固定使用开始日期。</span>
+            </div>
+
+            <div id="selectionResult" class="selection-result">
+              <div class="selection-result-header">
+                <span class="selection-result-title">✓ 选股完成</span>
+                <button id="selectionApplyBtn" onclick="applySelectionToStocks()" style="padding: 6px 12px; border-radius: 6px; border: 1px solid rgba(74, 222, 128, 0.3); background: rgba(74, 222, 128, 0.1); color: #4ade80; font-size: 12px; cursor: pointer;">应用到已选股票</button>
+              </div>
+              <div class="selection-result-info" id="selectionResultInfo"></div>
+              <div class="selection-result-stocks" id="selectionResultStocks"></div>
+            </div>
+
+            <div class="config-hint">
+              💡 选股说明：此处选股仅用于历史回测样本构建，属于研究流程。选股结果不直接进入监控池或条件单，需经策略库发布后由执行流程调用。
+            </div>
+          </div>
+        </details>
+
         <div class="param-item" style="margin-top: 24px;">
           <label>添加回测股票</label>
           <div class="stock-search-wrap">
@@ -2252,8 +2255,10 @@
 
     // 交易日数据缓存
     let tradingDaysArray = [];
+    let tradingDaysSet = new Set();
     let tradingDaysLoaded = false;
-    let selectionDateFlatpickr = null;
+    let startDateFlatpickr = null;
+    let endDateFlatpickr = null;
 
     // 加载交易日列表
     async function loadTradingDays() {
@@ -2262,31 +2267,49 @@
         const data = await res.json();
         if (data.success && data.data) {
           tradingDaysArray = data.data;
+          tradingDaysSet = new Set(tradingDaysArray);
           tradingDaysLoaded = true;
           console.log('[交易日] 已加载', tradingDaysArray.length, '个交易日');
-          
-          // 初始化 Flatpickr 日历组件（禁用非交易日）
-          const selectionDateInput = document.getElementById('selectionDate');
-          if (selectionDateInput && !selectionDateFlatpickr) {
-            selectionDateFlatpickr = flatpickr(selectionDateInput, {
-              locale: 'zh',
-              dateFormat: 'Y-m-d',
-              enable: tradingDaysArray,
-              minDate: data.meta?.minDate,
-              maxDate: data.meta?.maxDate,
-              defaultDate: data.meta?.minDate,
-              disableMobile: true,
-              onChange: function(selectedDates, dateStr, instance) {
-                console.log('[选股日期] 已选择:', dateStr);
+
+          const startDateInput = document.getElementById('startDate');
+          const endDateInput = document.getElementById('endDate');
+          const basePickerOptions = {
+            locale: 'zh',
+            dateFormat: 'Y-m-d',
+            enable: tradingDaysArray,
+            minDate: data.meta?.minDate,
+            maxDate: data.meta?.maxDate,
+            disableMobile: true,
+          };
+
+          if (startDateInput && !startDateFlatpickr) {
+            startDateFlatpickr = flatpickr(startDateInput, {
+              ...basePickerOptions,
+              defaultDate: startDateInput.value || data.meta?.minDate,
+              onChange: function(_selectedDates, dateStr) {
+                console.log('[开始日期] 已选择:', dateStr);
+                syncSelectionDateFromStartDate();
+                if (endDateFlatpickr && endDateFlatpickr.selectedDates[0] && dateStr) {
+                  endDateFlatpickr.set('minDate', dateStr);
+                  if (endDateFlatpickr.input.value && endDateFlatpickr.input.value < dateStr) {
+                    endDateFlatpickr.setDate(dateStr, true);
+                  }
+                }
               }
             });
-            console.log('[Flatpickr] 已初始化，非交易日已禁用');
           }
-          
-          // 同步设置 startDate 和 endDate 的 min/max
+
+          if (endDateInput && !endDateFlatpickr) {
+            endDateFlatpickr = flatpickr(endDateInput, {
+              ...basePickerOptions,
+              defaultDate: endDateInput.value || data.meta?.maxDate,
+              onChange: function(_selectedDates, dateStr) {
+                console.log('[结束日期] 已选择:', dateStr);
+              }
+            });
+          }
+
           if (data.meta) {
-            const startDateInput = document.getElementById('startDate');
-            const endDateInput = document.getElementById('endDate');
             if (data.meta.minDate) {
               startDateInput.min = data.meta.minDate;
               endDateInput.min = data.meta.minDate;
@@ -2296,10 +2319,239 @@
               endDateInput.max = data.meta.maxDate;
             }
           }
+
+          if (startDateInput?.value && endDateFlatpickr) {
+            endDateFlatpickr.set('minDate', startDateInput.value);
+          }
+
+          syncSelectionDateFromStartDate();
+          console.log('[Flatpickr] 已初始化开始/结束日期，非交易日已禁用');
         }
       } catch (error) {
         console.error('[交易日] 加载失败:', error);
       }
+    }
+
+    function isElementActuallyVisible(element) {
+      return !!(element && (element.offsetParent !== null || element.getClientRects().length > 0));
+    }
+
+    function getNumberInputLabel(input) {
+      const wrapperLabel = input.closest('.param-item, .param-group, .input-item')?.querySelector('label');
+      if (wrapperLabel) {
+        return wrapperLabel.textContent.replace(/\s+/g, ' ').trim();
+      }
+      return input.getAttribute('aria-label') || input.id || '数值输入';
+    }
+
+    function getStepDecimals(stepValue) {
+      if (!stepValue || stepValue === 'any') {
+        return 0;
+      }
+      const normalizedStep = String(stepValue);
+      if (!normalizedStep.includes('.')) {
+        return 0;
+      }
+      return normalizedStep.split('.')[1].length;
+    }
+
+    function getNumberValidationMessage(input) {
+      if (!input) return '输入项不存在';
+
+      const rawValue = String(input.value ?? '').trim();
+      const label = getNumberInputLabel(input);
+      if (!rawValue) {
+        return `${label}不能为空`;
+      }
+
+      const numericValue = Number(rawValue);
+      if (!Number.isFinite(numericValue)) {
+        return `${label}必须是有效数字`;
+      }
+
+      const minAttr = input.getAttribute('min');
+      if (minAttr !== null && minAttr !== '') {
+        const minValue = Number(minAttr);
+        if (Number.isFinite(minValue) && numericValue < minValue) {
+          return `${label}不能小于 ${minAttr}`;
+        }
+      }
+
+      const maxAttr = input.getAttribute('max');
+      if (maxAttr !== null && maxAttr !== '') {
+        const maxValue = Number(maxAttr);
+        if (Number.isFinite(maxValue) && numericValue > maxValue) {
+          return `${label}不能大于 ${maxAttr}`;
+        }
+      }
+
+      const stepAttr = input.getAttribute('step');
+      if (stepAttr && stepAttr !== 'any') {
+        const stepValue = Number(stepAttr);
+        if (Number.isFinite(stepValue) && stepValue > 0) {
+          const decimals = getStepDecimals(stepAttr);
+          const parts = rawValue.split('.');
+          const decimalLength = parts[1] ? parts[1].length : 0;
+          if (decimalLength > decimals) {
+            return `${label}最多保留 ${decimals} 位小数`;
+          }
+
+          const baseAttr = input.getAttribute('min');
+          const baseValue = baseAttr !== null && baseAttr !== '' ? Number(baseAttr) : 0;
+          if (Number.isFinite(baseValue)) {
+            const stepMultiplier = Math.pow(10, decimals);
+            const normalizedValue = Math.round((numericValue - baseValue) * stepMultiplier);
+            const normalizedStep = Math.round(stepValue * stepMultiplier);
+            if (normalizedStep > 0 && normalizedValue % normalizedStep !== 0) {
+              return `${label}需按步长 ${stepAttr} 调整`;
+            }
+          }
+        }
+      } else if (!Number.isInteger(numericValue)) {
+        return `${label}必须为整数`;
+      }
+
+      return '';
+    }
+
+    function setInputValidationState(input, message) {
+      if (!input) return;
+      input.setCustomValidity(message || '');
+      input.classList.toggle('invalid', Boolean(message));
+      if (message) {
+        input.dataset.validationMessage = message;
+        input.title = message;
+      } else {
+        delete input.dataset.validationMessage;
+        input.removeAttribute('title');
+      }
+    }
+
+    function validateNumberInput(input, options = {}) {
+      const { notify = false, reportValidity = false } = options;
+      if (!input || input.disabled) {
+        return true;
+      }
+
+      const message = getNumberValidationMessage(input);
+      setInputValidationState(input, message);
+
+      if (message && notify) {
+        showToast(message, 'error');
+      }
+      if (message && reportValidity) {
+        input.reportValidity();
+      }
+      return !message;
+    }
+
+    function validateNumberInputsByIds(ids, options = {}) {
+      const uniqueIds = Array.from(new Set((ids || []).filter(Boolean)));
+      let firstInvalidInput = null;
+      const invalidMessages = [];
+
+      uniqueIds.forEach((id) => {
+        const input = document.getElementById(id);
+        if (!input || input.disabled) {
+          return;
+        }
+        const isValid = validateNumberInput(input, { notify: false, reportValidity: false });
+        if (!isValid) {
+          if (!firstInvalidInput) {
+            firstInvalidInput = input;
+          }
+          invalidMessages.push(input.dataset.validationMessage || `${getNumberInputLabel(input)}输入不合法`);
+        }
+      });
+
+      if (firstInvalidInput && options.notify !== false) {
+        showError(invalidMessages[0]);
+        showToast(invalidMessages[0], 'error');
+        if (options.focus !== false) {
+          firstInvalidInput.focus();
+        }
+        firstInvalidInput.reportValidity();
+      }
+
+      return {
+        valid: invalidMessages.length === 0,
+        firstInvalidInput,
+        errors: invalidMessages
+      };
+    }
+
+    function validateVisibleNumberInputs(options = {}) {
+      const activeInputs = Array.from(document.querySelectorAll('input[type="number"]'))
+        .filter(input => !input.disabled && isElementActuallyVisible(input));
+      return validateNumberInputsByIds(activeInputs.map(input => input.id), options);
+    }
+
+    function getNumericInputValue(inputId) {
+      const input = document.getElementById(inputId);
+      if (!input || !validateNumberInput(input, { notify: false, reportValidity: false })) {
+        return null;
+      }
+      return Number(input.value);
+    }
+
+    function syncSelectionDateFromStartDate() {
+      const selectionDateInput = document.getElementById('selectionDate');
+      const startDateInput = document.getElementById('startDate');
+      if (selectionDateInput && startDateInput) {
+        selectionDateInput.value = startDateInput.value ? `默认使用开始日期：${startDateInput.value}` : '默认使用开始日期';
+      }
+    }
+
+    function getSelectionDateValue() {
+      return document.getElementById('startDate')?.value || '';
+    }
+
+    function validateDateRange(options = {}) {
+      const { requireEndDate = true } = options;
+      const startInput = document.getElementById('startDate');
+      const endInput = document.getElementById('endDate');
+      const startDate = startInput?.value || '';
+      const endDate = endInput?.value || '';
+
+      if (!startDate) {
+        showError('请选择开始日期');
+        showToast('请选择开始日期', 'error');
+        startInput?.focus();
+        return false;
+      }
+
+      if (!validateTradingDate(startDate, startInput)) {
+        showError('开始日期必须为有效交易日');
+        return false;
+      }
+
+      if (!requireEndDate) {
+        return true;
+      }
+
+      if (!endDate) {
+        showError('请选择结束日期');
+        showToast('请选择结束日期', 'error');
+        endInput?.focus();
+        return false;
+      }
+
+      if (!validateTradingDate(endDate, endInput)) {
+        showError('结束日期必须为有效交易日');
+        return false;
+      }
+
+      if (startDate > endDate) {
+        showError('开始日期不能晚于结束日期');
+        showToast('开始日期不能晚于结束日期', 'error');
+        startInput?.classList.add('invalid');
+        endInput?.classList.add('invalid');
+        return false;
+      }
+
+      startInput?.classList.remove('invalid');
+      endInput?.classList.remove('invalid');
+      return true;
     }
 
     // 验证日期是否为交易日
@@ -2329,6 +2581,38 @@
         inputElement.value = validDate;
         return false;
       }
+      return true;
+    }
+
+    function validateDateRangeInputs(options = {}) {
+      const startDateInput = document.getElementById('startDate');
+      const endDateInput = document.getElementById('endDate');
+
+      if (!startDateInput?.value || !endDateInput?.value) {
+        if (options.notify !== false) {
+          showError('请选择完整的开始日期和结束日期');
+          showToast('请选择完整的开始日期和结束日期', 'error');
+        }
+        return false;
+      }
+
+      if (!validateTradingDate(startDateInput.value, startDateInput) || !validateTradingDate(endDateInput.value, endDateInput)) {
+        if (options.notify !== false) {
+          showError('开始日期和结束日期都必须为有效交易日');
+        }
+        return false;
+      }
+
+      if (startDateInput.value > endDateInput.value) {
+        const message = '结束日期不能早于开始日期';
+        if (options.notify !== false) {
+          showError(message);
+          showToast(message, 'error');
+        }
+        endDateInput.focus();
+        return false;
+      }
+
       return true;
     }
 
@@ -2374,30 +2658,39 @@
       // 初始化市场环境模式选择器
       initMarketModeSelector();
 
-      // 初始化选股日期为开始日期（Flatpickr 会自动在交易日列表中选择最近的）
-      const startDate = document.getElementById('startDate').value;
-      if (startDate && selectionDateFlatpickr) {
-        selectionDateFlatpickr.setDate(startDate, true);
-      }
+      syncSelectionDateFromStartDate();
+      updateSelectionActionState();
+      setTimeout(updateSelectionActionState, 0);
 
-      // 同步选股日期与开始日期
+      document.querySelectorAll('input[type="number"]').forEach((input) => {
+        input.addEventListener('blur', () => validateNumberInput(input, { reportValidity: true }));
+        input.addEventListener('change', () => validateNumberInput(input));
+        input.addEventListener('input', () => {
+          if (input.classList.contains('invalid')) {
+            validateNumberInput(input);
+          }
+        });
+      });
+
+      validateVisibleNumberInputs({ notify: false, focus: false });
+
       document.getElementById('startDate').addEventListener('change', function() {
-        // 验证交易日
         validateTradingDate(this.value, this);
-        // 同步到 Flatpickr
-        if (selectionDateFlatpickr) {
-          selectionDateFlatpickr.setDate(this.value, true);
+        syncSelectionDateFromStartDate();
+        if (endDateFlatpickr) {
+          endDateFlatpickr.set('minDate', this.value || null);
         }
       });
 
-      // 验证结束日期
       document.getElementById('endDate').addEventListener('change', function() {
         validateTradingDate(this.value, this);
       });
 
-      // Flatpickr 已经禁用非交易日，validateTradingDate 作为兜底验证保留
-
       const urlParams = new URLSearchParams(window.location.search);
+      document.getElementById('strategySelect').addEventListener('change', () => {
+        updateSelectionActionState();
+        setTimeout(updateSelectionActionState, 0);
+      });
       const importType = urlParams.get('import');
       const orderId = urlParams.get('id');
 
@@ -2417,6 +2710,8 @@
           }
         }, 200);
       }
+
+      updateSelectionActionState();
     });
 
     // 加载策略模板列表 [已弃用 - V4 移除]
@@ -2580,6 +2875,45 @@
         if (strategy === 'conditional') {
           loadConditionalOrderList();
         }
+      }
+
+      updateSelectionActionState();
+    }
+
+    function getCurrentStrategyType() {
+      const strategySelect = document.getElementById('strategySelect');
+      const selectedValue = String(strategySelect?.value || '').trim();
+      if (selectedValue) {
+        return selectedValue;
+      }
+
+      const activePanel = document.querySelector('.strategy-params.active[id^="params_"]');
+      if (activePanel?.id) {
+        return activePanel.id.replace(/^params_/, '');
+      }
+
+      return '';
+    }
+
+    function updateSelectionActionState() {
+      const strategy = getCurrentStrategyType();
+      const runSelectionBtn = document.getElementById('runSelectionBtn');
+      const hintEl = document.getElementById('selectionStrategyHint');
+
+      if (!runSelectionBtn || !hintEl) {
+        return;
+      }
+
+      const enabled = Boolean(strategy);
+      runSelectionBtn.disabled = !enabled;
+      runSelectionBtn.style.opacity = enabled ? '1' : '0.6';
+      runSelectionBtn.style.cursor = enabled ? 'pointer' : 'not-allowed';
+
+      if (enabled) {
+        const selectedLabel = document.querySelector(`#strategySelect option[value="${strategy}"]`)?.textContent?.trim() || strategy;
+        hintEl.textContent = `当前策略：${selectedLabel}，选股时点固定使用开始日期。`;
+      } else {
+        hintEl.textContent = '请先选择策略，选股时点固定使用开始日期。';
       }
     }
 
@@ -2815,55 +3149,84 @@
       `).join('');
     }
 
+    function getStrategyNumericInputIds(strategyType) {
+      switch (strategyType) {
+        case 'double_ma':
+          return ['ma_short', 'ma_long'];
+        case 'rsi':
+          return ['rsi_oversold', 'rsi_overbought'];
+        case 'macd':
+          return ['macd_fast', 'macd_slow', 'macd_signal'];
+        case 'bollinger':
+          return ['boll_period', 'boll_std'];
+        case 'seven_factor':
+          return ['min_score', 'pe_max', 'peg_max', 'max_price'];
+        default:
+          return [];
+      }
+    }
+
     // 获取策略配置
     function getStrategyConfig() {
       const strategyType = document.getElementById('strategySelect').value;
 
       switch (strategyType) {
         case 'double_ma':
+          if (!validateNumberInputsByIds(['ma_short', 'ma_long'], { notify: false, focus: false }).valid) {
+            return null;
+          }
           return {
             name: '双均线策略',
             type: 'double_ma',
             params: {
-              short_period: parseInt(document.getElementById('ma_short').value),
-              long_period: parseInt(document.getElementById('ma_long').value)
+              short_period: getNumericInputValue('ma_short'),
+              long_period: getNumericInputValue('ma_long')
             },
             buyCondition: { type: 'ma_cross', direction: 'up' },
             sellCondition: { type: 'ma_cross', direction: 'down' }
           };
 
         case 'rsi':
+          if (!validateNumberInputsByIds(['rsi_oversold', 'rsi_overbought'], { notify: false, focus: false }).valid) {
+            return null;
+          }
           return {
             name: 'RSI策略',
             type: 'rsi',
             params: {
-              oversold: parseInt(document.getElementById('rsi_oversold').value),
-              overbought: parseInt(document.getElementById('rsi_overbought').value)
+              oversold: getNumericInputValue('rsi_oversold'),
+              overbought: getNumericInputValue('rsi_overbought')
             },
-            buyCondition: { type: 'rsi', operator: '<=', value: parseInt(document.getElementById('rsi_oversold').value) },
-            sellCondition: { type: 'rsi', operator: '>=', value: parseInt(document.getElementById('rsi_overbought').value) }
+            buyCondition: { type: 'rsi', operator: '<=', value: getNumericInputValue('rsi_oversold') },
+            sellCondition: { type: 'rsi', operator: '>=', value: getNumericInputValue('rsi_overbought') }
           };
 
         case 'macd':
+          if (!validateNumberInputsByIds(['macd_fast', 'macd_slow', 'macd_signal'], { notify: false, focus: false }).valid) {
+            return null;
+          }
           return {
             name: 'MACD策略',
             type: 'macd',
             params: {
-              fast_period: parseInt(document.getElementById('macd_fast').value),
-              slow_period: parseInt(document.getElementById('macd_slow').value),
-              signal_period: parseInt(document.getElementById('macd_signal').value)
+              fast_period: getNumericInputValue('macd_fast'),
+              slow_period: getNumericInputValue('macd_slow'),
+              signal_period: getNumericInputValue('macd_signal')
             },
             buyCondition: { type: 'macd_cross', direction: 'golden' },
             sellCondition: { type: 'macd_cross', direction: 'death' }
           };
 
         case 'bollinger':
+          if (!validateNumberInputsByIds(['boll_period', 'boll_std'], { notify: false, focus: false }).valid) {
+            return null;
+          }
           return {
             name: '布林带策略',
             type: 'bollinger',
             params: {
-              period: parseInt(document.getElementById('boll_period').value),
-              std_dev: parseFloat(document.getElementById('boll_std').value)
+              period: getNumericInputValue('boll_period'),
+              std_dev: getNumericInputValue('boll_std')
             },
             buyCondition: { type: 'boll_lower', operator: '<=' },
             sellCondition: { type: 'boll_upper', operator: '>=' }
@@ -2891,6 +3254,9 @@
           };
 
         case 'seven_factor':
+          if (!validateNumberInputsByIds(['min_score', 'pe_max', 'peg_max', 'max_price'], { notify: false, focus: false }).valid) {
+            return null;
+          }
           return {
             name: '四维度七因子策略',
             type: 'seven_factor',
@@ -2898,10 +3264,10 @@
               dimensionWeights: getDimensionWeights() || {},
               factorWeights: getFactorWeights() || {},
               filters: {
-                minScore: parseFloat(document.getElementById('min_score')?.value) || 0.75,
-                peMax: parseFloat(document.getElementById('pe_max')?.value) || 60,
-                pegMax: parseFloat(document.getElementById('peg_max')?.value) || 2.0,
-                maxPrice: parseFloat(document.getElementById('max_price')?.value) || null
+                minScore: getNumericInputValue('min_score'),
+                peMax: getNumericInputValue('pe_max'),
+                pegMax: getNumericInputValue('peg_max'),
+                maxPrice: getNumericInputValue('max_price')
               }
             }
           };
@@ -2916,11 +3282,34 @@
       const btn = document.getElementById('runSelectionBtn');
       const loadingEl = document.getElementById('selectionLoading');
       const resultEl = document.getElementById('selectionResult');
+      const strategy = getCurrentStrategyType();
 
-      const limit = parseInt(document.getElementById('selectionLimit').value) || 15;
-      const minScore = parseFloat(document.getElementById('selectionMinScore').value) || 0;
-      const date = document.getElementById('selectionDate').value || document.getElementById('startDate').value;
-      const strategy = document.getElementById('strategySelect').value;
+      clearError();
+
+      if (!strategy) {
+        showError('请先选择策略，再开始选股');
+        showToast('请先选择策略，再开始选股', 'error');
+        document.getElementById('strategySelect').focus();
+        return;
+      }
+
+      const selectionValidation = validateNumberInputsByIds(
+        ['selectionLimit', 'selectionMinScore', ...getStrategyNumericInputIds(strategy)],
+        { notify: true }
+      );
+      if (!selectionValidation.valid) {
+        return;
+      }
+
+      const startDateInput = document.getElementById('startDate');
+      if (!validateTradingDate(startDateInput.value, startDateInput)) {
+        showError('开始日期必须为有效交易日');
+        return;
+      }
+
+      const limit = getNumericInputValue('selectionLimit');
+      const minScore = getNumericInputValue('selectionMinScore');
+      const date = getSelectionDateValue();
 
       btn.disabled = true;
       loadingEl.style.display = 'flex';
@@ -2929,21 +3318,22 @@
       try {
         const params = new URLSearchParams();
         params.set('limit', limit);
-        if (minScore > 0) params.set('minScore', minScore);
-        if (date) params.set('date', date);
-        if (strategy) params.set('strategy', strategy);
+        params.set('minScore', minScore);
+        params.set('date', date);
+        params.set('strategy', strategy);
+        params.set('excludeMarkets', 'BJ');
 
         // 如果是四维度七因子策略，添加筛选参数和权重配置
         if (strategy === 'seven_factor') {
-          const minScoreFilter = document.getElementById('min_score')?.value;
-          const peMax = document.getElementById('pe_max')?.value;
-          const pegMax = document.getElementById('peg_max')?.value;
-          const maxPrice = document.getElementById('max_price')?.value;
-          
-          if (minScoreFilter) params.set('minSevenFactorScore', minScoreFilter);
-          if (peMax) params.set('peMax', peMax);
-          if (pegMax) params.set('pegMax', pegMax);
-          if (maxPrice) params.set('maxPrice', maxPrice);
+          const minScoreFilter = getNumericInputValue('min_score');
+          const peMax = getNumericInputValue('pe_max');
+          const pegMax = getNumericInputValue('peg_max');
+          const maxPrice = getNumericInputValue('max_price');
+
+          params.set('minSevenFactorScore', minScoreFilter);
+          params.set('peMax', peMax);
+          params.set('pegMax', pegMax);
+          params.set('maxPrice', maxPrice);
           
           // 发送四维度权重配置
           const dimensionWeights = getDimensionWeights();
@@ -2967,11 +3357,13 @@
           // 显示结果
           displaySelectionResult(data, date, limit);
         } else {
-          alert('选股失败：' + (data.error || data.message || '未知错误'));
+          showError('选股失败：' + (data.error || data.message || '未知错误'));
+          showToast('选股失败，请检查参数或数据源状态', 'error');
         }
       } catch (err) {
         console.error('选股请求失败:', err);
-        alert('选股请求失败：' + err.message);
+        showError('选股请求失败：' + err.message);
+        showToast('选股请求失败，请稍后重试', 'error');
       } finally {
         btn.disabled = false;
         loadingEl.style.display = 'none';
@@ -2983,6 +3375,7 @@
       const resultEl = document.getElementById('selectionResult');
       const infoEl = document.getElementById('selectionResultInfo');
       const stocksEl = document.getElementById('selectionResultStocks');
+      const applyBtn = document.getElementById('selectionApplyBtn');
 
       // 提取股票列表
       const directions = data.directions || [];
@@ -3000,19 +3393,42 @@
         arr.findIndex(x => x.code === s.code) === i
       ).slice(0, limit);
 
-      // 更新结果信息
-      const industryCount = Math.min(directions.length, 3);
-      infoEl.innerHTML = `
-        Top${industryCount} 行业 × Top${Math.ceil(limit / industryCount)} 个股 = ${uniqueStocks.length} 只股票
-        ${date ? `| 选股时点：${date}` : ''}
-      `;
+      if (uniqueStocks.length === 0) {
+        infoEl.innerHTML = `
+          当前参数下未筛出可用股票
+          ${date ? `| 选股时点（开始日期）：${date}` : ''}
+        `;
+        stocksEl.innerHTML = `
+          <div style="padding: 14px 16px; border-radius: 10px; background: rgba(255,255,255,0.03); color: var(--text-soft); line-height: 1.7;">
+            没有找到满足条件的股票。可以尝试降低七因子最低分、放宽 PE / PEG / 价格上限，或更换回测起始日期后重新选股。
+          </div>
+        `;
+        if (applyBtn) {
+          applyBtn.disabled = true;
+          applyBtn.style.opacity = '0.5';
+          applyBtn.style.cursor = 'not-allowed';
+        }
+      } else {
+        // 更新结果信息
+        const industryCount = Math.min(directions.length, 3);
+        const perIndustry = industryCount > 0 ? Math.ceil(limit / industryCount) : 0;
+        infoEl.innerHTML = `
+          Top${industryCount} 行业 × Top${perIndustry} 个股 = ${uniqueStocks.length} 只股票
+          ${date ? `| 选股时点（开始日期）：${date}` : ''}
+        `;
 
-      // 渲染股票标签
-      stocksEl.innerHTML = uniqueStocks.map(stock => `
-        <span class="selection-stock-tag" title="${stock.industry || ''} | 评分: ${stock.score || '-'}">
-          ${stock.name} (${stock.code})
-        </span>
-      `).join('');
+        // 渲染股票标签
+        stocksEl.innerHTML = uniqueStocks.map(stock => `
+          <span class="selection-stock-tag" title="${stock.industry || ''} | 评分: ${stock.score || '-'}">
+            ${stock.name} (${stock.code})
+          </span>
+        `).join('');
+        if (applyBtn) {
+          applyBtn.disabled = false;
+          applyBtn.style.opacity = '1';
+          applyBtn.style.cursor = 'pointer';
+        }
+      }
 
       // 保存结果供后续使用
       selectionResult = {
@@ -3023,6 +3439,7 @@
       };
 
       resultEl.classList.add('active');
+      resultEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     // 应用选股结果到已选股票列表
@@ -3050,6 +3467,20 @@
 
     // 运行回测
     async function runBacktest() {
+      clearError();
+      const strategyType = document.getElementById('strategySelect').value;
+      const numericValidation = validateNumberInputsByIds(
+        ['initialCash', ...getStrategyNumericInputIds(strategyType)],
+        { notify: true }
+      );
+      if (!numericValidation.valid) {
+        return;
+      }
+
+      if (!validateDateRangeInputs({ notify: true })) {
+        return;
+      }
+
       const strategyConfig = getStrategyConfig();
 
       if (!strategyConfig) {
@@ -3070,7 +3501,7 @@
 
       const startDate = document.getElementById('startDate').value;
       const endDate = document.getElementById('endDate').value;
-      const initialCash = parseInt(document.getElementById('initialCash').value);
+      const initialCash = getNumericInputValue('initialCash');
 
       document.getElementById('loading').style.display = 'block';
       document.getElementById('resultContainer').style.display = 'none';
@@ -3100,7 +3531,7 @@
         const result = await response.json();
 
         if (result.success) {
-          displayResults(result.data);
+          displayResults(normalizeJointBacktestPayload(result.data));
         } else {
           showError(result.error || '回测失败');
         }
@@ -3111,8 +3542,53 @@
       }
     }
 
+    function normalizeJointBacktestPayload(data) {
+      if (!data || typeof data !== 'object') {
+        return data;
+      }
+
+      const normalized = { ...data };
+      const coreDetails = data?.rawResults?.core?.details
+        || data?.core?.details
+        || data?.details?.core
+        || null;
+      const coreSummary = data?.rawResults?.core?.summary
+        || data?.core?.summary
+        || null;
+
+      if ((!normalized.summary || typeof normalized.summary !== 'object') && coreSummary) {
+        normalized.summary = { ...coreSummary };
+      }
+
+      if (!Array.isArray(normalized.trades) || normalized.trades.length === 0) {
+        const fallbackTrades = coreDetails?.trades || data?.details?.trades || [];
+        normalized.trades = Array.isArray(fallbackTrades) ? fallbackTrades : [];
+      }
+
+      if (!Array.isArray(normalized.equityCurve) || normalized.equityCurve.length === 0) {
+        const fallbackCurve = coreDetails?.equityCurve || data?.details?.equityCurve || [];
+        normalized.equityCurve = Array.isArray(fallbackCurve) ? fallbackCurve : [];
+      }
+
+      if (normalized.summary && normalized.summary.tradeCount === undefined && normalized.summary.totalTrades !== undefined) {
+        normalized.summary.tradeCount = normalized.summary.totalTrades;
+      }
+
+      return normalized;
+    }
+
     // TASK_V4_FIX_003: 一键自迭代功能
     function startAutoIteration() {
+      clearError();
+      const strategyType = document.getElementById('strategySelect').value;
+      const numericValidation = validateNumberInputsByIds(
+        ['initialCash', ...getStrategyNumericInputIds(strategyType)],
+        { notify: true }
+      );
+      if (!numericValidation.valid) {
+        return;
+      }
+
       // 收集当前配置
       const strategyConfig = getStrategyConfig();
       if (!strategyConfig) {
@@ -3128,8 +3604,7 @@
       const startDate = document.getElementById('startDate').value;
       const endDate = document.getElementById('endDate').value;
 
-      if (!startDate || !endDate) {
-        showError('请选择回测日期范围');
+      if (!validateDateRangeInputs({ notify: true })) {
         return;
       }
 
@@ -3147,16 +3622,29 @@
 
     // 批量回测
     async function runBatchBacktest() {
+      clearError();
       if (selectedStocks.length === 0) {
         showError('请至少添加一只回测股票');
         return;
       }
 
-      const fastMin = parseInt(document.getElementById('fast_min').value);
-      const fastMax = parseInt(document.getElementById('fast_max').value);
-      const slowMin = parseInt(document.getElementById('slow_min').value);
-      const slowMax = parseInt(document.getElementById('slow_max').value);
-      const step = parseInt(document.getElementById('param_step').value);
+      const batchValidation = validateNumberInputsByIds(
+        ['initialCash', 'fast_min', 'fast_max', 'slow_min', 'slow_max', 'param_step'],
+        { notify: true }
+      );
+      if (!batchValidation.valid) {
+        return;
+      }
+
+      if (!validateDateRangeInputs({ notify: true })) {
+        return;
+      }
+
+      const fastMin = getNumericInputValue('fast_min');
+      const fastMax = getNumericInputValue('fast_max');
+      const slowMin = getNumericInputValue('slow_min');
+      const slowMax = getNumericInputValue('slow_max');
+      const step = getNumericInputValue('param_step');
 
       // 验证参数范围
       if (fastMin >= fastMax || slowMin >= slowMax) {
@@ -3171,7 +3659,7 @@
 
       const startDate = document.getElementById('startDate').value;
       const endDate = document.getElementById('endDate').value;
-      const initialCash = parseInt(document.getElementById('initialCash').value);
+      const initialCash = getNumericInputValue('initialCash');
 
       document.getElementById('loading').style.display = 'block';
       document.getElementById('loading').textContent = '批量回测进行中，请稍候...';
@@ -3717,6 +4205,11 @@
       document.getElementById('error').style.display = 'block';
     }
 
+    function clearError() {
+      document.getElementById('error').textContent = '';
+      document.getElementById('error').style.display = 'none';
+    }
+
     // 点击外部关闭搜索结果
     document.addEventListener('click', (e) => {
       if (!e.target.closest('.stock-search-wrap')) {
@@ -3730,23 +4223,27 @@
     // ========== 四维度七因子权值联动面板 ==========
     
     // 获取当前四维度权重
-    function getDimensionWeights() {
+    function collectWeightValues(containerSelector) {
       const weights = {};
-      const sliders = document.querySelectorAll('#dimension_sliders input[type="range"]');
+      const sliders = document.querySelectorAll(`${containerSelector} input[type="range"]`);
       sliders.forEach(slider => {
-        weights[slider.dataset.key] = parseFloat(slider.value);
+        const key = slider.dataset.key || slider.closest('.weight-slider-item')?.dataset.key;
+        const value = parseFloat(slider.value);
+        if (!key || Number.isNaN(value)) {
+          return;
+        }
+        weights[key] = value;
       });
       return Object.keys(weights).length > 0 ? weights : null;
+    }
+
+    function getDimensionWeights() {
+      return collectWeightValues('#dimension_sliders');
     }
     
     // 获取当前七因子权重
     function getFactorWeights() {
-      const weights = {};
-      const sliders = document.querySelectorAll('#factor_sliders input[type="range"]');
-      sliders.forEach(slider => {
-        weights[slider.dataset.key] = parseFloat(slider.value);
-      });
-      return Object.keys(weights).length > 0 ? weights : null;
+      return collectWeightValues('#factor_sliders');
     }
     
     // 四维度权重配置（默认值来自 Gemini 建议）
@@ -3812,7 +4309,7 @@
             ${config.label}
             ${config.highlight ? '<span style="color: var(--accent); font-size: 10px;">⭐</span>' : ''}
           </label>
-          <input type="range" min="0" max="1" step="0.01" value="${config.default}" 
+          <input type="range" min="0" max="1" step="0.01" value="${config.default}" data-key="${key}"
                  oninput="handleWeightChange('dimension', '${key}', this.value)">
           <span class="weight-value">${(config.default * 100).toFixed(0)}%</span>
           <button class="lock-btn ${config.locked ? 'locked' : ''}" onclick="toggleLock('dimension', '${key}')">
@@ -3831,7 +4328,7 @@
             ${config.label}
             ${config.highlight ? '<span style="color: var(--accent); font-size: 10px;">⭐</span>' : ''}
           </label>
-          <input type="range" min="0" max="1" step="0.01" value="${config.default}" 
+          <input type="range" min="0" max="1" step="0.01" value="${config.default}" data-key="${key}"
                  oninput="handleWeightChange('factor', '${key}', this.value)">
           <span class="weight-value">${(config.default * 100).toFixed(0)}%</span>
           <button class="lock-btn ${config.locked ? 'locked' : ''}" onclick="toggleLock('factor', '${key}')">

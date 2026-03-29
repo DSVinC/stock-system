@@ -197,16 +197,27 @@ async function main() {
     const placeholderVisible = await page.locator('#chartPlaceholder').isVisible().catch(() => false);
     const resultContainerVisible = await page.locator('#resultContainer').isVisible().catch(() => false);
     const backtestSuccess = !!responses.backtest?.body?.success;
-    const equityCurveLength = responses.backtest?.body?.data?.equityCurve?.length || 0;
+    const chartState = await page.evaluate(() => ({
+      canvasVisible: getComputedStyle(document.getElementById('equityChart')).display !== 'none',
+      placeholderVisible: getComputedStyle(document.getElementById('chartPlaceholder')).display !== 'none',
+      tradeCountText: document.getElementById('tradeCount')?.textContent || '0'
+    })).catch(() => ({ canvasVisible: false, placeholderVisible: true, tradeCountText: '0' }));
+    const tradeCountRendered = Number.parseInt(String(chartState.tradeCountText || '0').replace(/[^\d-]/g, ''), 10) || 0;
     task.checks.chartRendered = {
-      pass: chartCanvasPresent && resultContainerVisible && backtestSuccess && equityCurveLength > 0,
+      pass: chartCanvasPresent
+        && resultContainerVisible
+        && backtestSuccess
+        && chartState.canvasVisible
+        && !chartState.placeholderVisible
+        && tradeCountRendered > 0,
       actual: {
         chartCanvasPresent,
         resultContainerVisible,
         placeholderVisible,
         backtestSuccess,
-        equityCurveLength,
-        selectedStockCount
+        selectedStockCount,
+        chartState,
+        tradeCountRendered
       }
     };
 
