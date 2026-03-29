@@ -357,18 +357,21 @@
               <option value="heuristic">heuristic（默认快速模式）</option>
               <option value="optuna">optuna（真实优化模式）</option>
             </select>
+            <div style="margin-top: 6px; font-size: 12px; color: var(--text-secondary); line-height: 1.5;">
+              `heuristic` 适合快速试错，会直接用本地启发式规则调参；`optuna` 会调用真实优化器做参数搜索，耗时更高，但更接近正式优化流程。
+            </div>
           </div>
           <div class="input-item">
             <label>最大迭代次数</label>
-            <input type="number" id="maxIterations" value="20" min="1" max="100">
+            <input type="number" id="maxIterations" value="20" min="1" max="100" step="1">
           </div>
           <div class="input-item">
             <label>评分阈值</label>
-            <input type="number" id="scoreThreshold" value="70" min="0" max="100">
+            <input type="number" id="scoreThreshold" value="70" min="0" max="100" step="1">
           </div>
           <div class="input-item">
             <label>并发任务数</label>
-            <input type="number" id="parallelTasks" value="4" min="1" max="10">
+            <input type="number" id="parallelTasks" value="4" min="1" max="10" step="1">
           </div>
         </div>
       </div>
@@ -525,7 +528,11 @@
         storage.getItem(ITERATION_TASK_STORAGE_KEYS.current);
     }
 
-    function getIterationBadgeState(status) {
+    function getIterationBadgeState(status, resultSummary) {
+      if (resultSummary && (resultSummary.invalidResult || resultSummary.invalidReason)) {
+        return 'invalid';
+      }
+
       if (status === 'running' || status === 'pending') {
         return 'running';
       }
@@ -543,6 +550,107 @@
       }
 
       return 'idle';
+    }
+
+    function getNumberFieldSpecs() {
+      return [
+        { id: 'maxIterations', label: '最大迭代次数', min: 1, max: 1000, decimals: 0 },
+        { id: 'scoreThreshold', label: '评分阈值', min: 0, max: 100, decimals: 0 },
+        { id: 'parallelTasks', label: '并发任务数', min: 1, max: 256, decimals: 0 }
+      ];
+    }
+
+    function setNumberFieldValidity(input, message) {
+      if (!input) return;
+      input.style.borderColor = message ? 'var(--danger)' : 'var(--text-secondary)';
+      input.title = message || '';
+    }
+
+    function validateNumberField(spec, { silent = false } = {}) {
+      const input = document.getElementById(spec.id);
+      if (!input) {
+        return { valid: false, message: `缺少输入控件: ${spec.id}` };
+      }
+
+      const rawValue = String(input.value || '').trim();
+      if (!rawValue) {
+        const message = `${spec.label}不能为空`;
+        setNumberFieldValidity(input, message);
+        if (!silent) addLog(`❌ ${message}`, 'error');
+        return { valid: false, message };
+      }
+
+      if (!/^-?\d+(\.\d+)?$/.test(rawValue)) {
+        const message = `${spec.label}必须为数字`;
+        setNumberFieldValidity(input, message);
+        if (!silent) addLog(`❌ ${message}`, 'error');
+        return { valid: false, message };
+      }
+
+      const numericValue = Number(rawValue);
+      if (!Number.isFinite(numericValue)) {
+        const message = `${spec.label}不是有效数值`;
+        setNumberFieldValidity(input, message);
+        if (!silent) addLog(`❌ ${message}`, 'error');
+        return { valid: false, message };
+      }
+
+      const decimalPart = rawValue.includes('.') ? rawValue.split('.')[1] : '';
+      if (decimalPart.length > spec.decimals) {
+        const message = `${spec.label}最多允许 ${spec.decimals} 位小数`;
+        setNumberFieldValidity(input, message);
+        if (!silent) addLog(`❌ ${message}`, 'error');
+        return { valid: false, message };
+      }
+
+      if (numericValue < spec.min || numericValue > spec.max) {
+        const message = `${spec.label}必须在 ${spec.min} 到 ${spec.max} 之间`;
+        setNumberFieldValidity(input, message);
+        if (!silent) addLog(`❌ ${message}`, 'error');
+        return { valid: false, message };
+      }
+
+      if (!Number.isInteger(numericValue)) {
+        const message = `${spec.label}必须为整数`;
+        setNumberFieldValidity(input, message);
+        if (!silent) addLog(`❌ ${message}`, 'error');
+        return { valid: false, message };
+      }
+
+      setNumberFieldValidity(input, '');
+      return { valid: true, value: numericValue };
+    }
+
+    function validateIterationInputs({ silent = false } = {}) {
+      const values = {};
+
+      for (const spec of getNumberFieldSpecs()) {
+        const result = validateNumberField(spec, { silent });
+        if (!result.valid) {
+          const input = document.getElementById(spec.id);
+          if (input && typeof input.focus === 'function') {
+            input.focus();
+          }
+          return { valid: false, field: spec.id, message: result.message };
+        }
+        values[spec.id] = result.value;
+      }
+
+      return { valid: true, values };
+    }
+
+    function attachNumberFieldValidation() {
+      for (const spec of getNumberFieldSpecs()) {
+        const input = document.getElementById(spec.id);
+        if (!input) continue;
+
+        input.addEventListener('blur', () => validateNumberField(spec, { silent: true }));
+        input.addEventListener('input', () => {
+          if (input.title) {
+            validateNumberField(spec, { silent: true });
+          }
+        });
+      }
     }
 
     function setIterationTaskControls(isTaskRunning) {
@@ -679,6 +787,15 @@
       };
     }
 
+    function hasImportedResearchInput(params) {
+      const summary = typeof normalizeTaskInputSummary === 'function'
+        ? normalizeTaskInputSummary(params)
+        : (params || {});
+      return Array.isArray(summary.stocks) && summary.stocks.length > 0
+        && Boolean(summary.startDate)
+        && Boolean(summary.endDate);
+    }
+
     function renderResearchInputSummary(params) {
       const container = document.getElementById('researchInputSummary');
       if (!container) return;
@@ -749,7 +866,11 @@
 
     // 初始化页面
     async function initPage() {
+      attachNumberFieldValidation();
+      validateIterationInputs({ silent: true });
+
       const params = getUrlParams();
+      const importedResearchInput = hasImportedResearchInput(params);
 
       // 设置策略选择
       if (params.strategyType) {
@@ -772,7 +893,14 @@
       // 加载版本历史
       loadVersionHistory(params.strategyType || 'double_ma');
 
-      if (typeof restoreLastIterationTaskFromStorage === 'function') {
+      if (importedResearchInput && typeof clearIterationTaskCache === 'function') {
+        clearIterationTaskCache();
+        currentTaskId = null;
+        updateStatusBadge('idle');
+        setIterationTaskControls(false);
+      }
+
+      if (!importedResearchInput && typeof restoreLastIterationTaskFromStorage === 'function') {
         await restoreLastIterationTaskFromStorage();
       }
 
@@ -805,6 +933,15 @@
         currentTaskId = task.taskId || taskId;
         persistCurrentTaskId(currentTaskId);
 
+        const restoredStrategyType = task?.strategyType || task?.inputSummary?.strategyType;
+        if (restoredStrategyType) {
+          const strategySelect = document.getElementById('strategySelect');
+          if (strategySelect && strategySelect.value !== restoredStrategyType) {
+            strategySelect.value = restoredStrategyType;
+            loadVersionHistory(restoredStrategyType);
+          }
+        }
+
         const restoredBackend = task?.inputSummary?.optimizationBackend || task?.optimizationBackend;
         if (restoredBackend === 'optuna' || restoredBackend === 'heuristic') {
           applyOptimizationBackendToUI(restoredBackend);
@@ -817,7 +954,7 @@
           updateBestConfig(task.bestScore, task.bestParams || {}, task.resultSummary, task.status);
         }
 
-        updateStatusBadge(getIterationBadgeState(task.status));
+        updateStatusBadge(getIterationBadgeState(task.status, task.resultSummary));
         setIterationTaskControls(task.status === 'running' || task.status === 'pending');
 
         if (task.status === 'running' || task.status === 'pending') {
@@ -835,9 +972,12 @@
       if (isRunning) return;
 
       const strategyType = document.getElementById('strategySelect').value;
-      const maxIterations = parseInt(document.getElementById('maxIterations').value);
-      const scoreThreshold = parseInt(document.getElementById('scoreThreshold').value);
-      const parallelTasks = parseInt(document.getElementById('parallelTasks').value);
+      const inputValidation = validateIterationInputs();
+      if (!inputValidation.valid) {
+        return;
+      }
+
+      const { maxIterations, scoreThreshold, parallelTasks } = inputValidation.values;
       const optimizationBackend = typeof getSelectedOptimizationBackend === 'function'
         ? getSelectedOptimizationBackend()
         : (() => {
@@ -977,19 +1117,29 @@
       if (task.history && task.history.length > 0) {
         const latest = task.history[task.history.length - 1];
         if (!latest.logged) {
-          addLog(`第 ${latest.iteration} 轮: 得分 ${latest.score?.toFixed(1) || '--'}`, latest.error ? 'error' : 'info');
+          if (latest.invalidResult) {
+            addLog(`第 ${latest.iteration} 轮: 无有效样本（交易 ${latest.tradeCount ?? 0} 笔）`, 'error');
+          } else {
+            addLog(`第 ${latest.iteration} 轮: 得分 ${latest.score?.toFixed(1) || '--'}`, latest.error ? 'error' : 'info');
+          }
           latest.logged = true;
         }
       }
 
       // 检查任务完成
-      if (task.status === 'completed') {
+      const hasInvalidResult = Boolean(task?.resultSummary?.invalidResult || task?.resultSummary?.invalidReason);
+
+      if (task.status === 'completed' && !hasInvalidResult) {
         addLog(`✅ 迭代完成！最终得分: ${task.bestScore?.toFixed(1)}`, 'success');
         finishIteration('success');
         loadVersionHistory(task.strategyType);
-      } else if (task.status === 'failed' || task.status === 'stopped') {
-        addLog(`⏹️ 任务${task.status === 'failed' ? '失败' : '已停止'}`, task.status === 'failed' ? 'error' : 'warning');
-        finishIteration(getIterationBadgeState(task.status));
+      } else if (task.status === 'failed' || task.status === 'stopped' || hasInvalidResult) {
+        if (hasInvalidResult) {
+          addLog(`❌ 无有效结果: ${task?.resultSummary?.invalidMessage || task?.error || '未产生有效样本'}`, 'error');
+        } else {
+          addLog(`⏹️ 任务${task.status === 'failed' ? '失败' : '已停止'}`, task.status === 'failed' ? 'error' : 'warning');
+        }
+        finishIteration(getIterationBadgeState(task.status, task.resultSummary));
       }
     }
 
@@ -1021,6 +1171,10 @@
           break;
         case 'error':
           badge.textContent = '错误';
+          badge.classList.add('status-error');
+          break;
+        case 'invalid':
+          badge.textContent = '无效结果';
           badge.classList.add('status-error');
           break;
         case 'stopped':
@@ -1055,30 +1209,80 @@
       return value;
     }
 
+    function formatCompactParamValue(value) {
+      if (typeof value === 'number') {
+        return Number.isInteger(value) ? String(value) : value.toFixed(4);
+      }
+      if (typeof value === 'string') {
+        return value;
+      }
+      return String(value);
+    }
+
+    function flattenConfigSummary(config, prefix = '') {
+      if (!config || typeof config !== 'object' || Array.isArray(config)) {
+        return [];
+      }
+
+      const entries = [];
+      for (const [key, value] of Object.entries(config)) {
+        const nextKey = prefix ? `${prefix}.${key}` : key;
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+          entries.push(...flattenConfigSummary(value, nextKey));
+          continue;
+        }
+        if (value === null || value === undefined) {
+          continue;
+        }
+        entries.push([nextKey, formatCompactParamValue(value)]);
+      }
+      return entries;
+    }
+
+    function buildParamSummary(config, limit = 8) {
+      const entries = flattenConfigSummary(config)
+        .filter(([key]) => key !== 'metrics');
+
+      if (entries.length === 0) {
+        return '';
+      }
+
+      return entries
+        .slice(0, limit)
+        .map(([key, value]) => `${key}: ${value}`)
+        .join('，');
+    }
+
     // 更新最佳配置
     function updateBestConfig(score, params, resultSummary, taskStatus) {
       const container = document.getElementById('bestConfig');
+      const summary = resultSummary && typeof resultSummary === 'object' ? resultSummary : null;
+      const metricsFromHistory = (() => {
+        const history = Array.isArray(summary?.history) ? summary.history : [];
+        for (let i = history.length - 1; i >= 0; i -= 1) {
+          if (history[i] && history[i].metrics && typeof history[i].metrics === 'object') {
+            return history[i].metrics;
+          }
+        }
+        return null;
+      })();
       const summaryScore = resultSummary && Number.isFinite(Number(resultSummary.bestScore))
         ? Number(resultSummary.bestScore)
         : null;
       const scoreSource = summaryScore !== null ? summaryScore : score;
       const hasScore = Number.isFinite(Number(scoreSource));
-      const scoreValue = hasScore ? Number(scoreSource).toFixed(1) : '--';
+      const hasInvalidResult = Boolean(summary && (summary.invalidResult || summary.invalidReason));
+      const scoreValue = hasInvalidResult ? '--' : (hasScore ? Number(scoreSource).toFixed(1) : '--');
       const normalizedParams = params && typeof params === 'object' ? params : {};
-      const paramEntries = Object.entries(normalizedParams).filter(([key, value]) => {
-        if (key === 'metrics') return false;
-        return value !== null && value !== undefined && typeof value !== 'object' && !Array.isArray(value);
-      });
-      const paramsSummary = paramEntries.length > 0
-        ? paramEntries.map(([key, value]) => `${key}: ${value}`).join('，')
-        : '暂无可展示参数';
+      const paramsSummary = buildParamSummary(normalizedParams, 10) || (hasInvalidResult ? '本次结果无有效参数' : '暂无可展示参数');
       const resultSummaryHtml = (() => {
-        const summary = resultSummary && typeof resultSummary === 'object' ? resultSummary : null;
         if (!summary || Object.keys(summary).length === 0) return '';
 
         const currentStatus = summary.currentStatus || taskStatus || '--';
         const finalStatus = summary.finalStatus || summary.status || taskStatus || '--';
-        const bestScoreSummary = Number.isFinite(Number(summary.bestScore)) ? Number(summary.bestScore).toFixed(1) : '--';
+        const bestScoreSummary = hasInvalidResult
+          ? '--'
+          : (Number.isFinite(Number(summary.bestScore)) ? Number(summary.bestScore).toFixed(1) : '--');
         const completedAt = summary.completedAt || summary.completed_time || summary.stoppedAt || summary.stopped_time || summary.finishedAt || summary.finished_at || '';
         const requestedTrials = Number.isFinite(Number(summary.requestedTrials)) ? Number(summary.requestedTrials) : null;
         const completedTrials = Number.isFinite(Number(summary.completedTrials))
@@ -1090,11 +1294,15 @@
           ? formatResultReason
           : (value) => String(value || '').trim();
         const reason = reasonFormatter(summary.errorReason || summary.stopReason || summary.reason || summary.message || '');
+        const invalidMessage = reasonFormatter(summary.invalidMessage || '');
         const nextAction = summary.nextActionSuggestion && typeof summary.nextActionSuggestion === 'object'
           ? summary.nextActionSuggestion
           : null;
         const deploymentReadiness = summary.deploymentReadiness && typeof summary.deploymentReadiness === 'object'
           ? summary.deploymentReadiness
+          : null;
+        const validation = summary.validation && typeof summary.validation === 'object'
+          ? summary.validation
           : null;
         const readinessChecks = deploymentReadiness && Array.isArray(deploymentReadiness.checks)
           ? deploymentReadiness.checks
@@ -1119,12 +1327,17 @@
             </div>
             <div class="metric">
               <span class="metric-label">最终状态</span>
-              <span class="metric-value">${finalStatus}</span>
+              <span class="metric-value">${hasInvalidResult ? 'invalid' : finalStatus}</span>
             </div>
             <div class="metric">
               <span class="metric-label">最佳得分</span>
               <span class="metric-value">${bestScoreSummary}</span>
             </div>
+            ${hasInvalidResult ? `
+            <div class="metric">
+              <span class="metric-label">无效原因</span>
+              <span class="metric-value">${invalidMessage || '未产生有效交易样本或结果未达阈值'}</span>
+            </div>` : ''}
             ${requestedTrials !== null ? `
             <div class="metric">
               <span class="metric-label">计划试验数</span>
@@ -1168,6 +1381,27 @@
               <span class="metric-label">建议原因</span>
               <span class="metric-value">${nextAction.reason || '--'}</span>
             </div>` : ''}
+            ${validation ? `
+            <div class="metric">
+              <span class="metric-label">IS 区间</span>
+              <span class="metric-value">${validation.in_sample?.start || '--'} ~ ${validation.in_sample?.end || '--'}</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">IS 分数/交易</span>
+              <span class="metric-value">${validation.in_sample?.score ?? '--'} / ${validation.in_sample?.trade_count ?? '--'}</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">OOS 区间</span>
+              <span class="metric-value">${validation.out_of_sample?.start || '--'} ~ ${validation.out_of_sample?.end || '--'}</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">OOS 分数/交易</span>
+              <span class="metric-value">${validation.out_of_sample?.score ?? '--'} / ${validation.out_of_sample?.trade_count ?? '--'}</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">WFE</span>
+              <span class="metric-value">${Number.isFinite(Number(validation.wfe)) ? Number(validation.wfe).toFixed(4) : '--'}</span>
+            </div>` : ''}
           </div>
         </div>
       `;
@@ -1175,17 +1409,17 @@
       container.innerHTML = `
         <div class="strategy-item">
           <div class="strategy-header">
-            <span class="strategy-name">最佳结果</span>
-            <span class="version-score ${hasScore && Number(score) >= 80 ? 'score-high' : hasScore && Number(score) >= 60 ? 'score-medium' : 'score-low'}">${scoreValue}</span>
+            <span class="strategy-name">${hasInvalidResult ? '无有效结果' : '最佳结果'}</span>
+            <span class="version-score ${hasInvalidResult ? 'score-low' : hasScore && Number(score) >= 80 ? 'score-high' : hasScore && Number(score) >= 60 ? 'score-medium' : 'score-low'}">${hasInvalidResult ? '无效' : scoreValue}</span>
           </div>
           <div class="strategy-stats">
             <div class="metric">
-              <span class="metric-label">最佳得分</span>
-              <span class="metric-value">${scoreValue}</span>
+              <span class="metric-label">${hasInvalidResult ? '结果状态' : '最佳得分'}</span>
+              <span class="metric-value">${hasInvalidResult ? '无效' : scoreValue}</span>
             </div>
             <div class="metric">
-              <span class="metric-label">参数摘要</span>
-              <span class="metric-value">${paramsSummary}</span>
+              <span class="metric-label">${hasInvalidResult ? '原因摘要' : '参数摘要'}</span>
+              <span class="metric-value">${hasInvalidResult ? (summary?.invalidMessage || '未产生有效交易样本或结果未达阈值') : paramsSummary}</span>
             </div>
           </div>
           <pre style="margin-top: 8px; font-size: 11px; color: var(--text-secondary); white-space: pre-wrap;">${JSON.stringify(normalizedParams, null, 2)}</pre>
@@ -1194,9 +1428,60 @@
       `;
 
       // 更新雷达图
-      if (normalizedParams.metrics) {
-        updateRadarChart(normalizedParams.metrics);
+      const metricsForRadar = normalizedParams.metrics && typeof normalizedParams.metrics === 'object'
+        ? normalizedParams.metrics
+        : metricsFromHistory;
+      if (metricsForRadar && !hasInvalidResult) {
+        updateRadarChart(metricsForRadar);
       }
+    }
+
+    function applyBestVersionToOverview(versions) {
+      const versionList = Array.isArray(versions) ? versions : [];
+      const scoredVersions = versionList
+        .map((version) => {
+          const score = Number.isFinite(Number(version.display_score))
+            ? Number(version.display_score)
+            : Number.isFinite(Number(version.backtest_score))
+              ? Number(version.backtest_score)
+              : null;
+          return { version, score };
+        })
+        .filter(item => item.score !== null)
+        .sort((a, b) => b.score - a.score);
+      const bestVersion = scoredVersions[0]?.version;
+
+      if (!bestVersion) {
+        return;
+      }
+
+      const metrics = {
+        sharpeRatio: Number(bestVersion.sharpe_ratio || 0),
+        maxDrawdown: Number(bestVersion.max_drawdown || 0),
+        calmarRatio: Number(bestVersion.calmar_ratio || 0),
+        profitLossRatio: Number(bestVersion.profit_loss_ratio || 0),
+        winRate: Number(bestVersion.win_rate || 0),
+        totalReturn: Number(bestVersion.total_return || 0),
+        turnover: 50
+      };
+
+      updateBestConfig(
+        Number(bestVersion.display_score ?? bestVersion.backtest_score ?? 0),
+        typeof bestVersion.config_json === 'string'
+          ? (() => {
+              try { return JSON.parse(bestVersion.config_json); } catch { return {}; }
+            })()
+          : (bestVersion.config_json || {}),
+        {
+          status: bestVersion.invalid_message ? 'failed' : 'completed',
+          bestScore: Number(bestVersion.display_score ?? bestVersion.backtest_score ?? 0),
+          history: [{ metrics }],
+          invalidResult: Boolean(bestVersion.invalid_message && !Number.isFinite(Number(bestVersion.display_score))),
+          invalidReason: bestVersion.invalid_message ? 'version_invalid' : null,
+          invalidMessage: bestVersion.invalid_message || null
+        },
+        bestVersion.invalid_message ? 'failed' : 'completed'
+      );
     }
 
     // 加载版本历史
@@ -1208,6 +1493,7 @@
         if (result.success && result.versions.length > 0) {
           currentVersions = result.versions;  // 保存原始数据
           applyVersionFilters();  // 应用筛选后渲染
+          applyBestVersionToOverview(result.versions);
         } else {
           currentVersions = [];
           document.getElementById('versionList').innerHTML = `
@@ -1313,10 +1599,49 @@
       `;
     }
 
+    function formatVersionParamSummary(configJson) {
+      let config = configJson;
+      if (typeof config === 'string') {
+        try {
+          config = JSON.parse(config);
+        } catch {
+          config = null;
+        }
+      }
+
+      if (!config || typeof config !== 'object' || Array.isArray(config)) {
+        return '';
+      }
+
+      const summary = buildParamSummary(config, 12);
+      if (!summary) {
+        return '';
+      }
+
+      return `
+        <div class="exec-summary" style="margin-bottom: 8px;">
+          <div class="exec-summary-row">
+            <span class="exec-label">参数摘要:</span>
+            <span class="exec-value">${summary}</span>
+          </div>
+        </div>
+      `;
+    }
+
     // 渲染版本列表
     function renderVersionList(versions) {
       const container = document.getElementById('versionList');
+      const safeFormatVersionParamSummary = typeof formatVersionParamSummary === 'function'
+        ? formatVersionParamSummary
+        : () => '';
       container.innerHTML = versions.map((v, index) => {
+        const isInvalidLegacyResult = v.invalid_legacy_result === true;
+        const missingExecutionEvidence = v.has_execution_sample === false;
+        const hasDisplayScore = v.display_score !== null && v.display_score !== undefined && Number.isFinite(Number(v.display_score));
+        const displayScore = hasDisplayScore ? Number(v.display_score).toFixed(1) : '无效';
+        const versionScoreClass = isInvalidLegacyResult
+          ? 'score-low'
+          : (v.backtest_score || 0) >= 80 ? 'score-high' : (v.backtest_score || 0) >= 60 ? 'score-medium' : 'score-low';
         // 已发布状态
         const isPublished = v.is_published_to_library === true;
         const publishedId = v.published_strategy_config_id;
@@ -1329,10 +1654,42 @@
             ? `已发布到策略库 (ID: ${publishedId})`
             : '已发布到策略库';
           publishBtn = `<button class="publish-btn" disabled title="${titleText}">✅ 已发布</button>`;
+        } else if (v.can_publish === false) {
+          publishBtn = `<button class="publish-btn" disabled title="${v.publish_blocked_reason || v.invalid_message || '当前版本不可发布'}">🚫 不可发布</button>`;
         } else {
           // 未发布：可点击发布按钮
           publishBtn = `<button class="publish-btn" onclick="event.stopPropagation(); publishVersion('${v.version_id}', '${v.strategy_name || '未命名'}')" title="发布到策略库">📤 发布</button>`;
         }
+
+        const metricCards = (() => {
+          const metricEntries = [
+            ['夏普比率', v.sharpe_ratio, value => Number(value).toFixed(2)],
+            ['最大回撤', v.max_drawdown, value => `${(Number(value) * 100).toFixed(2)}%`],
+            ['卡玛比率', v.calmar_ratio, value => Number(value).toFixed(2)],
+            ['盈亏比', v.profit_loss_ratio, value => Number(value).toFixed(2)],
+            ['胜率', v.win_rate, value => `${(Number(value) * 100).toFixed(1)}%`],
+            ['总收益', v.total_return, value => `¥${Number(value).toLocaleString(undefined, { maximumFractionDigits: 0 })}`]
+          ].filter(([, value]) => value !== null && value !== undefined && Number.isFinite(Number(value)));
+
+          if (metricEntries.length === 0) {
+            return '';
+          }
+
+          return `
+            <div class="exec-summary" style="margin-bottom: 8px;">
+              <div class="exec-summary-row" style="align-items: flex-start;">
+                <span class="exec-label">评分指标:</span>
+                <span class="exec-value" style="display: flex; flex-wrap: wrap; gap: 10px;">
+                  ${metricEntries.map(([label, value, formatter]) => `
+                    <span class="feedback-badge" style="background: rgba(59,130,246,0.12); color: #93c5fd; border: 1px solid rgba(59,130,246,0.25);">
+                      ${label}: ${formatter(value)}
+                    </span>
+                  `).join('')}
+                </span>
+              </div>
+            </div>
+          `;
+        })();
 
         return `
           <div class="version-item" onclick="compareVersions('${v.version_id}')">
@@ -1341,13 +1698,20 @@
                 <span style="font-weight: 600;">V${versions.length - index}</span>
                 <span style="color: var(--text-secondary); margin-left: 8px;">${v.strategy_name || '未命名'}</span>
                 <span style="color: var(--text-secondary); margin-left: 8px; font-size: 11px;">${v.created_at?.split('T')[0] || ''}</span>
-                <span class="version-score ${(v.backtest_score || 0) >= 80 ? 'score-high' : (v.backtest_score || 0) >= 60 ? 'score-medium' : 'score-low'}" style="margin-left: auto;">
-                  ${(v.backtest_score || 0).toFixed(1)}
+                <span class="version-score ${versionScoreClass}" style="margin-left: auto;">
+                  ${displayScore}
                 </span>
               </div>
               <div style="margin-bottom: 4px;">
                 ${formatExecutionFeedbackBadges(v)}
+                ${isInvalidLegacyResult ? `<span class="feedback-badge feedback-status-caution" title="${v.invalid_message || '历史旧结果无有效交易样本'}">无效历史结果</span>` : ''}
+                ${!isInvalidLegacyResult && missingExecutionEvidence ? `<span class="feedback-badge feedback-status-mixed" title="${v.publish_blocked_reason || '缺少执行反馈样本'}">待验证样本</span>` : ''}
               </div>
+              ${safeFormatVersionParamSummary(v.config_json)}
+              ${metricCards}
+              ${isInvalidLegacyResult ? `<div class="exec-summary" style="margin-bottom: 8px;"><div class="exec-summary-row"><span class="exec-label">说明:</span><span class="exec-value exec-warning">${v.invalid_message || '该版本未产生任何交易样本，旧逻辑回填的 50 分不代表有效结果。'}</span></div></div>` : ''}
+            ${!isInvalidLegacyResult && missingExecutionEvidence && v.can_publish === false ? `<div class="exec-summary" style="margin-bottom: 8px;"><div class="exec-summary-row"><span class="exec-label">发布限制:</span><span class="exec-value exec-warning">${v.publish_blocked_reason || '该版本尚无执行反馈样本，暂不允许发布到策略库。'}</span></div></div>` : ''}
+            ${!isInvalidLegacyResult && missingExecutionEvidence && v.can_publish !== false ? `<div class="exec-summary" style="margin-bottom: 8px;"><div class="exec-summary-row"><span class="exec-label">发布提示:</span><span class="exec-value exec-warning">${v.publish_warning || '当前版本暂无执行反馈样本，建议发布后尽快完成执行验证。'}</span></div></div>` : ''}
               ${formatExecutionSummary(v.execution_summary)}
             </div>
             ${publishBtn}
@@ -1360,6 +1724,14 @@
     async function publishVersion(versionId, versionName) {
       if (!versionId) {
         addLog('❌ 缺少版本ID', 'error');
+        return;
+      }
+
+      const targetVersion = Array.isArray(currentVersions)
+        ? currentVersions.find(v => v.version_id === versionId)
+        : null;
+      if (targetVersion && targetVersion.can_publish === false) {
+        addLog(`❌ 不可发布: ${targetVersion.publish_blocked_reason || targetVersion.invalid_message || '当前版本缺少执行反馈样本'}`, 'error');
         return;
       }
 
@@ -1451,11 +1823,11 @@
 
       const data = [
         normalizeScore(metrics.sharpeRatio, 0, 3),
-        normalizeScore(100 - (metrics.maxDrawdown || 0) * 100, 0, 100),
+        normalizeScore(100 - toDrawdownPercent(metrics.maxDrawdown), 0, 100),
         normalizeScore(metrics.calmarRatio, 0, 5),
         normalizeScore(metrics.profitLossRatio, 0, 3),
-        normalizeScore(metrics.winRate || 0, 0, 100),
-        normalizeScore(metrics.totalReturn || 0, -50, 100),
+        normalizeScore(toRatePercent(metrics.winRate), 0, 100),
+        normalizeScore(toReturnPercent(metrics.totalReturn), -50, 100),
         normalizeScore(metrics.turnover || 50, 0, 100)
       ];
 
@@ -1477,11 +1849,11 @@
         label: v.strategy_name || `版本 ${i + 1}`,
         data: [
           normalizeScore(v.sharpe_ratio || 0, 0, 3),
-          normalizeScore(100 - (v.max_drawdown || 0) * 100, 0, 100),
+          normalizeScore(100 - toDrawdownPercent(v.max_drawdown), 0, 100),
           normalizeScore(v.calmar_ratio || 0, 0, 5),
           normalizeScore(v.profit_loss_ratio || 0, 0, 3),
-          normalizeScore(v.win_rate || 0, 0, 100),
-          normalizeScore(v.total_return || 0, -50, 100),
+          normalizeScore(toRatePercent(v.win_rate), 0, 100),
+          normalizeScore(toReturnPercent(v.total_return), -50, 100),
           50 // 默认换手率
         ],
         backgroundColor: colors[i].replace('0.6', '0.2'),
@@ -1541,6 +1913,35 @@
     // 归一化评分到 0-100
     function normalizeScore(value, min, max) {
       return Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100));
+    }
+
+    function toRatePercent(value) {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return 0;
+      if (n >= 0 && n <= 1) {
+        return n * 100;
+      }
+      return n;
+    }
+
+    function toReturnPercent(value) {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return 0;
+      if (n >= -1 && n <= 1) {
+        return n * 100;
+      }
+      // 若是金额口径，按上限处理，避免污染雷达图尺度
+      if (Math.abs(n) > 1000) {
+        return n > 0 ? 100 : -50;
+      }
+      return n;
+    }
+
+    function toDrawdownPercent(value) {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return 0;
+      const pct = n >= -1 && n <= 1 ? Math.abs(n) * 100 : Math.abs(n);
+      return pct;
     }
 
     // 页面加载完成

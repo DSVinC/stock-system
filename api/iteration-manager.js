@@ -15,6 +15,7 @@ const express = require('express');
 const { StrategyScorer, quickScore } = require('./strategy-scorer');
 const { BacktestEngine } = require('./backtest');
 const { getDatabase } = require('./db');
+const { normalizeToDb } = require('../utils/format');
 const { spawn } = require('child_process');
 const path = require('path');
 
@@ -85,6 +86,103 @@ function parseOptionalFiniteNumber(value) {
   if (value === null || value === undefined || value === '') return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+async function filterStocksByRealDataCoverage(stocks, startDate, endDate) {
+  const normalizedStocks = Array.isArray(stocks)
+    ? [...new Set(stocks.map(stock => String(stock || '').trim()).filter(Boolean))]
+    : [];
+
+  if (normalizedStocks.length === 0) {
+    return {
+      supportedStocks: [],
+      excludedStocks: []
+    };
+  }
+
+  const db = await getDatabase();
+  const supportedStocks = [];
+  const excludedStocks = [];
+
+  for (const stock of normalizedStocks) {
+    const dbStockCode = normalizeToDb(stock);
+    const row = await db.getPromise(
+      `SELECT COUNT(1) AS count
+         FROM stock_daily
+        WHERE ts_code = ? AND trade_date BETWEEN ? AND ?`,
+      [dbStockCode, startDate, endDate]
+    );
+
+    if (row && Number(row.count) > 0) {
+      supportedStocks.push(stock);
+    } else {
+      excludedStocks.push(stock);
+    }
+  }
+
+  return {
+    supportedStocks,
+    excludedStocks
+  };
+}
+
+function normalizeInvalidResultReason(reason) {
+  const value = String(reason || '').trim().toLowerCase();
+  if (!value) return '';
+  if (value === 'no_trade_samples') return 'no_trade_samples';
+  if (value === 'no_valid_samples') return 'no_valid_samples';
+  if (value === 'threshold_not_reached') return 'threshold_not_reached';
+  if (value === 'invalid_optuna_result') return 'invalid_optuna_result';
+  return value;
+}
+
+function formatInvalidResultMessage(reason, details = {}) {
+  const tradeCount = parseOptionalFiniteNumber(details.tradeCount);
+  const threshold = parseOptionalFiniteNumber(details.scoreThreshold);
+  const score = parseOptionalFiniteNumber(details.bestScore);
+
+  switch (normalizeInvalidResultReason(reason)) {
+    case 'no_trade_samples':
+      return `无有效交易样本，交易次数为 ${tradeCount ?? 0}，本次结果不能作为有效迭代结果。`;
+    case 'no_valid_samples':
+      return '所有迭代轮次都未产生有效样本，本次结果不能作为有效迭代结果。';
+    case 'threshold_not_reached':
+      return `最佳得分 ${score?.toFixed(1) ?? '--'} 未达到阈值 ${threshold?.toFixed(1) ?? '--'}，本次结果不应视为完成。`;
+    case 'invalid_optuna_result':
+      return 'Optuna 返回结果缺少有效参数或有效样本，本次结果不能作为有效迭代结果。';
+    default:
+      return '本次迭代未产生有效结果。';
+  }
+}
+
+function extractTradeCountFromMetrics(metrics) {
+  if (!metrics || typeof metrics !== 'object') return null;
+  return parseOptionalFiniteNumber(
+    metrics.tradeCount ??
+    metrics.totalTrades ??
+    metrics.total_trades ??
+    metrics.trade_count ??
+    metrics.closedTrades ??
+    metrics.closed_trades
+  );
+}
+
+function hasValidIterationSample(metrics) {
+  const tradeCount = extractTradeCountFromMetrics(metrics);
+  return tradeCount !== null && tradeCount > 0;
+}
+
+function finalizeTaskAsFailed(task, invalidReason, message, extra = {}) {
+  task.status = 'failed';
+  task.error = message || formatInvalidResultMessage(invalidReason, {
+    tradeCount: extra.tradeCount,
+    scoreThreshold: task.scoreThreshold,
+    bestScore: task.bestScore
+  });
+  task.invalidResult = true;
+  task.invalidReason = normalizeInvalidResultReason(invalidReason);
+  task.finishedAt = new Date().toISOString();
+  task.resultSummary = buildTaskResultSummary(task);
 }
 
 function getLatestMetricsFromHistory(task) {
@@ -186,6 +284,30 @@ function deriveNextActionSuggestion(task) {
   const scoreThreshold = parseOptionalFiniteNumber(task.scoreThreshold);
   const bestScore = parseOptionalFiniteNumber(task.bestScore) ?? 0;
   const deploymentReadiness = deriveDeploymentReadiness(task);
+  const invalidReason = normalizeInvalidResultReason(task.invalidReason || task.resultSummary?.invalidReason);
+
+  if (invalidReason === 'no_trade_samples' || invalidReason === 'no_valid_samples' || invalidReason === 'invalid_optuna_result') {
+    return {
+      action: 'expand_sample_and_fix_constraints',
+      title: '先补齐有效交易样本',
+      reason: formatInvalidResultMessage(invalidReason, {
+        tradeCount: task.resultSummary?.tradeCount,
+        scoreThreshold,
+        bestScore
+      })
+    };
+  }
+
+  if (invalidReason === 'threshold_not_reached') {
+    return {
+      action: 'increase_trials',
+      title: '结果未达阈值，继续优化',
+      reason: formatInvalidResultMessage(invalidReason, {
+        scoreThreshold,
+        bestScore
+      })
+    };
+  }
 
   if (status === 'failed') {
     return {
@@ -474,24 +596,59 @@ function buildTaskResultSummary(task) {
   const completedTrialsRaw = task.optunaTrialsCompleted ?? task.resultSummary?.completedTrials ?? task.resultSummary?.trialCount;
   const requestedTrials = parseOptionalFiniteNumber(requestedTrialsRaw);
   const completedTrials = parseOptionalFiniteNumber(completedTrialsRaw);
+  const invalidReason = normalizeInvalidResultReason(task.invalidReason || task.resultSummary?.invalidReason);
+  const tradeCount = (() => {
+    const latestMetrics = getLatestMetricsFromHistory(task);
+    return parseOptionalFiniteNumber(
+      latestMetrics.tradeCount ??
+      latestMetrics.totalTrades ??
+      task.resultSummary?.tradeCount ??
+      task.resultSummary?.totalTrades
+    );
+  })();
   const nextActionSuggestion = deriveNextActionSuggestion(task);
   const tuningPlan = deriveTuningPlan(task, nextActionSuggestion);
   const deploymentReadiness = deriveDeploymentReadiness(task);
+  const validation = (() => {
+    if (task.validation && typeof task.validation === 'object') {
+      return task.validation;
+    }
+    const history = Array.isArray(task.history) ? task.history : [];
+    for (let i = history.length - 1; i >= 0; i -= 1) {
+      const item = history[i];
+      if (item && item.validation && typeof item.validation === 'object') {
+        return item.validation;
+      }
+    }
+    return null;
+  })();
 
   return {
     status: task.status || null,
     optimizationBackend,
     bestScore: task.bestScore ?? null,
     bestParams: task.bestParams ?? null,
-    finishedAt: task.completedAt || task.finishedAt || null,
+    finishedAt: task.finishedAt || task.completedAt || null,
     history: Array.isArray(task.history) ? task.history.slice(-10) : [],
     error: task.error || null,
     stoppedAt: task.stoppedAt || null,
     stopReason: task.stopReason || null,
     completedAt: task.completedAt || null,
+    invalidResult: Boolean(task.invalidResult || invalidReason),
+    invalidReason: invalidReason || null,
+    invalidMessage: invalidReason ? formatInvalidResultMessage(invalidReason, {
+      tradeCount,
+      scoreThreshold: task.scoreThreshold,
+      bestScore: task.bestScore
+    }) : null,
+    thresholdMet: parseOptionalFiniteNumber(task.scoreThreshold) !== null
+      ? (parseOptionalFiniteNumber(task.bestScore) ?? 0) >= parseOptionalFiniteNumber(task.scoreThreshold)
+      : null,
+    tradeCount,
     nextActionSuggestion,
     tuningPlan,
     deploymentReadiness,
+    validation,
     ...(optimizationBackend === 'optuna'
       ? {
           requestedTrials,
@@ -500,6 +657,199 @@ function buildTaskResultSummary(task) {
         }
       : {})
   };
+}
+
+function buildIterationVersionPayload(task) {
+  const summary = task.resultSummary && typeof task.resultSummary === 'object'
+    ? task.resultSummary
+    : buildTaskResultSummary(task);
+  const latestMetrics = getLatestMetricsFromHistory(task);
+
+  return {
+    versionId: task.taskId,
+    strategyType: task.strategyType,
+    strategyName: `自动迭代版本 ${task.taskId}`,
+    config: task.bestParams || {},
+    backtestScore: parseOptionalFiniteNumber(task.bestScore) ?? 0,
+    sharpeRatio: parseOptionalFiniteNumber(latestMetrics.sharpeRatio),
+    maxDrawdown: parseOptionalFiniteNumber(latestMetrics.maxDrawdown),
+    calmarRatio: parseOptionalFiniteNumber(latestMetrics.calmarRatio),
+    profitLossRatio: parseOptionalFiniteNumber(latestMetrics.profitLossRatio),
+    winRate: parseOptionalFiniteNumber(latestMetrics.winRate),
+    totalReturn: parseOptionalFiniteNumber(latestMetrics.totalReturn),
+    createdAt: task.createdAt || new Date().toISOString(),
+    changeLog: summary.invalidResult
+      ? `自动迭代结果无效 - ${summary.invalidMessage || '缺少有效样本'}`
+      : `自动迭代完成 - 得分: ${(parseOptionalFiniteNumber(task.bestScore) ?? 0).toFixed(1)}`,
+    createdBy: 'iteration-manager'
+  };
+}
+
+function buildVersionSemanticKey(version) {
+  if (!version || typeof version !== 'object') return null;
+
+  const name = String(version.strategy_name || '');
+  const configJson = version.config_json ?? null;
+  const displayScore = Number.isFinite(Number(version.display_score))
+    ? Number(version.display_score).toFixed(4)
+    : (Number.isFinite(Number(version.backtest_score)) ? Number(version.backtest_score).toFixed(4) : 'null');
+  const publishBlockedReason = String(version.publish_blocked_reason || '');
+  const invalidMessage = String(version.invalid_message || '');
+  const feedbackStatus = String(version.execution_feedback_status || '');
+  const confidence = String(version.execution_feedback_confidence || '');
+  const invalidLegacy = version.invalid_legacy_result === true ? '1' : '0';
+
+  if (!name.startsWith('自动迭代版本 ')) {
+    return null;
+  }
+
+  return JSON.stringify({
+    strategyType: version.strategy_type || '',
+    configJson,
+    displayScore,
+    publishBlockedReason,
+    invalidMessage,
+    feedbackStatus,
+    confidence,
+    invalidLegacy
+  });
+}
+
+async function ensureStrategyVersionFromTask(db, task) {
+  if (!task || !task.taskId || !task.strategyType) return;
+
+  const version = buildIterationVersionPayload(task);
+  const existing = await db.getPromise(
+    'SELECT rowid FROM strategy_versions WHERE version_id = ? ORDER BY rowid ASC LIMIT 1',
+    [version.versionId]
+  );
+
+  if (existing?.rowid) {
+    await db.runPromise(
+      `
+        UPDATE strategy_versions SET
+          strategy_type = ?,
+          strategy_name = ?,
+          config_json = ?,
+          backtest_score = ?,
+          sharpe_ratio = ?,
+          max_drawdown = ?,
+          calmar_ratio = ?,
+          profit_loss_ratio = ?,
+          win_rate = ?,
+          total_return = ?,
+          created_at = ?,
+          parent_version = ?,
+          change_log = ?,
+          created_by = ?
+        WHERE rowid = ?
+      `,
+      [
+        version.strategyType,
+        version.strategyName,
+        safeJsonStringify(version.config || {}),
+        version.backtestScore,
+        version.sharpeRatio,
+        version.maxDrawdown,
+        version.calmarRatio,
+        version.profitLossRatio,
+        version.winRate,
+        version.totalReturn,
+        version.createdAt,
+        null,
+        version.changeLog,
+        version.createdBy,
+        existing.rowid
+      ]
+    );
+  } else {
+    await db.runPromise(
+      `
+        INSERT INTO strategy_versions (
+          version_id, strategy_type, strategy_name, config_json,
+          backtest_score, sharpe_ratio, max_drawdown, calmar_ratio,
+          profit_loss_ratio, win_rate, total_return,
+          created_at, parent_version, change_log, created_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        version.versionId,
+        version.strategyType,
+        version.strategyName,
+        safeJsonStringify(version.config || {}),
+        version.backtestScore,
+        version.sharpeRatio,
+        version.maxDrawdown,
+        version.calmarRatio,
+        version.profitLossRatio,
+        version.winRate,
+        version.totalReturn,
+        version.createdAt,
+        null,
+        version.changeLog,
+        version.createdBy
+      ]
+    );
+  }
+}
+
+async function syncIterationTaskRunsToStrategyVersions(db, strategyType) {
+  await ensureIterationTaskRunsTable(db);
+
+  const rows = await db.allPromise(
+    `
+      SELECT
+        task_id,
+        strategy_type,
+        input_summary_json,
+        status,
+        progress,
+        current_iteration,
+        max_iterations,
+        best_score,
+        best_params_json,
+        result_summary_json,
+        created_at,
+        updated_at
+      FROM iteration_task_runs
+      WHERE strategy_type = ?
+      ORDER BY created_at DESC
+      LIMIT 50
+    `,
+    [strategyType]
+  );
+
+  for (const row of rows) {
+    const resultSummary = safeJsonParse(row.result_summary_json, {});
+    const task = {
+      taskId: row.task_id,
+      strategyType: row.strategy_type,
+      inputSummary: safeJsonParse(row.input_summary_json, {}),
+      status: row.status,
+      progress: Number(row.progress ?? 0),
+      currentIteration: Number(row.current_iteration ?? 0),
+      maxIterations: Number(row.max_iterations ?? 0),
+      bestScore: Number(row.best_score ?? 0),
+      bestParams: safeJsonParse(row.best_params_json, {}),
+      resultSummary,
+      history: Array.isArray(resultSummary.history) ? resultSummary.history : [],
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
+
+    await ensureStrategyVersionFromTask(db, task);
+  }
+
+  await db.runPromise(
+    `
+      DELETE FROM strategy_versions
+      WHERE rowid NOT IN (
+        SELECT MIN(rowid)
+        FROM strategy_versions
+        GROUP BY version_id
+      )
+    `
+  );
 }
 
 function generateIterationReportMarkdown(taskPayload) {
@@ -846,6 +1196,15 @@ router.post('/start', async (req, res) => {
     const normalizedMaxIterations = normalizeIterationCount(maxIterations, 10);
     const normalizedScoreThreshold = normalizeScoreThreshold(scoreThreshold, 80);
     const normalizedParallelTasks = normalizeParallelTasks(parallelTasks);
+    const { supportedStocks, excludedStocks } = await filterStocksByRealDataCoverage(stocks, startDate, endDate);
+
+    if (supportedStocks.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: '当前股票池在指定区间内缺少真实行情数据，无法启动迭代任务',
+        excludedStocks
+      });
+    }
 
     // 创建任务记录
     const task = {
@@ -854,7 +1213,8 @@ router.post('/start', async (req, res) => {
       optimizationBackend: normalizedOptimizationBackend,
       config: config || {},
       inputSummary: {
-        stocks,
+        stocks: supportedStocks,
+        excludedStocks,
         startDate,
         endDate,
         config: config || {},
@@ -863,7 +1223,7 @@ router.post('/start', async (req, res) => {
       },
       maxIterations: normalizedMaxIterations,
       scoreThreshold: normalizedScoreThreshold,
-      stocks,
+      stocks: supportedStocks,
       startDate,
       endDate,
       parallelTasks: normalizedParallelTasks,
@@ -910,7 +1270,10 @@ router.post('/start', async (req, res) => {
     res.json({
       success: true,
       taskId,
-      message: '迭代任务已启动'
+      message: excludedStocks.length > 0
+        ? `迭代任务已启动，已自动排除 ${excludedStocks.length} 只缺少真实行情数据的股票`
+        : '迭代任务已启动',
+      excludedStocks
     });
   } catch (error) {
     console.error('[迭代管理器] 启动失败:', error);
@@ -1118,6 +1481,43 @@ function deriveExecutionFeedbackStatus(summary) {
   return { status, confidence };
 }
 
+function hasExecutionSample(summary) {
+  const s = summary || {};
+  return Number(s.simulated_trade_count || 0) > 0
+    || Number(s.position_closed_count || 0) > 0
+    || Number(s.trigger_failure_count || 0) > 0;
+}
+
+function classifyVersionValidity(version, executionSummary) {
+  const score = Number(version?.backtest_score ?? 0);
+  const hasSample = hasExecutionSample(executionSummary);
+  const noDataStatus = (version?.execution_feedback_status || 'no_data') === 'no_data';
+  const looksLikeLegacyFallback = !hasSample && noDataStatus && score === 50;
+  const invalid = looksLikeLegacyFallback;
+  const missingExecutionEvidence = !hasSample && noDataStatus;
+  const scoreQualifiedForPublish = Number.isFinite(score) && score >= 75;
+  const canPublish = !invalid && (hasSample || scoreQualifiedForPublish);
+
+  return {
+    has_execution_sample: hasSample,
+    invalid_legacy_result: invalid,
+    invalid_reason: invalid ? 'no_trade_samples' : null,
+    invalid_message: invalid ? '历史版本未产生任何交易样本，旧逻辑曾回填 50 分；该记录不应视为有效迭代结果。' : null,
+    display_score: invalid ? null : score,
+    publish_blocked_reason: canPublish
+      ? null
+      : (
+        missingExecutionEvidence
+          ? '该版本尚无执行反馈样本且评分未达 75 分，暂不允许发布到策略库。'
+          : '当前版本不满足发布条件。'
+      ),
+    publish_warning: !hasSample && scoreQualifiedForPublish
+      ? '该版本暂无执行反馈样本，允许先发布；请在发布后尽快补齐模拟/实盘验证。'
+      : null,
+    can_publish: canPublish
+  };
+}
+
 /**
  * 聚合 execution_feedback 数据，生成 execution_summary
  * @param {Object} db - 数据库连接
@@ -1188,11 +1588,16 @@ async function enrichVersionsWithExecutionFeedback(db, versions) {
     versions.map(async (version) => {
       const executionSummary = await aggregateExecutionFeedback(db, version.version_id);
       const { status, confidence } = deriveExecutionFeedbackStatus(executionSummary);
+      const validity = classifyVersionValidity({
+        ...version,
+        execution_feedback_status: status
+      }, executionSummary);
       return {
         ...version,
         execution_summary: executionSummary,
         execution_feedback_status: status,
-        execution_feedback_confidence: confidence
+        execution_feedback_confidence: confidence,
+        ...validity
       };
     })
   );
@@ -1263,9 +1668,10 @@ router.get('/versions/:strategyType', async (req, res) => {
   try {
     const { strategyType } = req.params;
     const db = await getDatabase();
+    await syncIterationTaskRunsToStrategyVersions(db, strategyType);
 
     const versions = await db.allPromise(`
-      SELECT version_id, strategy_name, backtest_score,
+      SELECT version_id, strategy_name, config_json, backtest_score,
              sharpe_ratio, max_drawdown, calmar_ratio,
              profit_loss_ratio, win_rate, total_return,
              created_at, parent_version, change_log
@@ -1280,8 +1686,28 @@ router.get('/versions/:strategyType', async (req, res) => {
 
     // 补充发布状态字段
     versionsWithSummary = await enrichVersionsWithPublishStatus(db, versionsWithSummary);
+    const dedupedVersions = [];
+    const seenDisplayNames = new Set();
+    const seenSemanticKeys = new Set();
 
-    res.json({ success: true, versions: versionsWithSummary });
+    for (const version of versionsWithSummary) {
+      const displayKey = String(version.strategy_name || version.version_id || '').trim();
+      const semanticKey = buildVersionSemanticKey(version);
+      if (semanticKey && seenSemanticKeys.has(semanticKey)) {
+        continue;
+      }
+      if (displayKey) {
+        seenDisplayNames.add(displayKey);
+      }
+      if (semanticKey) {
+        seenSemanticKeys.add(semanticKey);
+      } else if (displayKey && seenDisplayNames.has(displayKey) && dedupedVersions.some(item => String(item.strategy_name || item.version_id || '').trim() === displayKey)) {
+        continue;
+      }
+      dedupedVersions.push(version);
+    }
+
+    res.json({ success: true, versions: dedupedVersions });
   } catch (error) {
     console.error('[版本历史] 查询失败:', error);
     res.status(500).json({
@@ -1500,7 +1926,7 @@ async function runIterationTask(taskId) {
 }
 
 async function runOptunaIterationTask(task) {
-  const { taskId, strategyType, stocks, startDate, endDate, maxIterations } = task;
+  const { taskId, strategyType, stocks, startDate, endDate, maxIterations, config } = task;
   const scriptPath = path.resolve(__dirname, '../scripts/optuna_optimizer.py');
   const stocksArg = Array.isArray(stocks) ? stocks.join(',') : String(stocks || '');
   const args = [
@@ -1515,6 +1941,9 @@ async function runOptunaIterationTask(task) {
     '--n-trials',
     String(maxIterations)
   ];
+  if (config && typeof config === 'object' && Object.keys(config).length > 0) {
+    args.push('--seed-params', JSON.stringify(config));
+  }
 
   console.log(`[迭代任务 ${taskId}] 启动 Optuna: python3 ${args.join(' ')}`);
 
@@ -1591,6 +2020,14 @@ async function runOptunaIterationTask(task) {
   const bestParams = result.best_params ?? result.bestParams ?? null;
   const completedTrialsRaw = result.trials ?? result.completed_trials ?? result.completedTrials ?? result.n_trials ?? result.nTrials ?? maxIterations;
   const completedTrials = parseOptionalFiniteNumber(completedTrialsRaw);
+  const bestMetrics = result.metrics && typeof result.metrics === 'object' ? result.metrics : {};
+  const validation = result.validation && typeof result.validation === 'object' ? result.validation : null;
+  const tradeCount = parseOptionalFiniteNumber(
+    result.trade_count ??
+    result.tradeCount ??
+    result.total_trades ??
+    result.totalTrades
+  );
 
   task.currentIteration = maxIterations;
   task.progress = 100;
@@ -1598,13 +2035,44 @@ async function runOptunaIterationTask(task) {
   task.bestParams = bestParams;
   task.optunaTrialsRequested = maxIterations;
   task.optunaTrialsCompleted = completedTrials;
-  task.status = 'completed';
-  task.completedAt = new Date().toISOString();
+  task.history = [
+    {
+      iteration: completedTrials ?? maxIterations,
+      score: task.bestScore,
+      params: bestParams,
+      metrics: bestMetrics,
+      validation
+    }
+  ];
   task.error = null;
-  task.resultSummary = buildTaskResultSummary(task);
+  task.validation = validation;
+
+  if (!bestParams || typeof bestParams !== 'object') {
+    finalizeTaskAsFailed(task, 'invalid_optuna_result');
+  } else if (tradeCount !== null && tradeCount <= 0) {
+    finalizeTaskAsFailed(task, 'no_trade_samples', null, { tradeCount });
+  } else if (task.bestScore < task.scoreThreshold) {
+    finalizeTaskAsFailed(task, 'threshold_not_reached');
+  } else {
+    task.invalidResult = false;
+    task.invalidReason = null;
+    task.status = 'completed';
+    task.completedAt = new Date().toISOString();
+    task.finishedAt = task.completedAt;
+    task.resultSummary = buildTaskResultSummary(task);
+  }
+
   persistIterationTaskRun(task).catch(error => {
     console.error(`[迭代任务 ${taskId}] Optuna 完成快照保存失败:`, error);
   });
+
+  if (task.status === 'completed') {
+    Promise.resolve(getDatabase())
+      .then(db => ensureStrategyVersionFromTask(db, task))
+      .catch(error => {
+        console.error(`[迭代任务 ${taskId}] 策略版本同步失败:`, error);
+      });
+  }
 }
 
 async function runHeuristicIterationTask(task) {
@@ -1614,6 +2082,8 @@ async function runHeuristicIterationTask(task) {
   let currentParams = { ...config };
   let bestScore = 0;
   let bestParams = null;
+  let validSampleCount = 0;
+  let latestTradeCount = null;
 
   for (let i = 0; i < maxIterations; i++) {
     // 检查是否被停止
@@ -1642,6 +2112,27 @@ async function runHeuristicIterationTask(task) {
 
       await engine.run();
       const metrics = engine.metrics;
+      const tradeCount = extractTradeCountFromMetrics(metrics);
+      latestTradeCount = tradeCount;
+
+      if (!hasValidIterationSample(metrics)) {
+        task.history.push({
+          iteration: i + 1,
+          params: { ...currentParams },
+          invalidResult: true,
+          invalidReason: 'no_trade_samples',
+          tradeCount: tradeCount ?? 0,
+          timestamp: new Date().toISOString()
+        });
+        task.invalidResult = true;
+        task.invalidReason = 'no_trade_samples';
+        task.resultSummary = buildTaskResultSummary(task);
+        persistIterationTaskRun(task).catch(error => {
+          console.error(`[迭代任务 ${taskId}] 无交易快照保存失败:`, error);
+        });
+        continue;
+      }
+      validSampleCount += 1;
 
       // 计算评分
       const scoreResult = quickScore({
@@ -1664,7 +2155,8 @@ async function runHeuristicIterationTask(task) {
           sharpeRatio: metrics.sharpeRatio,
           maxDrawdown: metrics.maxDrawdown,
           winRate: metrics.winRate,
-          returnRate: metrics.returnRate
+          returnRate: metrics.returnRate,
+          tradeCount: tradeCount ?? 0
         },
         timestamp: new Date().toISOString()
       });
@@ -1681,6 +2173,8 @@ async function runHeuristicIterationTask(task) {
         bestParams = { ...currentParams };
         task.bestScore = score;
         task.bestParams = bestParams;
+        task.invalidResult = false;
+        task.invalidReason = null;
       }
 
       // 检查是否达到目标
@@ -1688,6 +2182,7 @@ async function runHeuristicIterationTask(task) {
         console.log(`[迭代任务 ${taskId}] 达到目标分数 ${scoreThreshold}`);
         task.status = 'completed';
         task.completedAt = new Date().toISOString();
+        task.finishedAt = task.completedAt;
         task.resultSummary = buildTaskResultSummary(task);
         persistIterationTaskRun(task).catch(error => {
           console.error(`[迭代任务 ${taskId}] 完成快照保存失败:`, error);
@@ -1714,8 +2209,19 @@ async function runHeuristicIterationTask(task) {
 
   // 任务完成
   if (task.status === 'running') {
-    task.status = 'completed';
-    task.completedAt = new Date().toISOString();
+    if (validSampleCount <= 0) {
+      finalizeTaskAsFailed(task, latestTradeCount === 0 ? 'no_trade_samples' : 'no_valid_samples', null, {
+        tradeCount: latestTradeCount
+      });
+    } else if (bestScore < scoreThreshold) {
+      finalizeTaskAsFailed(task, 'threshold_not_reached');
+    } else {
+      task.invalidResult = false;
+      task.invalidReason = null;
+      task.status = 'completed';
+      task.completedAt = new Date().toISOString();
+      task.finishedAt = task.completedAt;
+    }
   }
   task.resultSummary = buildTaskResultSummary(task);
   persistIterationTaskRun(task).catch(error => {
@@ -1723,7 +2229,7 @@ async function runHeuristicIterationTask(task) {
   });
 
   // 保存最优版本
-  if (bestParams && bestScore > 0) {
+  if (task.status === 'completed' && !task.invalidResult && bestParams && bestScore > 0) {
     try {
       const scorer = new StrategyScorer();
       scorer.saveVersion({

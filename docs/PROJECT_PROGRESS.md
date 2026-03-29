@@ -1,6 +1,6 @@
 # 股票系统 - 项目进度总览
 
-**最后更新**: 2026-03-28 12:27  
+**最后更新**: 2026-03-29 02:40  
 **项目经理**: Codex  
 **程序员**: subagent / Claude Code（按任务分配）  
 **验收员**: Codex / Gemini CLI（按任务分配）  
@@ -125,6 +125,8 @@
 所有 P0/P1 任务已完成并验收通过。
 
 **最新完成** (2026-03-28):
+- TASK_FLOW_REFACTOR_042B: 已修复选股页四维评分全为 3 分的问题，确认根因包括服务未加载 `.env` 中的 `TUSHARE_TOKEN` 与快照分支固定维度占位；实时路径与历史快照路径现均返回非固定四维
+- TASK_FLOW_REFACTOR_042A: 选股页已恢复“完整方向选择 -> 带参进入个股分析”链路，并在个股分析页补来源提示；本地浏览器验收确认 10 个高分方向可选、默认带入 Top3 且支持手动扩选
 - TASK_RELEASE_001: PR #9 已合并 `main`，GitHub Pages 已恢复上线并完成线上 smoke 验收（首页/select/backtest/iteration-manager 全部 200）
 - TASK_FLOW_REFACTOR_041C: `TASK_V5_000_RECONCILIATION` 已同步最新落地证据，V5_008 口径更新为“已落地（持续优化）”
 - TASK_FLOW_REFACTOR_041B: iteration-manager 页面导出入口已支持 Markdown/HTML 可选，前端导出链路与后端格式能力一致
@@ -196,6 +198,13 @@
 - TASK_E2E_FIX_005: 日期选择器禁用非交易日 UI（Flatpickr 日历组件，后端兜底逻辑修复）
 
 ### 🔄 近期任务状态
+
+- TASK_FLOW_REFACTOR_043B: 已统一七因子回测分值口径（0~10 快照分 -> 0~1 决策阈值），并将四维权重接入回测决策分与 Optuna 搜索；同一股票池仅更换权重即可使 `scoreTotal` 从 `40` 提升到 `60`，自动迭代已能产出新的 `dimensionWeights`
+- TASK_FLOW_REFACTOR_043C: 已将七因子权重接入 Optuna 搜索，`best_params` 现可直接返回 `dimensionWeights + factorWeights + filters + 风控参数` 的完整研究配置结构
+- TASK_FLOW_REFACTOR_043D: 已为 `real_score_cli` 增加 trial 级超时保护（45s），浏览器实测 `ITER_1774724164656_73owxo` 在 `2/2` 后正常收敛为终态，页面可见完整 `dimensionWeights/factorWeights` 最佳参数
+- TASK_FLOW_REFACTOR_043E: 已接入最小样本外验证输出（IS/OOS/WFE），`iteration` 结果摘要可读 `validation`；当前自动迭代不再只有单一 best_score 口径
+- TASK_FLOW_REFACTOR_043A: 已将 `seven_factor` 的筛选层参数 `pe_max/peg_max/max_price` 接入 Optuna + 真实评分 CLI + 回测引擎；同股票池下仅放宽筛选条件即可观察到 `scoreTotal/tradeCount` 变化，说明七因子自动迭代已不再只调交易阈值
+- TASK_FLOW_REFACTOR_042L: 浏览器已真实跑出 `double_ma` 的 `93.0` 新版本，雷达图有有效数据，版本历史已显示评分指标
 
 #### V5 自动迭代系统 - 完成口径回调
 
@@ -640,6 +649,8 @@
 
 ## 📝 最近事件
 
+*2026-03-28 15:22* - TASK_FLOW_REFACTOR_042B 完成，`api/select.js` 历史快照分支已从固定 3 分改为快照维度聚合；同时确认并重启服务加载工作区 `.env` 中的 `TUSHARE_TOKEN`，实时选股页四维显示恢复为非固定值
+*2026-03-28 15:08* - TASK_FLOW_REFACTOR_042A 完成，`select.html` 已恢复完整高分方向选择并显式导流到 `analysis.html`，本地浏览器验收确认方向数量 `10 > Top3 3`，扩选后可稳定带入 4 个方向
 *2026-03-28 12:27* - TASK_RELEASE_001 完成，PR #9 已合并主分支；修复 Pages 部署阻塞（移除被跟踪 db 链接）后，线上地址 `https://dsvinc.github.io/stock-system/` 恢复可访问并完成页面 smoke 验收
 *2026-03-28 12:17* - TASK_FLOW_REFACTOR_041C 完成，V5 规划对照文档已补 040A~041B 证据映射并更新 V5_008 口径为“已落地（持续优化）”
 *2026-03-28 12:16* - TASK_FLOW_REFACTOR_041B 完成，iteration-manager 页面新增报告格式选择器并支持导出 Markdown/HTML，默认总测 `50/50` 全通过
@@ -672,6 +683,13 @@
 *2026-03-28 09:16* - TASK_FLOW_REFACTOR_031D 完成，默认总测恢复 42/42 全通过
 *2026-03-28 09:14* - TASK_FLOW_REFACTOR_031C 完成，iteration-manager 回归测试已回稳，兼容 031B 新口径
 *2026-03-28 09:11* - TASK_FLOW_REFACTOR_031B 完成，迭代启动参数已归一化，非法输入回退默认/安全值
+*2026-03-28 19:16* - TASK_FLOW_REFACTOR_042K 完成，`/api/report/list` 已支持报告目录回退扫描，条件单页可重新识别未落库的 HTML 报告
+*2026-03-28 19:16* - TASK_FLOW_REFACTOR_042K 完成，浏览器实测 `conditional-order.html` 选择中国电信后已能显示报告下拉并启用导入按钮
+*2026-03-28 19:10* - TASK_FLOW_REFACTOR_042J 完成，已清理监控池与条件单中的测试假股票脏数据（111111/222222/333333）
+*2026-03-28 19:10* - TASK_FLOW_REFACTOR_042J 完成，已删除 `300308.SZ` 重复旧条件单，仅保留当前有效记录
+*2026-03-28 19:05* - TASK_FLOW_REFACTOR_042I 完成，真实七因子版本 `ITER_1774694107289_wnfrdb` 已写入执行反馈并成功发布到策略库
+*2026-03-28 19:05* - TASK_FLOW_REFACTOR_042I 完成，已修复“从报告导入条件单”动作解析，浏览器实测中国联通条件单创建成功并保留版本上下文
+*2026-03-28 19:05* - TASK_FLOW_REFACTOR_042I 完成，迭代管理页恢复最近任务时已同步策略下拉，打开页面即可看到七因子版本历史与已发布状态
 *2026-03-28 09:08* - TASK_FLOW_REFACTOR_031A 完成，进度条显示已加防御逻辑，异常迭代数不会再渲染 NaN/Infinity
 *2026-03-28 09:05* - TASK_FLOW_REFACTOR_030C 完成，停止原因文案映射收口，页面不再直接暴露内部枚举值
 *2026-03-28 09:02* - TASK_FLOW_REFACTOR_030B 完成，stop 响应切全量任务快照，前端停止态展示与后端口径统一
@@ -710,6 +728,26 @@
 *2026-03-27 19:00* - TASK_FLOW_REFACTOR_017A 完成，分析页已显示当前策略上下文 banner
 *2026-03-27 19:03* - TASK_FLOW_REFACTOR_017B 完成，分析页 -> 监控池浏览器 smoke 已固化为正式回归脚本
 *2026-03-27 19:05* - TASK_FLOW_REFACTOR_017C 完成，分析页 -> 监控池 -> 条件单全链路浏览器 smoke 已固化为正式回归脚本
+*2026-03-28 16:09* - TASK_FLOW_REFACTOR_042C 完成，回测页已收口日期/策略/数值输入校验，选股时点统一为开始日期
+*2026-03-28 16:09* - TASK_FLOW_REFACTOR_042C 完成，自迭代页已改为“无效结果”语义，无交易样本不再伪装成 completed + 50 分
+*2026-03-28 16:16* - TASK_FLOW_REFACTOR_042D 完成，个股分析已取消失败时的 `6.0/10 + 观望` 假兜底，恢复真实分化评分
+*2026-03-28 16:16* - TASK_FLOW_REFACTOR_042D 完成，个股报告历史查询已按 `ts_code` 隔离，不再串开同一天的隆基绿能报告
+*2026-03-28 17:01* - TASK_FLOW_REFACTOR_042E 完成，Python 个股分析环境已补齐 `tushare + pandas`，`stock_analyzer.py` 与 `/api/analysis/report` 已恢复
+*2026-03-28 17:20* - TASK_FLOW_REFACTOR_042F 完成，自迭代历史旧结果已识别为无效记录，不再显示 `50.0` 且禁止发布
+*2026-03-28 17:20* - TASK_FLOW_REFACTOR_042F 完成，当前最佳配置在无效结果下已改为显示 `无效 / --`，不再把 `50 分` 伪装成有效结果
+*2026-03-28 17:28* - TASK_FLOW_REFACTOR_042G 完成，自迭代无执行样本版本已统一标记为 `待验证样本` 并禁止发布
+*2026-03-28 17:28* - TASK_FLOW_REFACTOR_042G 完成，`POST /api/strategy-config/publish-version` 已新增后端硬校验，缺样本版本返回 `409`
+*2026-03-28 17:53* - TASK_FLOW_REFACTOR_042H 完成，`seven_factor` 回测已修复快照关联失败问题，真实评分恢复非零交易样本
+*2026-03-28 17:53* - TASK_FLOW_REFACTOR_042H 完成，`optuna` 已改为搜索 `seven_factor` 真实参数空间，并回填 `trade_count + metrics`
+*2026-03-28 17:53* - TASK_FLOW_REFACTOR_042H 完成，浏览器已完成 `backtest.html -> iteration-manager.html` 实测，20 轮自迭代成功产出 `87.0` 有效版本
+*2026-03-29 01:27* - TASK_FLOW_REFACTOR_042L 完成，迭代页已修复 URL 导入与旧任务缓存冲突，浏览器导入任务不再被历史失败任务劫持
+*2026-03-29 01:27* - TASK_FLOW_REFACTOR_042L 完成，版本历史卡片已直接展示夏普/回撤/卡玛/盈亏比/胜率/总收益，雷达图已确认灌入有效数据集
+*2026-03-29 01:27* - TASK_FLOW_REFACTOR_042L 完成，真实数据覆盖校验已对齐 DB 代码格式，`double_ma + 600030/601988/600887 + 2024` 浏览器自迭代成功产出 `93.0` 新版本 `ITER_1774718703327_eup92a`
+*2026-03-29 09:16* - TASK_FLOW_REFACTOR_043F 完成，自迭代版本发布门槛已调整为“有效结果 + 有样本或评分>=75”，97 分版本 `ITER_1774746788838_1tw3j8` 已实测可发布并成功入库（策略 ID `9`）
+*2026-03-29 09:16* - TASK_FLOW_REFACTOR_043F 完成，迭代雷达图已统一 winRate/return/drawdown 口径，浏览器实测已显示有效多维数据，不再出现维度失真
+*2026-03-29 09:16* - TASK_FLOW_REFACTOR_043F 完成，条件单“从分析报告导入”已补齐双路兜底（`/api/report/list` + `/api/analysis/reports`），`688302.SH` 实测可拉取报告且导入按钮可用
+*2026-03-29 09:16* - TASK_FLOW_REFACTOR_043F 完成，条件单页“导入选定报告策略”已实测写入触发条件（2 条 condition + 条件预览），回测页 `2020-01-09` 复现场景下“开始选股”结果可见且无“未选策略”误报
+*2026-03-29 09:28* - TASK_FLOW_REFACTOR_043G 完成，新增交付验收报告 `docs/acceptance/CODEX_DELIVERY_ACCEPTANCE_20260329.md`，本轮交付口径三条主链路均已浏览器+接口实测通过
 *2026-03-25 21:10* - V4 修复阶段规划完成，V5 自动迭代系统规划完成（TASK_V5_000 创建）
 
 ---
