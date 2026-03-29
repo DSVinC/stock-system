@@ -748,6 +748,8 @@
 *2026-03-29 09:16* - TASK_FLOW_REFACTOR_043F 完成，条件单“从分析报告导入”已补齐双路兜底（`/api/report/list` + `/api/analysis/reports`），`688302.SH` 实测可拉取报告且导入按钮可用
 *2026-03-29 09:16* - TASK_FLOW_REFACTOR_043F 完成，条件单页“导入选定报告策略”已实测写入触发条件（2 条 condition + 条件预览），回测页 `2020-01-09` 复现场景下“开始选股”结果可见且无“未选策略”误报
 *2026-03-29 09:28* - TASK_FLOW_REFACTOR_043G 完成，新增交付验收报告 `docs/acceptance/CODEX_DELIVERY_ACCEPTANCE_20260329.md`，本轮交付口径三条主链路均已浏览器+接口实测通过
+*2026-03-29 09:52* - TASK_FLOW_REFACTOR_043H 完成，`backtest.html` 已补联合回测结果映射（`rawResults.core.details` → 图表口径），回测权益图恢复正常渲染（占位符隐藏）
+*2026-03-29 09:52* - TASK_FLOW_REFACTOR_043H 完成，`temp/e2e-runner.js` 图表验收口径改为页面真实渲染状态；新一轮 `select/backtest/iteration` 浏览器 E2E 全部通过并落档 `docs/acceptance/CODEX_BROWSER_E2E_20260329.md`
 *2026-03-25 21:10* - V4 修复阶段规划完成，V5 自动迭代系统规划完成（TASK_V5_000 创建）
 
 ---
