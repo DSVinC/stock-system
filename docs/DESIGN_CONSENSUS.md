@@ -2234,7 +2234,175 @@ TASK_V3_005/006 (UI 改造 + 分钟线)
 
 ---
 
-## 十六、设计讨论历史路由
+## 十六、待实现事项（2026-03-31 新增）
+
+### 16.1 模拟交易→反馈→二次迭代闭环
+
+**状态**: ❌ 未实现
+
+**缺失环节**：
+
+| 环节 | 状态 | 说明 |
+|------|------|------|
+| 模拟交易执行 | ❌ 未实现 | 只有 execution_feedback 表记录实盘执行，没有主动模拟交易逻辑 |
+| 验证策略实际表现 | ❌ 未实现 | 没有模拟绩效对比分析功能 |
+| 反馈到回测系统 | ❌ 未实现 | 没有 backtest/feedback API |
+| 二次迭代自动触发 | ❌ 未实现 | iteration-manager 有 simulationDeviation 检查，但没有自动触发二次迭代 |
+
+**当前实现程度**：
+```
+回测 → 迭代 → 选股 → 报告 → 条件单 → 监控池 ✅
+                                        ↓
+                              模拟交易 → 验证 → 反馈 → 二次迭代 ❌
+```
+
+**设计思路**（待讨论）：
+
+#### 方案 A：轻量级模拟（推荐）
+
+**核心思路**：利用现有监控池 + 条件单执行记录，不单独建模拟账户
+
+**实现方式**：
+1. 策略版本发布时，标记为"模拟验证中"
+2. 监控池条件单触发时，同时写入 `execution_feedback` 表
+3. 定期（每日/每周）聚合 execution_feedback 数据，计算模拟绩效
+4. 对比模拟绩效 vs 回测绩效，生成偏差报告
+5. 偏差>20% 时，自动触发二次迭代任务
+
+**优点**：
+- 复用现有表结构（execution_feedback）
+- 不需要额外的模拟交易引擎
+- 数据真实（基于实盘数据触发）
+
+**缺点**：
+- 无法模拟滑点/成本（execution_feedback 记录的是真实成交价）
+- 需要等待真实触发，验证周期长
+
+---
+
+#### 方案 B：独立模拟账户
+
+**核心思路**：创建独立的模拟账户系统，与实盘完全隔离
+
+**实现方式**：
+1. 创建 `mock_account`、`mock_position`、`mock_trade` 表
+2. 监控池条件单触发时，同时执行实盘条件单和模拟交易
+3. 模拟交易使用实时行情 + 滑点假设计算成交价
+4. 定期计算模拟绩效，对比回测结果
+5. 偏差>20% 时，触发二次迭代
+
+**数据库设计**：
+```sql
+-- 模拟账户表
+CREATE TABLE mock_account (
+    account_id TEXT PRIMARY KEY,
+    strategy_version_id TEXT,
+    initial_capital REAL,
+    current_capital REAL,
+    created_at TEXT
+);
+
+-- 模拟持仓表
+CREATE TABLE mock_position (
+    position_id TEXT PRIMARY KEY,
+    account_id TEXT,
+    ts_code TEXT,
+    quantity INTEGER,
+    avg_cost REAL,
+    created_at TEXT
+);
+
+-- 模拟交易表
+CREATE TABLE mock_trade (
+    trade_id TEXT PRIMARY KEY,
+    account_id TEXT,
+    ts_code TEXT,
+    action TEXT,
+    quantity INTEGER,
+    price REAL,
+    simulated_price REAL,  -- 考虑滑点后的价格
+    slippage REAL,
+    commission REAL,
+    stamp_duty REAL,
+    pnl REAL,
+    occurred_at TEXT
+);
+
+-- 模拟绩效表
+CREATE TABLE mock_performance (
+    performance_id TEXT PRIMARY KEY,
+    account_id TEXT,
+    period_start TEXT,
+    period_end TEXT,
+    total_return REAL,
+    annualized_return REAL,
+    max_drawdown REAL,
+    sharpe_ratio REAL,
+    trade_count INTEGER,
+    win_rate REAL,
+    avg_slippage REAL,
+    backtest_deviation REAL,  -- 与回测的偏差
+    created_at TEXT
+);
+```
+
+**优点**：
+- 完全隔离，不影响实盘
+- 可以自定义滑点/成本假设
+- 可以快速验证（可以用历史数据回测模拟）
+
+**缺点**：
+- 需要新建表结构和 API
+- 开发工作量大
+
+---
+
+#### 方案 C：历史数据回放模拟
+
+**核心思路**：用历史分钟线数据回放策略执行，不依赖实时数据
+
+**实现方式**：
+1. 选择一段历史区间（如最近 3 个月）
+2. 用分钟线数据回放条件单触发逻辑
+3. 计算模拟成交价（考虑滑点）
+4. 生成模拟绩效报告
+5. 对比回测结果
+
+**优点**：
+- 不需要等待真实触发
+- 可以快速验证多个策略版本
+- 可以重复回测同一段数据
+
+**缺点**：
+- 不是真正的"实盘数据验证"
+- 无法验证策略对突发事件的响应
+
+---
+
+### 推荐方案：方案 A + 方案 C 组合
+
+**短期**（方案 C）：先用历史数据回放模拟，快速验证策略
+**长期**（方案 A）：积累实盘执行数据，持续优化策略
+
+**理由**：
+1. 方案 C 可以快速填补闭环空白
+2. 方案 A 可以长期积累真实数据
+3. 两者互补，不冲突
+
+---
+
+### 待决策事项
+
+| 事项 | 选项 | 建议 |
+|------|------|------|
+| 模拟交易实现方式 | 方案 A/B/C | 方案 A+C 组合 |
+| 反馈触发条件 | 定期/事件驱动 | 定期（每日）+ 偏差>20% 事件驱动 |
+| 二次迭代触发 | 自动/手动 | 偏差>20% 自动触发，人工确认 |
+| 优先级 | P0/P1/P2 | P1（核心闭环已通，此为优化） |
+
+---
+
+## 十七、设计讨论历史路由
 
 为方便查阅历次设计讨论的详细记录，按时间顺序整理如下：
 
