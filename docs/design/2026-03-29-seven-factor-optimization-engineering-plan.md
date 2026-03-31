@@ -494,3 +494,134 @@
 
 当前系统已经具备“自动调参”能力，但还没有具备“完整优化四维度七因子策略”的能力。  
 这次重构的目标，不是推倒重做，而是把现有链路逐步升级成一套分层、可解释、可验证的优化系统。
+
+---
+
+## 附录 C: 选股 API 参数映射设计（2026-03-31 补充）
+
+### C.1 四维度权重 → 行业选股 API
+
+**用途**: 四维度权重用于行业评分计算，影响 Top3 行业排序
+
+**API**: `GET /api/select`
+
+**请求参数**:
+```javascript
+{
+  dimensionWeights: {
+    social: 0.25,      // 社会经济趋势权重
+    policy: 0.30,      // 政策方向权重
+    public: 0.25,      // 舆论热度权重
+    business: 0.20     // 商业变现权重
+  }
+}
+```
+
+**后端处理** (`api/select.js`):
+```javascript
+// 计算行业综合评分
+const rankScore = 
+  socialDisplay * dimensionWeights.social +
+  normalizeSnapshotDimension(avgPolicyRaw, 3) * dimensionWeights.policy +
+  publicDisplay * dimensionWeights.public +
+  normalizeSnapshotDimension(avgBusinessRaw, 3) * dimensionWeights.business
+```
+
+**策略库字段映射** (`strategy_configs` 表):
+| 策略库字段 | 映射到 dimensionWeights |
+|-----------|------------------------|
+| policy_weight | dimensionWeights.policy |
+| commercialization_weight | dimensionWeights.business |
+| sentiment_weight | dimensionWeights.public |
+| (需补充) social_weight | dimensionWeights.social |
+
+### C.2 PE/PEG 上限 → 行业选股 API
+
+**用途**: PE/PEG 上限用于个股筛选，过滤高估值股票
+
+**API**: `GET /api/select`
+
+**请求参数**:
+```javascript
+{
+  peMax: 60,      // PE 上限
+  pegMax: 2.0     // PEG 上限
+}
+```
+
+**后端处理** (`api/select.js`):
+```javascript
+// 在 stockScores 筛选时应用
+if (filters.peMax && stock.pe > filters.peMax) return false;
+if (filters.pegMax && stock.peg > filters.pegMax) return false;
+```
+
+**策略库字段映射** (`strategy_configs` 表):
+| 策略库字段 | 映射到 API 参数 |
+|-----------|----------------|
+| pe_max | peMax |
+| peg_max | pegMax |
+
+### C.3 七因子权重 → 待设计
+
+**当前状态**: 策略库表中没有独立的七因子权重字段
+
+**建议方案**:
+1. 方案 A: 在 `strategy_configs` 表中添加 7 个独立字段
+   - trend_weight, momentum_weight, valuation_weight, earnings_weight, capital_weight, volatility_weight, sentiment_weight
+   
+2. 方案 B: 在 `config_json` 字段中存储（需要解析）
+
+**决策**: 待主人确认
+
+---
+
+**更新记录**:
+- 2026-03-31: 补充选股 API 参数映射设计（四维度权重 + PE/PEG 上限）
+
+### C.3 七因子权重 → 待实现（2026-03-31 规划）
+
+**用途**: 七因子权重用于个股综合评分计算，影响 Top10 股票池排序
+
+**API**: `GET /api/select`
+
+**请求参数**:
+```javascript
+{
+  factorWeights: {
+    trend: 0.17,         // 趋势因子权重
+    momentum: 0.15,      // 动量因子权重
+    valuation: 0.15,     // 估值因子权重
+    earnings: 0.13,      // 业绩因子权重
+    capital: 0.13,       // 资金因子权重
+    volatility: 0.12,    // 波动率因子权重
+    sentiment: 0.15      // 舆情因子权重
+  }
+}
+```
+
+**后端处理** (`api/select.js`):
+```javascript
+// 已实现，无需修改
+if (filters.factorWeights) {
+  dynamicScore = (
+    (row.trend_score || 5) * w.trend +
+    (row.momentum_score || 5) * w.momentum +
+    (row.valuation_score || 5) * w.valuation +
+    (row.earnings_score || 5) * w.earnings +
+    (row.capital_score_raw || 5) * w.capital +
+    (row.volatility_score || 5) * w.volatility +
+    (row.sentiment_score_raw || 5) * w.sentiment
+  );
+}
+```
+
+**策略库字段映射**:
+| 方案 | 描述 | 状态 |
+|------|------|------|
+| 方案 A | 在 `strategy_configs` 表添加 7 个独立字段 | 待决策 |
+| 方案 B | 在 `config_json` 字段中存储（JSON 解析） | 待决策 |
+
+**实现计划**: 待后续迭代（今日仅规划）
+
+---

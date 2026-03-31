@@ -100,8 +100,7 @@ async function runSql(sql, dbPath, options = {}) {
 
     return stdout.trim();
   } catch (error) {
-    console.warn(`SQL 查询失败 (${dbPath}):`, error.message);
-    return '';
+    throw new Error(`SQL 查询失败 (${dbPath}): ${error.message}`);
   }
 }
 
@@ -110,8 +109,7 @@ async function runSql(sql, dbPath, options = {}) {
  */
 async function fetchCompanyAnnouncements(limit = 10) {
   if (!fs.existsSync(NEWS_DB_PATH)) {
-    console.warn(`新闻数据库不存在：${NEWS_DB_PATH}`);
-    return [];
+    throw new Error(`公司公告数据源不可用：新闻数据库不存在 ${NEWS_DB_PATH}`);
   }
 
   // 查询监管公告类别的新闻
@@ -132,9 +130,19 @@ async function fetchCompanyAnnouncements(limit = 10) {
   `;
 
   const stdout = await runSql(sql, NEWS_DB_PATH, { json: true });
-  if (!stdout) return [];
+  if (!stdout) {
+    throw new Error('公司公告查询结果为空，请检查 news_system.news_raw 数据');
+  }
 
-  const newsList = JSON.parse(stdout);
+  let newsList = [];
+  try {
+    newsList = JSON.parse(stdout);
+  } catch (error) {
+    throw new Error(`公司公告 JSON 解析失败: ${error.message}`);
+  }
+  if (!Array.isArray(newsList) || newsList.length === 0) {
+    throw new Error('公司公告查询返回 0 条记录');
+  }
   
   return newsList.map(news => ({
     id: `ANN-${news.id}`,
@@ -159,8 +167,7 @@ async function fetchCompanyAnnouncements(limit = 10) {
  */
 async function fetchImportantNews(hours = 24, limit = 20) {
   if (!fs.existsSync(NEWS_DB_PATH)) {
-    console.warn(`新闻数据库不存在：${NEWS_DB_PATH}`);
-    return [];
+    throw new Error(`重要新闻数据源不可用：新闻数据库不存在 ${NEWS_DB_PATH}`);
   }
 
   // 查询高优先级的新闻（排除公告类）
@@ -185,9 +192,19 @@ async function fetchImportantNews(hours = 24, limit = 20) {
   `;
 
   const stdout = await runSql(sql, NEWS_DB_PATH, { json: true });
-  if (!stdout) return [];
+  if (!stdout) {
+    throw new Error(`重要新闻查询结果为空（最近 ${hours} 小时）`);
+  }
 
-  const newsList = JSON.parse(stdout);
+  let newsList = [];
+  try {
+    newsList = JSON.parse(stdout);
+  } catch (error) {
+    throw new Error(`重要新闻 JSON 解析失败: ${error.message}`);
+  }
+  if (!Array.isArray(newsList) || newsList.length === 0) {
+    throw new Error(`重要新闻查询返回 0 条记录（最近 ${hours} 小时）`);
+  }
   
   return newsList.map(news => ({
     id: `NEWS-${news.id}`,
@@ -276,27 +293,20 @@ async function fetchPriceMovementsFromSina(limit = 10) {
   const sqlite3 = (await import('sqlite3')).default;
   const db = new sqlite3.Database(STOCK_DB_PATH);
   
-  const stocks = await new Promise((resolve) => {
+  const stocks = await new Promise((resolve, reject) => {
     db.all('SELECT ts_code, stock_name FROM stocks WHERE monitor = 1 LIMIT 50', [], (err, rows) => {
       if (err) {
-        console.log('[价格异动] 读取股票列表失败，使用默认列表');
-        resolve([
-          { ts_code: '300308.SZ', stock_name: '中际旭创' },
-          { ts_code: '300192.SZ', stock_name: '科德教育' },
-          { ts_code: '300460.SZ', stock_name: '惠伦晶体' },
-          { ts_code: '688012.SH', stock_name: '中微公司' },
-          { ts_code: '002475.SZ', stock_name: '立讯精密' }
-        ]);
+        db.close();
+        reject(new Error(`[价格异动] 读取监控股票列表失败: ${err.message}`));
       } else {
         resolve(rows || []);
+        db.close();
       }
-      db.close();
     });
   });
   
   if (stocks.length === 0) {
-    console.log('[价格异动] 无监控股票');
-    return [];
+    throw new Error('[价格异动] 监控股票列表为空，无法拉取新浪行情');
   }
   
   // 转换为新浪财经格式：sh600000, sz000001
@@ -408,13 +418,17 @@ async function fetchPriceMovementsFromSina(limit = 10) {
       });
       
     } catch (error) {
-      console.warn(`[价格异动] 批次 ${i / batchSize + 1} 获取失败：${error.message}`);
+      throw new Error(`[价格异动] 新浪行情批次 ${i / batchSize + 1} 获取失败: ${error.message}`);
     }
     
     // 避免请求过快
     await new Promise(r => setTimeout(r, 100));
   }
   
+  if (events.length === 0) {
+    throw new Error('[价格异动] 新浪行情返回 0 条异动事件');
+  }
+
   console.log(`[价格异动] 从新浪财经获取 ${events.length} 条异动数据`);
   return events;
 }
@@ -424,8 +438,7 @@ async function fetchPriceMovementsFromSina(limit = 10) {
  */
 async function tushareRequest(apiName, params = {}) {
   if (!TUSHARE_TOKEN) {
-    console.warn('[Tushare] 未配置 TUSHARE_TOKEN，使用 Mock 数据');
-    return null;
+    throw new Error(`[Tushare] ${apiName} 请求失败: 未配置 TUSHARE_TOKEN`);
   }
 
   try {
@@ -451,8 +464,7 @@ async function tushareRequest(apiName, params = {}) {
 
     return data;
   } catch (error) {
-    console.warn(`[Tushare] ${apiName} 请求失败:`, error.message);
-    return null;
+    throw new Error(`[Tushare] ${apiName} 请求失败: ${error.message}`);
   }
 }
 
@@ -461,8 +473,7 @@ async function tushareRequest(apiName, params = {}) {
  */
 async function fetchEarningsReportsFromTushare(days = 7) {
   if (!TUSHARE_TOKEN) {
-    console.log('[财报发布] 未配置 TUSHARE_TOKEN，使用 Mock 数据');
-    return null;
+    throw new Error('[财报发布] 数据源不可用：未配置 TUSHARE_TOKEN');
   }
 
   console.log('[财报发布] 从 Tushare 获取财报数据...');
@@ -477,8 +488,7 @@ async function fetchEarningsReportsFromTushare(days = 7) {
   });
 
   if (!data || !data.data || !data.data.items) {
-    console.log('[财报发布] Tushare 无近期财报数据，使用 Mock 数据降级');
-    return null;
+    throw new Error('[财报发布] Tushare disclosure_date 返回空数据');
   }
 
   const fields = data.data.fields;
@@ -525,6 +535,9 @@ async function fetchEarningsReportsFromTushare(days = 7) {
     });
   });
 
+  if (events.length === 0) {
+    throw new Error('[财报发布] Tushare disclosure_date 解析后无有效财报事件');
+  }
   console.log(`[财报发布] 从 Tushare 获取 ${events.length} 条财报数据`);
   return events;
 }
@@ -534,8 +547,7 @@ async function fetchEarningsReportsFromTushare(days = 7) {
  */
 async function fetchCompanyAnnouncementsFromTushare(days = 7) {
   if (!TUSHARE_TOKEN) {
-    console.log('[公司公告] 未配置 TUSHARE_TOKEN，使用 Mock 数据');
-    return null;
+    throw new Error('[公司公告] 数据源不可用：未配置 TUSHARE_TOKEN');
   }
 
   console.log('[公司公告] 从 Tushare 获取公告数据...');
@@ -550,8 +562,7 @@ async function fetchCompanyAnnouncementsFromTushare(days = 7) {
   });
 
   if (!data || !data.data || !data.data.items) {
-    console.log('[公司公告] Tushare 无近期公告数据，使用新闻数据库降级');
-    return null;
+    throw new Error('[公司公告] Tushare anns_d 返回空数据');
   }
 
   const fields = data.data.fields;
@@ -597,6 +608,9 @@ async function fetchCompanyAnnouncementsFromTushare(days = 7) {
     });
   });
 
+  if (events.length === 0) {
+    throw new Error('[公司公告] Tushare anns_d 解析后无有效公告事件');
+  }
   console.log(`[公司公告] 从 Tushare 获取 ${events.length} 条公告数据`);
   return events;
 }
@@ -669,7 +683,7 @@ function determineReportType(endDate) {
  * @property {Object} metadata - 元数据
  */
 
-// ==================== 事件生成器 (Mock 数据，用于降级) ====================
+// ==================== 事件生成器 (历史兼容，严格模式下不使用) ====================
 
 const EventGenerators = {
   generateCompanyAnnouncements(count = 3) {
@@ -797,57 +811,49 @@ class EventSourceAdapter {
 
 class CompanyAnnouncementAdapter extends EventSourceAdapter {
   async _fetchImpl() {
-    if (this.config.useRealData) {
-      console.log(`[${this.name}] 从新闻数据库获取真实公告数据...`);
-      const events = await fetchCompanyAnnouncements(this.config.mockDataCount);
-      console.log(`[${this.name}] 获取 ${events.length} 条公告`);
-      return events;
+    if (!this.config.useRealData) {
+      throw new Error(`[${this.name}] 未启用真实数据模式`);
     }
-    return EventGenerators.generateCompanyAnnouncements(this.config.mockDataCount);
+    console.log(`[${this.name}] 从新闻数据库获取真实公告数据...`);
+    const events = await fetchCompanyAnnouncements(this.config.mockDataCount);
+    console.log(`[${this.name}] 获取 ${events.length} 条公告`);
+    return events;
   }
 }
 
 class EarningsReportAdapter extends EventSourceAdapter {
   async _fetchImpl() {
-    if (this.config.useRealData) {
-      console.log(`[${this.name}] 从 Tushare 获取真实财报数据...`);
-      const events = await fetchEarningsReportsFromTushare(7);
-      if (events && events.length > 0) {
-        console.log(`[${this.name}] 获取 ${events.length} 条财报`);
-        return events;
-      }
+    if (!this.config.useRealData) {
+      throw new Error(`[${this.name}] 未启用真实数据模式`);
     }
-    // 降级到 Mock 数据
-    console.log(`[${this.name}] 使用 Mock 数据（降级）`);
-    return EventGenerators.generateEarningsReports(this.config.mockDataCount);
+    console.log(`[${this.name}] 从 Tushare 获取真实财报数据...`);
+    const events = await fetchEarningsReportsFromTushare(7);
+    console.log(`[${this.name}] 获取 ${events.length} 条财报`);
+    return events;
   }
 }
 
 class ImportantNewsAdapter extends EventSourceAdapter {
   async _fetchImpl() {
-    if (this.config.useRealData) {
-      console.log(`[${this.name}] 从新闻数据库获取真实新闻数据（最近${this.config.hours}小时）...`);
-      const events = await fetchImportantNews(this.config.hours, this.config.mockDataCount * 2);
-      console.log(`[${this.name}] 获取 ${events.length} 条新闻`);
-      return events;
+    if (!this.config.useRealData) {
+      throw new Error(`[${this.name}] 未启用真实数据模式`);
     }
-    return EventGenerators.generateImportantNews(this.config.mockDataCount);
+    console.log(`[${this.name}] 从新闻数据库获取真实新闻数据（最近${this.config.hours}小时）...`);
+    const events = await fetchImportantNews(this.config.hours, this.config.mockDataCount * 2);
+    console.log(`[${this.name}] 获取 ${events.length} 条新闻`);
+    return events;
   }
 }
 
 class PriceMovementAdapter extends EventSourceAdapter {
   async _fetchImpl() {
-    if (this.config.useRealData) {
-      console.log(`[${this.name}] 从新浪财经获取实时行情数据...`);
-      const events = await fetchPriceMovementsFromSina(this.config.mockDataCount);
-      if (events && events.length > 0) {
-        console.log(`[${this.name}] 获取 ${events.length} 条价格异动`);
-        return events;
-      }
+    if (!this.config.useRealData) {
+      throw new Error(`[${this.name}] 未启用真实数据模式`);
     }
-    // 降级到 Mock 数据
-    console.log(`[${this.name}] 使用 Mock 数据（降级）`);
-    return EventGenerators.generatePriceMovements(this.config.mockDataCount);
+    console.log(`[${this.name}] 从新浪财经获取实时行情数据...`);
+    const events = await fetchPriceMovementsFromSina(this.config.mockDataCount);
+    console.log(`[${this.name}] 获取 ${events.length} 条价格异动`);
+    return events;
   }
 }
 
@@ -889,8 +895,9 @@ class EventAggregator {
         });
         console.log('');
       } catch (error) {
-        console.error(`✗ [${adapter.name}] 获取失败:`, error.message);
-        results[key] = [];
+        const message = `[${adapter.name}] 获取失败: ${error.message}`;
+        console.error(`✗ ${message}`);
+        throw new Error(message);
       }
     }
 

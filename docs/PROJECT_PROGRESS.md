@@ -827,3 +827,57 @@
 | GET /api/industry/:industry/top-stocks | 行业内个股 7 因子评分 | ✅ 完成 |
 | GET /api/stock/select/top10 | 全市场股票 Top10 | ✅ 完成 |
 | POST /api/minute/fetch | 分钟线数据获取 | ✅ 完成 |
+
+---
+
+## 2026-03-31 任务规划
+
+### 策略库导入参数映射补充
+
+**问题根因**: 导入不同策略后选股结果相同，因为只应用了 `minScore` 一个参数
+
+**设计更新**:
+- 更新文件：`docs/design/2026-03-29-seven-factor-optimization-engineering-plan.md`
+- 新增附录 C: 选股 API 参数映射设计
+  - C.1: 四维度权重 → 行业选股 API
+  - C.2: PE/PEG 上限 → 行业选股 API
+  - C.3: 七因子权重 → 待设计
+
+**任务规划**:
+| 任务 ID | 任务名 | 优先级 | 工时 | 状态 |
+|--------|--------|--------|------|------|
+| TASK_SELECT_IMPORT_002 | 四维度权重映射到选股 API | P0 | 2h | pending |
+| TASK_SELECT_IMPORT_003 | PE/PEG 上限映射到选股 API | P0 | 1.5h | pending |
+
+**三保险同步**:
+- ✅ Runtime 状态：`docs/runtime/TASK_SELECT_IMPORT_002_STATUS.md`, `TASK_SELECT_IMPORT_003_STATUS.md`
+- ⏳ todo.db: 待派发后同步
+- ✅ Memory 锚点：`memory/project/stock_system/{timestamp}-task-planning.json`
+
+---
+
+## 📅 今日完成（2026-03-31）
+
+### 策略库导入参数映射任务
+
+| 任务 ID | 任务名称 | 优先级 | 状态 | 开发者 | 验收员 | 完成时间 |
+|--------|----------|--------|------|--------|--------|---------|
+| **SELECT-002** | **四维度权重映射到选股 API** | **P0** | **🟢 done** | **Claude Code** | **Gemini CLI** | **2026-03-31 18:04** |
+| **SELECT-003** | **PE/PEG 上限映射到选股 API** | **P0** | **🟢 done** | **Claude Code** | **Gemini CLI** | **2026-03-31 18:04** |
+
+### 验收改进建议修复任务
+
+| 任务 ID | 任务名称 | 优先级 | 状态 | 开发者 | 验收员 | 完成时间 |
+|--------|----------|--------|------|--------|--------|---------|
+| **SELECT-FIX-001** | **修复 applyConfig() 覆盖隐藏配置问题** | **P0** | **🟢 done** | **Claude Code** | **Gemini CLI** | **2026-03-31 21:31** |
+| **SELECT-FIX-002** | **添加策略参数 UI 提示** | **P2** | **🟢 done** | **Claude Code** | **Gemini CLI** | **2026-03-31 21:31** |
+
+---
+
+## 📊 总体进度
+
+- **总任务数**: 待统计
+- **已完成**: 待统计
+- **完成率**: 待统计
+
+**最后更新时间**: 2026-03-31 21:35

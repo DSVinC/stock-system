@@ -538,31 +538,22 @@ export async function main() {
     fs.writeFileSync(reportFilePath, JSON.stringify(monitorReport, null, 2), 'utf8');
 
 
-    // 收集盘后事件
-    try {
-      console.log("📊 开始收集盘后事件...");
-      const afterHoursEvents = await collectAfterHoursEvents();
-      monitorReport.after_hours_events = afterHoursEvents;
-      console.log(`✅ 收集到 ${afterHoursEvents.length} 条盘后事件`);
-    } catch (eventError) {
-      console.warn("⚠️ 盘后事件收集失败:", eventError.message);
-      monitorReport.after_hours_events = [];
-    }
+    // 收集盘后事件（严格模式：失败即抛错）
+    console.log("📊 开始收集盘后事件...");
+    const afterHoursEvents = await collectAfterHoursEvents();
+    monitorReport.after_hours_events = afterHoursEvents;
+    console.log(`✅ 收集到 ${afterHoursEvents.length} 条盘后事件`);
 
     // 保存更新后的报告（包含事件）
     fs.writeFileSync(reportFilePath, JSON.stringify(monitorReport, null, 2), "utf8");
 
-    // 发送飞书推送
-    try {
-      console.log("📨 开始发送飞书推送...");
-      const result = await sendMonitorReport(monitorReport);
-      if (result.success) {
-        console.log("✅ 飞书推送发送成功");
-      } else {
-        console.warn("⚠️ 飞书推送失败:", result.error);
-      }
-    } catch (pushError) {
-      console.warn("⚠️ 飞书推送异常:", pushError.message);
+    // 发送飞书推送（严格模式：失败即抛错）
+    console.log("📨 开始发送飞书推送...");
+    const result = await sendMonitorReport(monitorReport);
+    if (result.success) {
+      console.log("✅ 飞书推送发送成功");
+    } else {
+      throw new Error(`飞书推送失败: ${result.error || '未知错误'}`);
     }
 
     console.log(`\n✅ 监控完成`);
@@ -575,7 +566,7 @@ export async function main() {
     return monitorReport;
 
   } catch (error) {
-    console.error('\n❌ 监控任务失败:', error);
+    console.error(`\n❌ 监控任务失败: ${error.message}`);
     throw error;
   }
 }

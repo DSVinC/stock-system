@@ -754,6 +754,78 @@
       margin: 1rem 0 1.25rem;
     }
 
+    /* 高级设置折叠面板样式 */
+    .advanced-settings {
+      margin-top: 1rem;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.03);
+    }
+    .advanced-summary {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0.75rem 1rem;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text-soft);
+      transition: all 0.2s ease;
+    }
+    .advanced-summary:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.04);
+    }
+    .advanced-icon {
+      font-size: 1rem;
+    }
+    .advanced-hint {
+      font-size: 0.75rem;
+      color: var(--accent);
+      opacity: 0.7;
+    }
+    .advanced-settings[open] .advanced-hint {
+      display: none;
+    }
+    .advanced-content {
+      padding: 0.75rem 1rem 1rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .advanced-notice {
+      font-size: 0.8rem;
+      color: var(--text-soft);
+      background: rgba(255, 200, 50, 0.1);
+      border: 1px solid rgba(255, 200, 50, 0.2);
+      border-radius: 6px;
+      padding: 0.5rem 0.75rem;
+      margin-bottom: 1rem;
+      line-height: 1.4;
+    }
+    .advanced-notice strong {
+      color: var(--accent);
+    }
+    .config-group.disabled {
+      opacity: 0.7;
+    }
+    .config-input.disabled {
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-soft);
+      cursor: not-allowed;
+    }
+    .disabled-input-group {
+      display: flex;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 8px;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.8rem;
+      color: var(--text-soft);
+    }
+    .disabled-value {
+      color: var(--text);
+      font-weight: 500;
+    }
+
     /* 导入策略列表样式 */
     .import-strategy-item {
       background: rgba(255, 255, 255, 0.04);
@@ -1034,6 +1106,43 @@
           </select>
         </div>
 
+        <!-- 高级设置折叠面板 -->
+        <details class="advanced-settings" id="advancedSettings">
+          <summary class="advanced-summary">
+            <span class="advanced-icon">🔧</span>
+            高级设置（策略参数）
+            <span class="advanced-hint">点击展开查看</span>
+          </summary>
+          <div class="advanced-content">
+            <p class="advanced-notice">
+              ⚠️ 策略参数（四维度权重、PE/PEG 上限）需通过 <strong>「导入策略」</strong> 功能修改，此处仅展示当前值。
+            </p>
+            <div class="config-group disabled">
+              <label class="config-label">
+                四维度权重
+                <span class="config-hint">社会/政策/公共/商业</span>
+              </label>
+              <div class="disabled-input-group" id="dimensionWeightsDisplay">
+                <span class="disabled-value">未设置</span>
+              </div>
+            </div>
+            <div class="config-group disabled">
+              <label class="config-label">
+                PE 上限
+                <span class="config-hint">市盈率过滤阈值</span>
+              </label>
+              <input type="number" class="config-input disabled" id="configPeMax" disabled placeholder="未设置">
+            </div>
+            <div class="config-group disabled">
+              <label class="config-label">
+                PEG 上限
+                <span class="config-hint">市盈率相对盈利增长比率</span>
+              </label>
+              <input type="number" class="config-input disabled" id="configPegMax" disabled placeholder="未设置">
+            </div>
+          </div>
+        </details>
+
         <div class="config-divider"></div>
         <div class="config-group">
           <label class="config-label">
@@ -1115,7 +1224,9 @@
       limit: 10,
       minScore: 0,
       decision: '',
-      strategy: 'seven_factor'
+      strategy: 'seven_factor',
+      peMax: null,
+      pegMax: null
     };
 
     function getConfig() {
@@ -1144,7 +1255,33 @@
       document.getElementById('configDecision').value = config.decision;
       document.getElementById('configStrategy').value = config.strategy || 'seven_factor';
 
+      // 更新高级设置面板显示
+      updateAdvancedSettingsDisplay(config);
+
       loadSelectionData();
+    }
+
+    // 更新高级设置面板显示
+    function updateAdvancedSettingsDisplay(config) {
+      // 更新四维度权重显示
+      const weightsDisplay = document.getElementById('dimensionWeightsDisplay');
+      if (config.dimensionWeights) {
+        const weights = config.dimensionWeights;
+        weightsDisplay.innerHTML = `
+          <span class="disabled-value">社会 ${weights.social || 0}</span>
+          <span class="disabled-value">政策 ${weights.policy || 0}</span>
+          <span class="disabled-value">公共 ${weights.public || 0}</span>
+          <span class="disabled-value">商业 ${weights.business || 0}</span>
+        `;
+      } else {
+        weightsDisplay.innerHTML = '<span class="disabled-value">未设置</span>';
+      }
+
+      // 更新 PE/PEG 显示
+      const peMaxInput = document.getElementById('configPeMax');
+      const pegMaxInput = document.getElementById('configPegMax');
+      peMaxInput.value = config.peMax || '';
+      pegMaxInput.value = config.pegMax || '';
     }
 
     // 加载策略模板列表 [已弃用 - V4 移除]
@@ -1243,8 +1380,14 @@
     }
 
     // 应用配置并刷新
+    // TASK_SELECT_IMPORT_FIX_001: 合并配置而非覆盖，保留隐藏配置
     function applyConfig() {
+      // 先获取现有配置（保留 dimensionWeights, peMax, pegMax 等隐藏配置）
+      const existingConfig = getConfig();
+
+      // 只更新 UI 输入框对应的字段，合并保留其他配置
       const config = {
+        ...existingConfig,
         limit: parseInt(document.getElementById('configLimit').value) || 10,
         minScore: parseFloat(document.getElementById('configMinScore').value) || 0,
         decision: document.getElementById('configDecision').value || '',
@@ -1285,6 +1428,23 @@
       }
       if (config.decision) stockParams.set('decision', config.decision);
       if (config.strategy) stockParams.set('strategy', config.strategy);
+
+      // TASK_SELECT_IMPORT_002: 发送四维度权重到后端
+      if (config.dimensionWeights) {
+        stockParams.set('dimensionWeights', JSON.stringify(config.dimensionWeights));
+        console.log('[选股请求] 四维度权重:', config.dimensionWeights);
+      }
+
+      // TASK_SELECT_IMPORT_003: 发送 PE/PEG 上限到后端
+      if (config.peMax !== null && config.peMax !== undefined) {
+        stockParams.set('peMax', config.peMax);
+      }
+      if (config.pegMax !== null && config.pegMax !== undefined) {
+        stockParams.set('pegMax', config.pegMax);
+      }
+      if (config.peMax || config.pegMax) {
+        console.log('[选股请求] PE/PEG 上限:', { peMax: config.peMax, pegMax: config.pegMax });
+      }
 
       try {
         // 调用统一的选股接口（返回行业 + 该行业的成分股 picks）
@@ -2122,6 +2282,59 @@
         config.minScore = minScore;
       }
 
+      // 应用四维度权重 (TASK_SELECT_IMPORT_002)
+      // 字段映射: policy_weight -> policy, commercialization_weight -> business, sentiment_weight -> public
+      if (strategy.policy_weight || strategy.commercialization_weight || strategy.sentiment_weight) {
+        const policyWeight = Number(strategy.policy_weight) || 0;
+        const businessWeight = Number(strategy.commercialization_weight) || 0;
+        const publicWeight = Number(strategy.sentiment_weight) || 0;
+
+        // 计算归一化后的权重总和
+        const totalWeight = policyWeight + businessWeight + publicWeight;
+
+        if (totalWeight > 0) {
+          // 如果策略库中三个权重之和不超过 1，则 social = 1 - totalWeight
+          // 如果超过 1，则进行归一化处理
+          let socialWeight, normalizedPolicy, normalizedBusiness, normalizedPublic;
+
+          if (totalWeight <= 1) {
+            // social 权重 = 剩余权重
+            socialWeight = 1 - totalWeight;
+            normalizedPolicy = policyWeight;
+            normalizedBusiness = businessWeight;
+            normalizedPublic = publicWeight;
+          } else {
+            // 需要归一化，四个权重等比缩放
+            const scaleFactor = 1 / totalWeight;
+            normalizedPolicy = policyWeight * scaleFactor;
+            normalizedBusiness = businessWeight * scaleFactor;
+            normalizedPublic = publicWeight * scaleFactor;
+            socialWeight = 0; // 如果原始权重已超过 1，social 为 0
+          }
+
+          config.dimensionWeights = {
+            social: Math.round(socialWeight * 100) / 100,
+            policy: Math.round(normalizedPolicy * 100) / 100,
+            public: Math.round(normalizedPublic * 100) / 100,
+            business: Math.round(normalizedBusiness * 100) / 100
+          };
+
+          console.log('[导入策略] 四维度权重:', config.dimensionWeights);
+        }
+      }
+
+      // 应用 PE/PEG 上限 (TASK_SELECT_IMPORT_003)
+      // 字段映射: pe_max -> peMax, peg_max -> pegMax
+      if (strategy.pe_max) {
+        config.peMax = Number(strategy.pe_max);
+      }
+      if (strategy.peg_max) {
+        config.pegMax = Number(strategy.peg_max);
+      }
+      if (strategy.pe_max || strategy.peg_max) {
+        console.log('[导入策略] PE/PEG 上限:', { peMax: config.peMax, pegMax: config.pegMax });
+      }
+
       // 保存复制后的策略副本身份信息
       // 标记来源为 strategy_config
       // 同时回填 templateId/templateName 以保持向后兼容
@@ -2137,8 +2350,8 @@
 
       saveConfig(config);
 
-      // 应用其他参数（如果有）
-      // 可以根据实际需求扩展
+      // 更新高级设置面板显示
+      updateAdvancedSettingsDisplay(config);
 
       console.log('[导入策略] 已应用参数:', strategy);
     }
