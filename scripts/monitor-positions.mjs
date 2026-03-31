@@ -162,6 +162,37 @@ function formatFeishuMessage(signals) {
 }
 
 /**
+ * Format announcement summary message (带摘要，单条≤100 字)
+ */
+function formatAnnouncementMessage(announcements) {
+  const now = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit' });
+  
+  let text = `📋 持仓公告 ${now}\n\n`;
+  
+  let count = 0;
+  announcements.forEach(item => {
+    item.announcements.forEach(ann => {
+      // 摘要处理：取 content 前 60 字
+      let summary = ann.content || ann.title;
+      if (summary.length > 60) summary = summary.slice(0, 57) + '...';
+      // 格式：股票名：标题：摘要
+      const line = `• ${item.stock_name}: ${ann.title}: ${summary}`;
+      // 单条≤100 字
+      text += line.length > 100 ? line.slice(0, 97) + '...\n' : line + '\n';
+      count++;
+    });
+  });
+  
+  if (count === 0) {
+    text += `\n✅ 暂无公告`;
+  } else {
+    text += `\n共${count}条`;
+  }
+  
+  return text;
+}
+
+/**
  * Main monitoring function
  */
 async function monitorPositions() {
@@ -175,18 +206,37 @@ async function monitorPositions() {
     return;
   }
   
-  const { signals, count } = result;
+  const { signals, count, announcements } = result;
   console.log(`📊 持仓股票：${count}只`);
   
+  let hasPushed = false;
+  
+  // 1. 优先推送高危/中危信号
   if (signals && signals.length > 0) {
     console.log(`⚠️ 生成 ${signals.length} 条信号`);
-    // Send Feishu alert
     await sendFeishuAlert(signals);
-  } else if (mode === 'morning') {
-    // 盘前关注：即使无信号也推送摘要
+    hasPushed = true;
+  }
+  
+  // 2. 盘前关注：推送摘要（包括公告）
+  if (mode === 'morning') {
     const holdings = await getHoldings();
     await sendMorningBrief(holdings);
-  } else {
+    hasPushed = true;
+  }
+  
+  // 3. 其他模式：有公告也推送摘要（选项 C：有公告就推送，标记风险等级）
+  if (!hasPushed && announcements && announcements.length > 0) {
+    const hasAnnouncements = announcements.some(item => item.announcements && item.announcements.length > 0);
+    if (hasAnnouncements) {
+      const message = formatAnnouncementMessage(announcements);
+      // 输出到 stdout，由 cron 的 delivery 机制推送到飞书
+      console.log('\n' + message);
+      hasPushed = true;
+    }
+  }
+  
+  if (!hasPushed) {
     console.log('\n✅ 无异常信号，不推送');
   }
   

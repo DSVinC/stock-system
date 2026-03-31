@@ -9,7 +9,6 @@
  */
 
 const { getDatabase } = require('./db');
-const { tushareRequest } = require('./market-data');
 const { execFile } = require('node:child_process');
 const { promisify } = require('node:util');
 const fs = require('node:fs');
@@ -99,29 +98,7 @@ function isSinaMcpToolAvailable() {
   return fs.existsSync(SINA_MCP_CALL_TOOL);
 }
 
-async function fetchTushareAnnouncements(tsCode, startDateStr, endDateStr) {
-  const rows = await tushareRequest(
-    'anns_d',
-    {
-      ts_code: tsCode,
-      start_date: startDateStr,
-      end_date: endDateStr
-    },
-    ['ts_code', 'name', 'ann_date', 'title']
-  );
-  if (!Array.isArray(rows)) return [];
-  return rows.map((item) => ({
-    ts_code: tsCode,
-    name: item.name || null,
-    ann_date: String(item.ann_date || '').trim(),
-    ann_time: null,
-    title: String(item.title || '').trim(),
-    content: '',
-    symbol: toSinaSymbol(tsCode),
-    event_type: null,
-    source: 'tushare_anns_d'
-  })).filter(item => item.ann_date && item.title);
-}
+// 已移除 fetchTushareAnnouncements - 完全使用新浪财经 MCP
 
 function classifyAnnouncementTitle(title) {
   const text = String(title || '');
@@ -152,7 +129,7 @@ async function syncCompanyAnnouncements(db, holdings, options = {}) {
   const endDateStr = toTradeDateString(endDate); // yyyyMMdd
   const stockNameByCode = new Map((holdings || []).map(item => [item.ts_code, item.stock_name || null]));
   const fetchSinaEvents = typeof options.fetchSinaMajorEvents === 'function' ? options.fetchSinaMajorEvents : fetchSinaMajorEvents;
-  const fetchTushareEvents = typeof options.fetchTushareAnnouncements === 'function' ? options.fetchTushareAnnouncements : fetchTushareAnnouncements;
+  // 已移除 fetchTushareEvents - 完全使用新浪财经 MCP
 
   let synced = 0;
   let inserted = 0;
@@ -189,17 +166,14 @@ async function syncCompanyAnnouncements(db, holdings, options = {}) {
           })
           .filter(Boolean);
       } catch (error) {
-        console.warn(`[position-signals] 新浪公告同步失败 ${tsCode}: ${error.message}，回退 Tushare anns_d`);
+        console.warn(`[position-signals] 新浪公告同步失败 ${tsCode}: ${error.message}`);
       }
     }
 
+    // 完全使用新浪财经 MCP，不再回退 Tushare
     if (rows.length === 0) {
-      try {
-        rows = await fetchTushareEvents(tsCode, startDateStr, endDateStr);
-      } catch (error) {
-        console.warn(`[position-signals] Tushare 公告同步失败 ${tsCode}:`, error.message);
-        continue;
-      }
+      console.log(`[position-signals] 新浪公告无数据 ${tsCode} (${startDateStr}-${endDateStr})`);
+      continue;
     }
 
     if (!Array.isArray(rows) || rows.length === 0) {
@@ -246,7 +220,7 @@ async function syncCompanyAnnouncements(db, holdings, options = {}) {
 
 async function getRecentMajorAnnouncements(db, tsCode, days = ANN_MAJOR_LOOKBACK_DAYS) {
   const rows = await db.allPromise(
-    `SELECT event_type, event_time, title, source
+    `SELECT event_type, event_time, title, content, source
        FROM company_events
       WHERE ts_code = ?
         AND event_time >= datetime('now', ?)
@@ -258,6 +232,7 @@ async function getRecentMajorAnnouncements(db, tsCode, days = ANN_MAJOR_LOOKBACK
     const classify = classifyAnnouncementTitle(row.title);
     return {
       title: row.title,
+      content: row.content || '',
       eventType: row.event_type || classify.eventType,
       signalType: classify.signalType,
       signalLevel: classify.signalLevel,
@@ -607,18 +582,33 @@ async function runFullMonitoring() {
     }
   }
   
+  // 收集所有公告（用于推送摘要）
+  const allAnnouncements = [];
+  for (const holding of holdings) {
+    try {
+      const announcements = await getRecentMajorAnnouncements(db, holding.ts_code, 3);
+      if (announcements && announcements.length > 0) {
+        allAnnouncements.push({
+          ts_code: holding.ts_code,
+          stock_name: holding.stock_name,
+          announcements
+        });
+      }
+    } catch (e) {
+      // 忽略单个股票公告获取失败
+    }
+  }
+  
   // 保存并返回
   if (allSignals.length > 0) {
     await saveSignals(allSignals);
-    
-    // 如果有飞书推送逻辑，可以在这里调用
-    // 但通常建议由调用者（如脚本或 API 处理程序）决定是否推送
   }
   
   return {
     success: true,
     count: holdings.length,
-    signals: allSignals
+    signals: allSignals,
+    announcements: allAnnouncements
   };
 }
 
