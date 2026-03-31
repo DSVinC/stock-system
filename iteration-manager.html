@@ -1690,7 +1690,7 @@
             ['卡玛比率', v.calmar_ratio, value => Number(value).toFixed(2)],
             ['盈亏比', v.profit_loss_ratio, value => Number(value).toFixed(2)],
             ['胜率', v.win_rate, value => `${(Number(value) * 100).toFixed(1)}%`],
-            ['总收益', v.total_return, value => `¥${Number(value).toLocaleString(undefined, { maximumFractionDigits: 0 })}`]
+            ['总收益', v.total_return, value => `${(Number(value) * 100).toFixed(2)}%`]
           ].filter(([, value]) => value !== null && value !== undefined && Number.isFinite(Number(value)));
 
           if (metricEntries.length === 0) {
