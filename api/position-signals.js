@@ -18,6 +18,7 @@ const execFileAsync = promisify(execFile);
 const ANN_IMPORT_LOOKBACK_DAYS = 30;
 const ANN_MAJOR_LOOKBACK_DAYS = 3;
 const SINA_MCP_CALL_TOOL = '/Users/vvc/.openclaw/workspace/skills/sina-ashare-mcp/scripts/call-tool.cjs';
+const AKSHARE_SCRIPT = '/Users/vvc/.openclaw/workspace/stock-system/scripts/fetch_announcements_akshare.py';
 
 const ANN_RISK_KEYWORDS = [
   { keyword: '立案调查', eventType: 'regulatory_investigation', signalType: 'SELL', signalLevel: 'HIGH', riskTag: 'high' },
@@ -100,6 +101,40 @@ function isSinaMcpToolAvailable() {
 
 // 已移除 fetchTushareAnnouncements - 完全使用新浪财经 MCP
 
+/**
+ * 使用 AkShare 获取公司公告（免费数据源）
+ */
+async function fetchAkshareAnnouncements(tsCode, limit = 100) {
+  const { stdout } = await execFileAsync(
+    'python3',
+    [AKSHARE_SCRIPT, tsCode.replace('.', '').replace('SH', '').replace('SZ', ''), String(limit)],
+    {
+      timeout: 30000,
+      maxBuffer: 1024 * 1024 * 4,
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
+    }
+  );
+  
+  const result = JSON.parse(String(stdout || '{}'));
+  
+  if (!result.success || !result.data) {
+    console.warn(`[position-signals] AkShare 公告获取失败 ${tsCode}: ${result.error}`);
+    return [];
+  }
+  
+  return (result.data || []).map(item => ({
+    ts_code: tsCode,
+    name: item.stock_name || null,
+    ann_date: String(item.ann_date || ''),
+    ann_time: String(item.pub_time || '').split(' ')[1] || null,
+    title: String(item.title || '').trim(),
+    content: String(item.content || '').trim(),
+    symbol: tsCode,
+    event_type: null,
+    source: 'akshare'
+  }));
+}
+
 function classifyAnnouncementTitle(title) {
   const text = String(title || '');
   for (const rule of ANN_RISK_KEYWORDS) {
@@ -171,9 +206,41 @@ async function syncCompanyAnnouncements(db, holdings, options = {}) {
       }
     }
 
-    // 完全使用新浪财经 MCP，不再回退 Tushare
+    // 回退到 AkShare（免费数据源）
     if (rows.length === 0) {
-      console.log(`[position-signals] 新浪公告无数据 ${tsCode} (${startDateStr}-${endDateStr})`);
+      console.log(`[position-signals] 新浪公告无数据，尝试 AkShare ${tsCode} (${startDateStr}-${endDateStr})`);
+      try {
+        const akEvents = await fetchAkshareAnnouncements(tsCode, 100);
+        rows = (akEvents || [])
+          .map((item) => {
+            const dateStr = String(item.ann_date || '').replace(/-/g, '');
+            if (!dateStr || dateStr < startDateStr || dateStr > endDateStr) {
+              return null;
+            }
+            return {
+              ts_code: tsCode,
+              name: item.name || stockNameByCode.get(tsCode) || null,
+              ann_date: dateStr,
+              ann_time: item.ann_time || null,
+              title: String(item.title || '').trim(),
+              content: String(item.content || '').trim(),
+              symbol: item.symbol || tsCode,
+              event_type: item.event_type || null,
+              source: 'akshare'
+            };
+          })
+          .filter(Boolean);
+        
+        if (rows.length > 0) {
+          console.log(`[position-signals] AkShare 获取成功 ${tsCode}: ${rows.length} 条公告`);
+        }
+      } catch (error) {
+        console.warn(`[position-signals] AkShare 公告同步失败 ${tsCode}: ${error.message}`);
+      }
+    }
+
+    if (rows.length === 0) {
+      console.log(`[position-signals] 无公告数据 ${tsCode} (${startDateStr}-${endDateStr})`);
       continue;
     }
 

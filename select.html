@@ -910,12 +910,52 @@
       font-size: 0.74rem;
       color: var(--text-faint);
     }
+    .import-filter-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+      margin-bottom: 0.75rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .import-filter-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .import-filter-item label {
+      font-size: 0.72rem;
+      color: var(--text-faint);
+    }
+    .import-filter-item input,
+    .import-filter-item select {
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      font-size: 0.8rem;
+    }
+    .import-filter-result {
+      grid-column: 1 / -1;
+      font-size: 0.75rem;
+      color: var(--text-soft);
+    }
+    .import-list-scroll {
+      max-height: 360px;
+      overflow-y: auto;
+      padding-right: 2px;
+    }
     .import-strategy-actions {
       display: flex;
       gap: 8px;
       margin-top: 1rem;
       padding-top: 1rem;
       border-top: 1px solid rgba(255, 255, 255, 0.1);
+      position: sticky;
+      bottom: 0;
+      background: linear-gradient(180deg, rgba(11, 25, 44, 0.95), rgba(11, 25, 44, 1));
+      z-index: 2;
     }
     .import-btn {
       flex: 1;
@@ -1194,7 +1234,48 @@
           <p>暂无可导入的策略库参数</p>
         </div>
 
-        <div id="importList" style="max-height: 360px; overflow-y: auto;"></div>
+        <div class="import-filter-bar" id="importFilterBar" style="display: none;">
+          <div class="import-filter-item">
+            <label>执行状态</label>
+            <select id="importFeedbackFilter">
+              <option value="all">全部</option>
+              <option value="positive">正向反馈</option>
+              <option value="mixed">混合反馈</option>
+              <option value="caution">需警惕</option>
+              <option value="no_data">暂无反馈</option>
+            </select>
+          </div>
+          <div class="import-filter-item">
+            <label>置信度</label>
+            <select id="importConfidenceFilter">
+              <option value="all">全部</option>
+              <option value="high">高</option>
+              <option value="medium">中</option>
+              <option value="low">低</option>
+              <option value="none">无样本</option>
+            </select>
+          </div>
+          <div class="import-filter-item">
+            <label>排序</label>
+            <select id="importSortFilter">
+              <option value="updated_desc">按更新时间（新→旧）</option>
+              <option value="score_desc">按执行收益（高→低）</option>
+            </select>
+          </div>
+          <div class="import-filter-item">
+            <label>关键词</label>
+            <input id="importSearchInput" type="text" placeholder="策略名 / 描述">
+          </div>
+          <div class="import-filter-result" id="importResultCount">共 0 条策略</div>
+        </div>
+
+        <div id="importList" class="import-list-scroll"></div>
+        <div class="import-strategy-actions">
+          <button class="import-btn import-btn-cancel" onclick="hideImportPanel()">取消</button>
+          <button class="import-btn import-btn-confirm" id="importConfirmBtn" onclick="confirmImportStrategy()" disabled>
+            导入选中参数
+          </button>
+        </div>
       </div>
     </div>
 
@@ -2104,6 +2185,9 @@
       document.getElementById('importLoading').style.display = 'block';
       document.getElementById('importEmpty').style.display = 'none';
       document.getElementById('importList').style.display = 'none';
+      document.getElementById('importFilterBar').style.display = 'none';
+      document.getElementById('importConfirmBtn').disabled = true;
+      window.selectedImportStrategyId = null;
 
       await loadPublicStrategies();
     }
@@ -2123,16 +2207,67 @@
 
         if (data.success && data.data && data.data.length > 0) {
           window.publicStrategies = data.data;
-          renderImportList(data.data);
+          window.filteredPublicStrategies = data.data.slice();
+          document.getElementById('importFilterBar').style.display = 'grid';
+          applyImportFilters();
         } else {
+          window.publicStrategies = [];
+          window.filteredPublicStrategies = [];
           document.getElementById('importEmpty').style.display = 'block';
+          document.getElementById('importFilterBar').style.display = 'none';
+          document.getElementById('importResultCount').textContent = '共 0 条策略';
         }
       } catch (error) {
         console.error('[导入策略] 加载失败:', error);
         document.getElementById('importLoading').style.display = 'none';
         document.getElementById('importEmpty').style.display = 'block';
+        document.getElementById('importFilterBar').style.display = 'none';
         document.getElementById('importEmpty').innerHTML = '<p style="color: var(--bad);">加载失败: ' + error.message + '</p>';
       }
+    }
+
+    function applyImportFilters() {
+      const source = Array.isArray(window.publicStrategies) ? window.publicStrategies : [];
+      const feedbackFilter = document.getElementById('importFeedbackFilter').value;
+      const confidenceFilter = document.getElementById('importConfidenceFilter').value;
+      const sortFilter = document.getElementById('importSortFilter').value;
+      const query = String(document.getElementById('importSearchInput').value || '').trim().toLowerCase();
+
+      let filtered = source.slice();
+
+      if (feedbackFilter !== 'all') {
+        filtered = filtered.filter((strategy) => (strategy.feedback_status || 'no_data') === feedbackFilter);
+      }
+
+      if (confidenceFilter !== 'all') {
+        filtered = filtered.filter((strategy) => (strategy.feedback_confidence || 'none') === confidenceFilter);
+      }
+
+      if (query) {
+        filtered = filtered.filter((strategy) => {
+          const name = String(strategy.name || '').toLowerCase();
+          const desc = String(strategy.description || '').toLowerCase();
+          return name.includes(query) || desc.includes(query);
+        });
+      }
+
+      if (sortFilter === 'score_desc') {
+        filtered.sort((a, b) => {
+          const pnlA = Number(a.feedback?.total_pnl || 0);
+          const pnlB = Number(b.feedback?.total_pnl || 0);
+          return pnlB - pnlA;
+        });
+      } else {
+        filtered.sort((a, b) => {
+          const ta = new Date(a.updated_at || 0).getTime();
+          const tb = new Date(b.updated_at || 0).getTime();
+          return tb - ta;
+        });
+      }
+
+      window.filteredPublicStrategies = filtered;
+      document.getElementById('importResultCount').textContent = `共 ${filtered.length} 条策略`;
+      renderImportList(filtered);
     }
 
     // 渲染导入策略列表
@@ -2140,8 +2275,14 @@
       const listEl = document.getElementById('importList');
       listEl.style.display = 'block';
 
-      listEl.innerHTML = strategies.map((strategy, index) => `
-        <div class="import-strategy-item" data-index="${index}" onclick="selectImportStrategy(${index})">
+      if (!strategies || strategies.length === 0) {
+        listEl.innerHTML = '<div class="import-feedback-empty" style="padding: 1rem;">当前筛选条件下无可导入策略</div>';
+        document.getElementById('importConfirmBtn').disabled = true;
+        return;
+      }
+
+      listEl.innerHTML = strategies.map((strategy) => `
+        <div class="import-strategy-item" data-strategy-id="${strategy.id}" onclick="selectImportStrategy(${strategy.id})">
           <div class="import-strategy-name">${escapeHtml(strategy.name)}</div>
           <div class="import-strategy-desc">${escapeHtml(strategy.description || '暂无描述')}</div>
           <div class="import-strategy-meta">
@@ -2152,17 +2293,16 @@
         </div>
       `).join('');
 
-      // 添加底部操作按钮
-      listEl.innerHTML += `
-        <div class="import-strategy-actions">
-          <button class="import-btn import-btn-cancel" onclick="hideImportPanel()">取消</button>
-          <button class="import-btn import-btn-confirm" id="importConfirmBtn" onclick="confirmImportStrategy()" disabled>
-            导入选中参数
-          </button>
-        </div>
-      `;
+      document.querySelectorAll('.import-strategy-item').forEach((item) => {
+        const strategyId = Number(item.dataset.strategyId);
+        if (window.selectedImportStrategyId === strategyId) {
+          item.classList.add('selected');
+        } else {
+          item.classList.remove('selected');
+        }
+      });
 
-      window.selectedImportIndex = null;
+      document.getElementById('importConfirmBtn').disabled = !window.selectedImportStrategyId;
     }
 
     function renderImportStrategyFeedback(feedback) {
@@ -2212,12 +2352,12 @@
     }
 
     // 选择导入策略
-    function selectImportStrategy(index) {
-      window.selectedImportIndex = index;
+    function selectImportStrategy(strategyId) {
+      window.selectedImportStrategyId = Number(strategyId);
 
       // 更新选中状态
-      document.querySelectorAll('.import-strategy-item').forEach((item, i) => {
-        if (i === index) {
+      document.querySelectorAll('.import-strategy-item').forEach((item) => {
+        if (Number(item.dataset.strategyId) === window.selectedImportStrategyId) {
           item.classList.add('selected');
         } else {
           item.classList.remove('selected');
@@ -2229,11 +2369,15 @@
 
     // 确认导入策略库参数
     async function confirmImportStrategy() {
-      if (window.selectedImportIndex === null || !window.publicStrategies) {
+      if (!window.selectedImportStrategyId || !window.publicStrategies) {
         return;
       }
 
-      const strategy = window.publicStrategies[window.selectedImportIndex];
+      const strategy = window.publicStrategies.find((item) => Number(item.id) === Number(window.selectedImportStrategyId));
+      if (!strategy) {
+        alert('未找到选中的策略，请重新选择。');
+        return;
+      }
       const btn = document.getElementById('importConfirmBtn');
       btn.disabled = true;
       btn.textContent = '导入参数中...';
@@ -2335,6 +2479,12 @@
         console.log('[导入策略] PE/PEG 上限:', { peMax: config.peMax, pegMax: config.pegMax });
       }
 
+      // 应用七因子权重 (TASK_SEVEN_FACTOR_ANALYSIS)
+      if (strategy.portfolio_config && strategy.portfolio_config.factorWeights) {
+        config.factorWeights = strategy.portfolio_config.factorWeights;
+        console.log('[导入策略] 七因子权重:', config.factorWeights);
+      }
+
       // 保存复制后的策略副本身份信息
       // 标记来源为 strategy_config
       // 同时回填 templateId/templateName 以保持向后兼容
@@ -2354,6 +2504,9 @@
       updateAdvancedSettingsDisplay(config);
 
       console.log('[导入策略] 已应用参数:', strategy);
+
+      // 刷新选股数据以应用新参数
+      loadSelectionData();
     }
 
     // HTML 转义工具函数
@@ -2370,6 +2523,12 @@
         hideImportPanel();
       }
     });
+
+    // 导入策略筛选事件
+    document.getElementById('importFeedbackFilter').addEventListener('change', applyImportFilters);
+    document.getElementById('importConfidenceFilter').addEventListener('change', applyImportFilters);
+    document.getElementById('importSortFilter').addEventListener('change', applyImportFilters);
+    document.getElementById('importSearchInput').addEventListener('input', applyImportFilters);
   </script>
 </body>
 </html>

@@ -5,7 +5,9 @@ Optuna 参数优化器 (V5_007)
 """
 import argparse
 import json
+import math
 import os
+import sqlite3
 import subprocess
 import sys
 from datetime import datetime, timedelta
@@ -15,6 +17,7 @@ from typing import Any, Dict, Iterable, List, Optional, Union
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 REAL_SCORE_CLI = os.path.join(SCRIPT_DIR, "real_score_cli.mjs")
 REAL_SCORE_TIMEOUT_SECONDS = 45
+DB_PATH = os.environ.get("DB_PATH") or "/Volumes/SSD500/openclaw/stock-system/stock_system.db"
 DEFAULT_STOCKS = ["000001.SZ"]
 DEFAULT_START_DATE = "2024-01-01"
 DEFAULT_END_DATE = "2024-12-31"
@@ -24,7 +27,254 @@ OPTUNA_CONTEXT = {
     "start_date": DEFAULT_START_DATE,
     "end_date": DEFAULT_END_DATE,
     "seed_params": {},
+    "market_regime": None,
 }
+
+
+def _to_db_date(date_str: str) -> str:
+    return str(date_str or "").replace("-", "")
+
+
+def _pearson_corr(xs: List[float], ys: List[float]) -> Optional[float]:
+    if len(xs) != len(ys) or len(xs) < 2:
+        return None
+    mx = sum(xs) / len(xs)
+    my = sum(ys) / len(ys)
+    vx = sum((x - mx) ** 2 for x in xs)
+    vy = sum((y - my) ** 2 for y in ys)
+    if vx <= 0 or vy <= 0:
+        return None
+    cov = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+    return cov / math.sqrt(vx * vy)
+
+
+def _mean(values: List[float]) -> Optional[float]:
+    if not values:
+        return None
+    return sum(values) / len(values)
+
+
+def _std(values: List[float]) -> Optional[float]:
+    if len(values) < 2:
+        return 0.0 if values else None
+    m = sum(values) / len(values)
+    return math.sqrt(sum((v - m) ** 2 for v in values) / len(values))
+
+
+def compute_factor_stability_metrics(
+    strategy_type: str,
+    stocks: List[str],
+    start_date: str,
+    end_date: str,
+) -> Dict[str, Any]:
+    normalized_type = str(strategy_type or "").strip().lower()
+    if normalized_type != "seven_factor":
+        return {
+            "status": "not_applicable",
+            "reason": "strategy_not_seven_factor",
+        }
+
+    stock_list = _normalize_stocks(stocks)
+    if not stock_list:
+        return {"status": "insufficient", "reason": "no_stocks"}
+
+    start_db = _to_db_date(start_date)
+    end_db = _to_db_date(end_date)
+    placeholders = ",".join(["?"] * len(stock_list))
+    sql = f"""
+      WITH base AS (
+        SELECT
+          s.trade_date,
+          s.ts_code,
+          s.industry,
+          s.seven_factor_score AS factor_score,
+          d0.close AS close0,
+          (
+            SELECT d1.close
+            FROM stock_daily d1
+            WHERE d1.ts_code = s.ts_code
+              AND d1.trade_date > s.trade_date
+            ORDER BY d1.trade_date ASC
+            LIMIT 1
+          ) AS close1
+        FROM stock_factor_snapshot s
+        JOIN stock_daily d0
+          ON d0.ts_code = s.ts_code
+         AND d0.trade_date = s.trade_date
+        WHERE s.trade_date BETWEEN ? AND ?
+          AND s.ts_code IN ({placeholders})
+          AND s.seven_factor_score IS NOT NULL
+      )
+      SELECT
+        trade_date,
+        ts_code,
+        industry,
+        factor_score,
+        CASE
+          WHEN close0 > 0 AND close1 IS NOT NULL THEN (close1 - close0) / close0
+          ELSE NULL
+        END AS next_return
+      FROM base
+      WHERE close1 IS NOT NULL
+    """
+
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        cur.execute(sql, [start_db, end_db, *stock_list])
+        rows = cur.fetchall()
+    except Exception as exc:
+        return {"status": "error", "reason": str(exc)}
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+    if len(rows) < 30:
+        return {
+            "status": "insufficient",
+            "reason": "insufficient_rows",
+            "sample_size": len(rows),
+        }
+
+    pairs = [
+        (float(r[3]), float(r[4]), str(r[0]), str(r[2] or "未知"))
+        for r in rows
+        if r[3] is not None and r[4] is not None
+    ]
+    if len(pairs) < 30:
+        return {
+            "status": "insufficient",
+            "reason": "insufficient_pairs",
+            "sample_size": len(pairs),
+        }
+
+    xs = [p[0] for p in pairs]
+    ys = [p[1] for p in pairs]
+    ic_mean = _pearson_corr(xs, ys)
+
+    monthly = {}
+    for score, ret, trade_date, _industry in pairs:
+        month = trade_date[:6]
+        monthly.setdefault(month, {"x": [], "y": []})
+        monthly[month]["x"].append(score)
+        monthly[month]["y"].append(ret)
+
+    monthly_ics = []
+    for month, values in sorted(monthly.items()):
+        if len(values["x"]) < 8:
+            continue
+        ic = _pearson_corr(values["x"], values["y"])
+        if ic is not None:
+            monthly_ics.append((month, ic))
+
+    ic_values = [v for _, v in monthly_ics]
+    ic_std = _std(ic_values)
+    if len(ic_values) >= 4:
+        head = ic_values[: max(1, len(ic_values) // 3)]
+        tail = ic_values[-max(1, len(ic_values) // 3):]
+        ic_decay = (_mean(tail) or 0.0) - (_mean(head) or 0.0)
+    else:
+        ic_decay = None
+
+    # 行业偏离：Top20% 高分样本与全样本的行业分布偏离
+    by_all = {}
+    for *_rest, industry in [(p[0], p[1], p[2], p[3]) for p in pairs]:
+        by_all[industry] = by_all.get(industry, 0) + 1
+    sorted_by_score = sorted(pairs, key=lambda p: p[0], reverse=True)
+    top_n = max(1, int(len(sorted_by_score) * 0.2))
+    top = sorted_by_score[:top_n]
+    by_top = {}
+    for *_rest, industry in [(p[0], p[1], p[2], p[3]) for p in top]:
+        by_top[industry] = by_top.get(industry, 0) + 1
+
+    all_total = float(len(pairs))
+    top_total = float(len(top))
+    industries = sorted(set(by_all.keys()) | set(by_top.keys()))
+    deviations = []
+    for ind in industries:
+        p_all = by_all.get(ind, 0) / all_total if all_total > 0 else 0.0
+        p_top = by_top.get(ind, 0) / top_total if top_total > 0 else 0.0
+        deviations.append(abs(p_top - p_all))
+    industry_bias_mean = _mean(deviations)
+    industry_bias_max = max(deviations) if deviations else None
+    top_hhi = sum((count / top_total) ** 2 for count in by_top.values()) if top_total > 0 else None
+
+    return {
+        "status": "ok",
+        "sample_size": len(pairs),
+        "ic_mean": ic_mean,
+        "ic_std": ic_std,
+        "ic_decay": ic_decay,
+        "monthly_ic_count": len(monthly_ics),
+        "industry_bias_mean": industry_bias_mean,
+        "industry_bias_max": industry_bias_max,
+        "top_industry_hhi": top_hhi,
+    }
+
+def normalize_group_with_bounds(
+    raw_values: Dict[str, float],
+    defaults: Dict[str, float],
+    min_weight: float = 0.0,
+    max_weight: float = 1.0,
+) -> Dict[str, float]:
+    keys = list(defaults.keys())
+    if not keys:
+        return {}
+
+    if min_weight < 0:
+        min_weight = 0.0
+    if max_weight <= 0:
+        max_weight = 1.0
+    if min_weight > max_weight:
+        min_weight, max_weight = max_weight, min_weight
+
+    values = {}
+    for key in keys:
+        raw = raw_values.get(key)
+        if raw is None:
+            raw = defaults.get(key, 0.0)
+        values[key] = max(0.0, float(raw))
+
+    total = sum(values.values())
+    if total <= 0:
+        normalized = dict(defaults)
+    else:
+        normalized = {key: values[key] / total for key in keys}
+
+    normalized = {
+        key: min(max(normalized.get(key, 0.0), min_weight), max_weight)
+        for key in keys
+    }
+
+    # 重新归一化到 sum=1，保持边界约束。
+    for _ in range(16):
+        current_sum = sum(normalized.values())
+        delta = 1.0 - current_sum
+        if abs(delta) < 1e-9:
+            break
+
+        if delta > 0:
+            adjustable = [key for key in keys if normalized[key] < max_weight - 1e-12]
+        else:
+            adjustable = [key for key in keys if normalized[key] > min_weight + 1e-12]
+
+        if not adjustable:
+            break
+
+        share = delta / len(adjustable)
+        for key in adjustable:
+            normalized[key] = min(
+                max(normalized[key] + share, min_weight),
+                max_weight
+            )
+
+    final_sum = sum(normalized.values())
+    if final_sum > 0:
+        normalized = {key: normalized[key] / final_sum for key in keys}
+
+    return normalized
 
 
 def _normalize_stocks(stocks: Union[Iterable[str], str, None]) -> List[str]:
@@ -77,13 +327,12 @@ def build_cli_params(params: Dict[str, Any]) -> Dict[str, Any]:
         "sentiment": cli_params.pop("factor_sentiment", None),
     }
     if any(value is not None for value in factor_raw.values()):
-        total = sum(float(value) for value in factor_raw.values() if value is not None)
-        if total > 0:
-            cli_params["factorWeights"] = {
-                key: float(value) / total
-                for key, value in factor_raw.items()
-                if value is not None
-            }
+        cli_params["factorWeights"] = normalize_group_with_bounds(
+            {key: float(value) for key, value in factor_raw.items() if value is not None},
+            {"trend": 0.17, "momentum": 0.15, "valuation": 0.15, "earnings": 0.13, "capital": 0.13, "volatility": 0.12, "sentiment": 0.15},
+            min_weight=0.03,
+            max_weight=0.40,
+        )
     if "ma_short" in cli_params:
         cli_params["fast_period"] = cli_params.pop("ma_short")
     if "ma_long" in cli_params:
@@ -184,12 +433,7 @@ def centered_float(seed_value: Any, low: float, high: float, radius: float) -> t
 def build_trial_params(trial, strategy_type: str) -> Dict[str, Any]:
     normalized_type = str(strategy_type or "double_ma").strip().lower()
     seed_params = _get_context().get("seed_params") or {}
-
-    def normalize_group(raw_values: Dict[str, float], defaults: Dict[str, float]) -> Dict[str, float]:
-        total = sum(max(0.0, float(value)) for value in raw_values.values())
-        if total <= 0:
-            return dict(defaults)
-        return {key: max(0.0, float(value)) / total for key, value in raw_values.items()}
+    market_regime = _get_context().get("market_regime") or {}
 
     if normalized_type in {"double_ma", "trend_following"}:
         short_low, short_high = centered_int(seed_params.get("ma_short"), 5, 30, 3)
@@ -256,6 +500,22 @@ def build_trial_params(trial, strategy_type: str) -> Dict[str, Any]:
         decision_factor_low, decision_factor_high = 0.45, 0.90
         trend_confirm_period_low, trend_confirm_period_high = 2, 8
         breakout_margin_low, breakout_margin_high = 0.00, 0.10
+        if market_regime.get("volatility_regime") == "high":
+            # 高波动：收紧止损与突破幅度，避免回撤放大
+            stop_low, stop_high = 0.02, 0.10
+            take_low, take_high = 0.06, 0.35
+            breakout_margin_low, breakout_margin_high = 0.00, 0.06
+        elif market_regime.get("volatility_regime") == "low":
+            # 低波动：允许更宽盈亏空间，降低噪声触发
+            stop_low, stop_high = 0.03, 0.20
+            take_low, take_high = 0.10, 0.60
+
+        if market_regime.get("trend_regime") == "ranging":
+            trend_confirm_period_low, trend_confirm_period_high = 1, 5
+            decision_factor_low, decision_factor_high = 0.50, 0.92
+        elif market_regime.get("trend_regime") == "trending":
+            trend_confirm_period_low, trend_confirm_period_high = 3, 10
+            breakout_margin_low, breakout_margin_high = max(breakout_margin_low, 0.01), max(breakout_margin_high, 0.08)
         dimension_raw = {
             "social": trial.suggest_float("dimension_social_raw", dim_social_low, dim_social_high),
             "policy": trial.suggest_float("dimension_policy_raw", dim_policy_low, dim_policy_high),
@@ -271,10 +531,17 @@ def build_trial_params(trial, strategy_type: str) -> Dict[str, Any]:
             "volatility": trial.suggest_float("factor_volatility_raw", factor_volatility_low, factor_volatility_high),
             "sentiment": trial.suggest_float("factor_sentiment_raw", factor_sentiment_low, factor_sentiment_high),
         }
-        dimension_weights = normalize_group(dimension_raw, {"social": 0.25, "policy": 0.25, "public": 0.25, "business": 0.25})
-        factor_weights = normalize_group(
+        dimension_weights = normalize_group_with_bounds(
+            dimension_raw,
+            {"social": 0.25, "policy": 0.25, "public": 0.25, "business": 0.25},
+            min_weight=0.05,
+            max_weight=0.80,
+        )
+        factor_weights = normalize_group_with_bounds(
             factor_raw,
-            {"trend": 0.14, "momentum": 0.14, "valuation": 0.14, "earnings": 0.14, "capital": 0.14, "volatility": 0.15, "sentiment": 0.15}
+            {"trend": 0.14, "momentum": 0.14, "valuation": 0.14, "earnings": 0.14, "capital": 0.14, "volatility": 0.15, "sentiment": 0.15},
+            min_weight=0.03,
+            max_weight=0.40,
         )
         return {
             "min_score": trial.suggest_float("min_score", min_low, min_high),
@@ -370,6 +637,40 @@ def run_real_score_cli(
         raise RuntimeError(str(error))
     return payload
 
+def compute_adjusted_objective(result: Dict[str, Any]) -> Dict[str, float]:
+    score_total = float(result.get("scoreTotal") or 0.0)
+    trade_count = int(result.get("tradeCount") or 0)
+    metrics = result.get("metrics") if isinstance(result.get("metrics"), dict) else {}
+    max_drawdown = float(metrics.get("maxDrawdown") or 0.0)
+    annualized_return = float(metrics.get("annualizedReturn") or 0.0)
+
+    # 惩罚 1：交易样本不足（目标 >= 30）
+    trade_penalty = 0.0
+    if trade_count < 30:
+        trade_penalty = (30 - trade_count) * 0.6  # 最大约 18 分惩罚
+
+    # 惩罚 2：回撤超阈值（20% 以内不惩罚）
+    drawdown_penalty = 0.0
+    if max_drawdown > 0.20:
+        drawdown_penalty = (max_drawdown - 0.20) * 120.0
+
+    # 惩罚 3：收益为负（压制“高分但负收益”）
+    return_penalty = 0.0
+    if annualized_return < 0:
+        return_penalty = abs(annualized_return) * 40.0
+
+    penalty_total = trade_penalty + drawdown_penalty + return_penalty
+    adjusted_score = score_total - penalty_total
+
+    return {
+        "raw_score": score_total,
+        "adjusted_score": adjusted_score,
+        "trade_penalty": trade_penalty,
+        "drawdown_penalty": drawdown_penalty,
+        "return_penalty": return_penalty,
+        "penalty_total": penalty_total,
+    }
+
 
 def _get_context() -> Dict[str, Any]:
     return OPTUNA_CONTEXT
@@ -395,11 +696,17 @@ def objective(trial):
         raise
     score_total = float(result.get('scoreTotal') or 0.0)
     trade_count = int(result.get('tradeCount') or 0)
+    adjusted = compute_adjusted_objective(result)
     trial.set_user_attr('trade_count', trade_count)
     trial.set_user_attr('score_total', score_total)
+    trial.set_user_attr('adjusted_score', adjusted["adjusted_score"])
+    trial.set_user_attr('penalty_total', adjusted["penalty_total"])
+    trial.set_user_attr('trade_penalty', adjusted["trade_penalty"])
+    trial.set_user_attr('drawdown_penalty', adjusted["drawdown_penalty"])
+    trial.set_user_attr('return_penalty', adjusted["return_penalty"])
     if trade_count <= 0:
         return -1.0
-    return score_total
+    return adjusted["adjusted_score"]
 
 def optimize_strategy(strategy_type, n_trials=50, stocks=None, start_date=None, end_date=None, seed_params=None):
     try:
@@ -413,7 +720,24 @@ def optimize_strategy(strategy_type, n_trials=50, stocks=None, start_date=None, 
         'start_date': start_date or DEFAULT_START_DATE,
         'end_date': end_date or DEFAULT_END_DATE,
         'seed_params': normalize_seed_params(strategy_type, seed_params),
+        'market_regime': None,
     })
+
+    # 先用 seed 参数跑一次，识别当前市场状态并用于采样边界切换（TASK_OPTIMIZE_008）
+    baseline_params = OPTUNA_CONTEXT.get('seed_params') or {}
+    try:
+        baseline_result = run_real_score_cli(
+            OPTUNA_CONTEXT['strategy_type'],
+            OPTUNA_CONTEXT['stocks'],
+            OPTUNA_CONTEXT['start_date'],
+            OPTUNA_CONTEXT['end_date'],
+            baseline_params,
+        )
+        OPTUNA_CONTEXT['market_regime'] = infer_market_regime(
+            (baseline_result or {}).get('metrics', {}) or {}
+        )
+    except RuntimeError:
+        OPTUNA_CONTEXT['market_regime'] = None
 
     study = optuna.create_study(direction='maximize')
     seed_trial = OPTUNA_CONTEXT.get('seed_params') or {}
@@ -449,6 +773,12 @@ def optimize_strategy(strategy_type, n_trials=50, stocks=None, start_date=None, 
         OPTUNA_CONTEXT['end_date'],
         chosen_params,
     )
+    factor_stability = compute_factor_stability_metrics(
+        OPTUNA_CONTEXT['strategy_type'],
+        OPTUNA_CONTEXT['stocks'],
+        OPTUNA_CONTEXT['start_date'],
+        OPTUNA_CONTEXT['end_date'],
+    )
     
     best_params = build_cli_params(chosen_params)
 
@@ -457,6 +787,8 @@ def optimize_strategy(strategy_type, n_trials=50, stocks=None, start_date=None, 
         'best_score': float(chosen_trial.value) if chosen_trial.value is not None else 0.0,
         'trade_count': best_result.get('tradeCount'),
         'metrics': best_result.get('metrics', {}),
+        'market_regime': OPTUNA_CONTEXT.get('market_regime'),
+        'factor_stability': factor_stability,
         'validation': validation,
         'trials': len(study.trials)
     }
@@ -527,16 +859,70 @@ def build_walkforward_validation(
             "end": is_end,
             "score": in_sample.get("scoreTotal"),
             "trade_count": in_sample.get("tradeCount"),
-            "metrics": in_sample.get("metrics", {})
+            "metrics": in_sample.get("metrics", {}),
+            "market_regime": infer_market_regime(in_sample.get("metrics", {}))
         },
         "out_of_sample": {
             "start": oos_start,
             "end": oos_end,
             "score": out_sample.get("scoreTotal"),
             "trade_count": out_sample.get("tradeCount"),
-            "metrics": out_sample.get("metrics", {})
+            "metrics": out_sample.get("metrics", {}),
+            "market_regime": infer_market_regime(out_sample.get("metrics", {}))
         },
-        "wfe": wfe
+        "wfe": wfe,
+        "regime_shift": detect_regime_shift(
+            infer_market_regime(in_sample.get("metrics", {})),
+            infer_market_regime(out_sample.get("metrics", {})),
+        )
+    }
+
+
+def infer_market_regime(metrics: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    规则法市场状态识别（P2 基础版）：
+    - volatility_regime: high / low
+    - trend_regime: trending / ranging
+    """
+    try:
+        annualized_return = float(metrics.get("annualizedReturn") or 0.0)
+    except (TypeError, ValueError):
+        annualized_return = 0.0
+    try:
+        volatility = float(metrics.get("volatility") or 0.0)
+    except (TypeError, ValueError):
+        volatility = 0.0
+    try:
+        sharpe_ratio = float(metrics.get("sharpeRatio") or 0.0)
+    except (TypeError, ValueError):
+        sharpe_ratio = 0.0
+
+    volatility_regime = "high" if volatility >= 0.22 else "low"
+    trend_regime = "trending" if abs(annualized_return) >= 0.12 and sharpe_ratio >= 0.6 else "ranging"
+    direction = "bullish" if annualized_return > 0 else ("bearish" if annualized_return < 0 else "neutral")
+
+    return {
+        "volatility_regime": volatility_regime,
+        "trend_regime": trend_regime,
+        "direction": direction,
+        "label": f"{volatility_regime}_{trend_regime}_{direction}"
+    }
+
+
+def detect_regime_shift(in_regime: Dict[str, Any], out_regime: Dict[str, Any]) -> Dict[str, Any]:
+    if not in_regime or not out_regime:
+        return {"shifted": False, "reason": "insufficient_regime_data"}
+
+    changed_keys = []
+    for key in ("volatility_regime", "trend_regime", "direction"):
+        if in_regime.get(key) != out_regime.get(key):
+            changed_keys.append(key)
+
+    return {
+        "shifted": len(changed_keys) > 0,
+        "changed_keys": changed_keys,
+        "from": in_regime.get("label"),
+        "to": out_regime.get("label"),
     }
 
 

@@ -216,45 +216,59 @@ function formatDate(date) {
 }
 
 async function findLatestTradeDate(maxLookbackDays = 14) {
-  // 1. 优先查询本地数据库最新交易日
-  const db = getDb();
-  const dbResult = db.prepare(`
-    SELECT MAX(trade_date) as latest FROM stock_factor_snapshot
-  `).get();
-  
-  if (dbResult && dbResult.latest) {
-    const latestDate = String(dbResult.latest);
-    console.log(`[market-data] 使用数据库最新交易日：${latestDate}`);
-    return latestDate;
-  }
-  
-  // 2. 数据库为空时，回退到 Tushare API
-  console.log(`[market-data] 数据库为空，使用 Tushare API 判断交易日`);
+  // 优先使用 Tushare 判定最近有效交易日，避免长期固定在本地快照日期。
+  let lastApiError = null;
   for (let index = 0; index <= maxLookbackDays; index += 1) {
     const candidate = new Date();
     candidate.setDate(candidate.getDate() - index);
     const tradeDate = formatDate(candidate);
-    const rows = await tushareRequest('daily_basic', {
-      trade_date: tradeDate,
-    }, ['ts_code', 'trade_date', 'close', 'turnover_rate', 'volume_ratio', 'pe', 'pb', 'total_mv']);
-    
-    // 额外检查：ths_hot 接口是否有数据（休市日 daily_basic 有快照，但 ths_hot 为空）
-    let hasHotData = false;
+
     try {
-      const hotData = await tushareRequest('ths_hot', {
+      const rows = await tushareRequest('daily_basic', {
         trade_date: tradeDate,
-        market: '概念板块',
-      }, ['ts_name']);
-      hasHotData = hotData && hotData.length > 0;
-    } catch (_e) {
-      hasHotData = false;
-    }
-    
-    if (rows.length > 0 && hasHotData) {
-      return tradeDate;
+      }, ['ts_code', 'trade_date', 'close', 'turnover_rate', 'volume_ratio', 'pe', 'pb', 'total_mv']);
+
+      // 关键调整：
+      // 1) 有效交易日判定不再强依赖 ths_hot（其更新常晚于行情日终数据）
+      // 2) 使用 daily_basic + moneyflow_cnt_ths 作为当日可用的硬条件
+      let conceptFlow = [];
+      try {
+        conceptFlow = await tushareRequest('moneyflow_cnt_ths', {
+          trade_date: tradeDate,
+        }, ['trade_date', 'ts_code', 'name', 'pct_change', 'net_amount']);
+      } catch (_flowError) {
+        conceptFlow = [];
+      }
+
+      const hasDailyBasic = rows.length > 0;
+      const hasConceptFlow = Array.isArray(conceptFlow) && conceptFlow.length > 0;
+      if (hasDailyBasic && hasConceptFlow) {
+        console.log(`[market-data] 使用 Tushare 最近交易日：${tradeDate}`);
+        return { tradeDate, source: 'tushare_realtime' };
+      }
+    } catch (error) {
+      lastApiError = error;
+      if (error instanceof MarketDataError && error.code === 'MISSING_TUSHARE_TOKEN') {
+        // 无 token 时不允许静默降级
+        throw error;
+      }
     }
   }
 
+  // 仅在 Tushare 失败时才回退本地快照日期
+  const db = getDb();
+  const dbResult = db.prepare(`
+    SELECT MAX(trade_date) as latest FROM stock_factor_snapshot
+  `).get();
+  if (dbResult && dbResult.latest) {
+    const latestDate = String(dbResult.latest);
+    console.warn(`[market-data] Tushare 未找到有效交易日，降级数据库日期：${latestDate}`);
+    return { tradeDate: latestDate, source: 'db_snapshot_fallback' };
+  }
+
+  if (lastApiError instanceof MarketDataError) {
+    throw lastApiError;
+  }
   throw new MarketDataError('最近 14 天内未获取到有效交易日数据。', {
     code: 'NO_TRADE_DATE',
   });
@@ -779,7 +793,9 @@ async function getNorthMoneyRows(endDate, lookbackDays = 20) {
 }
 
 async function getSelectionDatasets() {
-  const tradeDate = await findLatestTradeDate();
+  const tradeDateResult = await findLatestTradeDate();
+  const tradeDate = typeof tradeDateResult === 'string' ? tradeDateResult : tradeDateResult.tradeDate;
+  const tradeDateSource = typeof tradeDateResult === 'string' ? 'unknown' : tradeDateResult.source;
   const ipoStart = new Date();
   ipoStart.setDate(ipoStart.getDate() - 365);
 
@@ -837,6 +853,7 @@ async function getSelectionDatasets() {
 
   return {
     tradeDate,
+    tradeDateSource,
     stockBasic,
     thsIndex,
     dailyBasic,

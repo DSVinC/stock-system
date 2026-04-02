@@ -6,6 +6,7 @@
  */
 
 const FactorSnapshotBacktest = require('./backtest-engine');
+const { getDatabase } = require('./db');
 
 /**
  * 分割策略类型
@@ -862,8 +863,126 @@ class WalkForwardAnalyzer {
   }
 }
 
+function isDateLike(value) {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+async function ensureWalkForwardPrerequisites() {
+  const db = getDatabase();
+  const columns = await db.allPromise(`PRAGMA table_info(stock_factor_snapshot)`);
+  const colSet = new Set((columns || []).map(c => c.name));
+  const required = ['ts_code', 'trade_date', 'seven_factor_score', 'pe_ttm', 'peg'];
+  const missing = required.filter(c => !colSet.has(c));
+
+  if (missing.length > 0) {
+    const error = new Error(
+      `Walk-Forward 数据前置校验失败: stock_factor_snapshot 缺少列 [${missing.join(', ')}]`
+    );
+    error.code = 'WALK_FORWARD_SCHEMA_MISSING';
+    throw error;
+  }
+}
+
+/**
+ * 运行 Walk-Forward 分析 API
+ */
+async function runWalkForwardAPI(req, res) {
+  try {
+    const {
+      startDate,
+      endDate,
+      strategyConfig = {},
+      paramRanges = {},
+      splitStrategy = SPLIT_STRATEGY.ROLLING_WINDOW,
+      trainRatio = 0.7,
+      testRatio = 0.3,
+      windowSize = 504,
+      stepSize = 126,
+      overfittingThreshold = OVERFITTING_THRESHOLD
+    } = req.body || {};
+
+    if (!isDateLike(startDate) || !isDateLike(endDate)) {
+      return res.status(400).json({
+        success: false,
+        error: 'startDate/endDate 必须为 YYYY-MM-DD 格式'
+      });
+    }
+
+    if (!Object.values(SPLIT_STRATEGY).includes(splitStrategy)) {
+      return res.status(400).json({
+        success: false,
+        error: `splitStrategy 非法，允许值: ${Object.values(SPLIT_STRATEGY).join(', ')}`
+      });
+    }
+
+    await ensureWalkForwardPrerequisites();
+
+    const analyzer = new WalkForwardAnalyzer({
+      splitStrategy,
+      trainRatio,
+      testRatio,
+      windowSize,
+      stepSize,
+      overfittingThreshold
+    });
+
+    const result = await analyzer.runAnalysis({
+      startDate,
+      endDate,
+      strategyConfig,
+      paramRanges
+    });
+
+    return res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    console.error('[walk-forward] 运行失败:', error);
+    if (error && error.code === 'WALK_FORWARD_SCHEMA_MISSING') {
+      return res.status(422).json({
+        success: false,
+        error: error.message,
+        fixHint: '请先执行因子快照库迁移/回填，确保 stock_factor_snapshot 包含 seven_factor_score 与 peg 列后再运行 Walk-Forward。'
+      });
+    }
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'walk-forward 运行失败'
+    });
+  }
+}
+
+/**
+ * 获取 Walk-Forward 默认配置 API
+ */
+function getWalkForwardConfigAPI(req, res) {
+  return res.json({
+    success: true,
+    data: {
+      splitStrategy: SPLIT_STRATEGY.ROLLING_WINDOW,
+      trainRatio: 0.7,
+      testRatio: 0.3,
+      windowSize: 504,
+      stepSize: 126,
+      overfittingThreshold: OVERFITTING_THRESHOLD,
+      splitStrategyOptions: Object.values(SPLIT_STRATEGY)
+    }
+  });
+}
+
+function createRouter(express) {
+  const router = express.Router();
+  router.post('/run', runWalkForwardAPI);
+  router.get('/config', getWalkForwardConfigAPI);
+  return router;
+}
+
 module.exports = {
   WalkForwardAnalyzer,
   SPLIT_STRATEGY,
-  OVERFITTING_THRESHOLD
+  OVERFITTING_THRESHOLD,
+  runWalkForwardAPI,
+  getWalkForwardConfigAPI,
+  createRouter
 };

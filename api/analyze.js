@@ -418,7 +418,7 @@ function buildStrategy(decision, technical, buyZone = null, stopLoss = null, tar
   }
 }
 
-async function buildReportData(basicInfo, realtimeQuote, technical, valuation, incomeRows, finaRows, moneyflowThsRows, moneyflowRows, holderRows, northMoneyRows) {
+async function buildReportData(basicInfo, realtimeQuote, technical, valuation, incomeRows, finaRows, moneyflowThsRows, moneyflowRows, holderRows, northMoneyRows, factorWeights = null) {
   const latestDailyBasic = valuation || {};
   const latestIncome = safeLatest(incomeRows);
   const latestFina = safeLatest(finaRows);
@@ -431,7 +431,7 @@ async function buildReportData(basicInfo, realtimeQuote, technical, valuation, i
   const atrData = await getATR(basicInfo.ts_code);
   const peHistory = await getStockPePercentile(basicInfo.ts_code);
 
-  // 使用新的7因子评分系统（包含舆情因子）
+  // 使用新的7因子评分系统（包含舆情因子），支持自定义权重
   const scoreResult = await calculateCompositeScore({
     technical,
     valuation: latestDailyBasic,
@@ -442,7 +442,7 @@ async function buildReportData(basicInfo, realtimeQuote, technical, valuation, i
     income: latestIncome,
     atr20: atrData?.atr20,
     peHistory
-  }, basicInfo.ts_code);
+  }, basicInfo.ts_code, factorWeights);
 
   const reportScore = scoreResult.reportScore;
   const decision = scoreResult.decision;
@@ -528,7 +528,7 @@ async function buildReportData(basicInfo, realtimeQuote, technical, valuation, i
   };
 }
 
-async function buildReportPayload(query) {
+async function buildReportPayload(query, factorWeights = null) {
   const basicInfo = await searchStock(query);
   let realtimeQuote;
   try {
@@ -556,7 +556,7 @@ async function buildReportPayload(query) {
     getNorthMoneyRows(tradeDate).catch(() => []),
   ]);
 
-  return await buildReportData(basicInfo, realtimeQuote, technical, valuation, incomeRows, finaRows, moneyflowThsRows, moneyflowRows, holderRows, northMoneyRows);
+  return await buildReportData(basicInfo, realtimeQuote, technical, valuation, incomeRows, finaRows, moneyflowThsRows, moneyflowRows, holderRows, northMoneyRows, factorWeights);
 }
 
 function renderMetricTable(payload) {
@@ -692,8 +692,8 @@ function renderStockReport(payload) {
   ].join('\n');
 }
 
-async function writeStockReport(query) {
-  const payload = await buildReportPayload(query);
+async function writeStockReport(query, factorWeights = null) {
+  const payload = await buildReportPayload(query, factorWeights);
   const dateStamp = payload.generatedAt.slice(0, 10).replace(/-/g, '');
   const fileName = `${slugify(payload.stock.name)}_分析报告_${dateStamp}.md`;
   const fullPath = path.join(REPORT_DIR, fileName);
@@ -810,6 +810,12 @@ router.post('/report', async (req, res) => {
   const stockCode = typeof req.body?.stock_code === 'string' ? req.body.stock_code.trim() : '';
   const query = stockCode || stockName;
 
+  // 获取七因子权重参数
+  const factorWeights = req.body?.factorWeights || null;
+  if (factorWeights) {
+    console.log(`[analyze.js] 使用自定义七因子权重:`, JSON.stringify(factorWeights));
+  }
+
   if (!query) {
     return res.status(400).json({
       success: false,
@@ -818,7 +824,7 @@ router.post('/report', async (req, res) => {
   }
 
   try {
-    const report = await writeStockReport(query);
+    const report = await writeStockReport(query, factorWeights);
     const reportId = `ANALYZE_${report.payload.stock.ts_code}_${report.dateStamp}_${Date.now()}`;
     await persistStockReport(reportId, report.payload);
     const baseUrl = `${req.protocol}://${req.get('host')}`;
@@ -832,6 +838,7 @@ router.post('/report', async (req, res) => {
         decision: report.payload.decision,
         current_price: report.payload.technical.price,
       },
+      scoreFactors: report.payload.scoreFactors,
     });
   } catch (error) {
     return res.status(error instanceof MarketDataError ? error.status : 500).json({

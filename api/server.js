@@ -19,6 +19,25 @@ const API_AUTH_TOKEN = typeof process.env.API_AUTH_TOKEN === 'string'
   ? process.env.API_AUTH_TOKEN.trim()
   : '';
 
+async function logSnapshotHealthWarning() {
+  try {
+    const { getSnapshotHealth } = require('./data-health');
+    const health = await getSnapshotHealth();
+    if (!health.healthy) {
+      console.error(
+        `[data-health] ⚠️ stock_factor_snapshot 滞后: snapshot=${health.latestSnapshotDate || 'N/A'}, market=${health.latestMarketTradeDate || 'N/A'}, lagDays=${health.lagDays}`
+      );
+      console.error('[data-health] 建议执行: bun scripts/update_factor_snapshot_daily.ts');
+    } else {
+      console.log(
+        `[data-health] ✅ snapshot=${health.latestSnapshotDate}, market=${health.latestMarketTradeDate}, lagDays=${health.lagDays}`
+      );
+    }
+  } catch (error) {
+    console.error('[data-health] 检查失败:', error.message);
+  }
+}
+
 function getTrustedOrigins() {
   const configured = typeof process.env.TRUSTED_ORIGINS === 'string'
     ? process.env.TRUSTED_ORIGINS.split(',').map((item) => item.trim()).filter(Boolean)
@@ -165,6 +184,34 @@ async function bootstrap() {
     mounted.push('/api/portfolio');
   } catch (e) {
     console.log('[mountApi] portfolio模块加载失败:', e.message);
+  }
+
+  // TASK_MOCK_002: 模拟交易引擎 API
+  try {
+    const mockTrade = require('./mock-trade');
+    const mockTradeRouter = mockTrade.createRouter(express);
+    app.use('/api/mock/trade', mockTradeRouter);
+    mounted.push('/api/mock/trade/execute');
+    console.log('[mountApi] mock-trade API mounted: /api/mock/trade');
+  } catch (e) {
+    console.log('[mountApi] mock-trade 模块加载失败:', e.message);
+  }
+
+  // TASK_MOCK_005: 模拟账户管理 API
+  try {
+    const mockAccount = require('./mock-account');
+    const mockAccountRouter = mockAccount.createRouter(express);
+    app.use('/api/mock', mockAccountRouter);
+    mounted.push('/api/mock/account/create');
+    mounted.push('/api/mock/account/list');
+    mounted.push('/api/mock/account/stop');
+    mounted.push('/api/mock/trade/list');
+    mounted.push('/api/mock/performance/current');
+    mounted.push('/api/mock/performance/deviation');
+    mounted.push('/api/mock/performance/alerts');
+    console.log('[mountApi] mock-account API mounted: /api/mock');
+  } catch (e) {
+    console.log('[mountApi] mock-account 模块加载失败:', e.message);
   }
 
   // 条件单API
@@ -620,6 +667,17 @@ async function bootstrap() {
     console.log('[mountApi] stock search模块加载失败:', e.message);
   }
 
+  // 数据健康检查 API
+  try {
+    const { createRouter } = require('./data-health');
+    const router = createRouter(express);
+    app.use('/api/health/data', router);
+    mounted.push('/api/health/data/snapshot');
+    console.log('[mountApi] data-health API mounted: /api/health/data');
+  } catch (e) {
+    console.log('[mountApi] data-health 模块加载失败:', e.message);
+  }
+
   // TASK_V3_006_003: 选股 + 分钟线获取整合 API
   try {
     const stockRouter = require('./stock');
@@ -715,6 +773,34 @@ async function bootstrap() {
     console.log('[mountApi] joint-optimizer模块加载失败:', e.message);
   }
 
+  // TASK_OPTIMIZE_006: 网格参数独立优化 API
+  try {
+    const gridOptimizer = require('./grid-optimizer');
+    const router = gridOptimizer.createRouter(express);
+
+    app.use('/api/grid-optimizer', router);
+    mounted.push('/api/grid-optimizer/run');
+    mounted.push('/api/grid-optimizer/parameters');
+
+    console.log('[mountApi] 网格参数优化API已加载');
+  } catch (e) {
+    console.log('[mountApi] grid-optimizer模块加载失败:', e.message);
+  }
+
+  // TASK_OPTIMIZE_007: Walk-Forward 分析 API
+  try {
+    const walkForwardAnalyzer = require('./walk-forward-analyzer');
+    const router = walkForwardAnalyzer.createRouter(express);
+
+    app.use('/api/walk-forward', router);
+    mounted.push('/api/walk-forward/run');
+    mounted.push('/api/walk-forward/config');
+
+    console.log('[mountApi] Walk-Forward API已加载');
+  } catch (e) {
+    console.log('[mountApi] walk-forward-analyzer模块加载失败:', e.message);
+  }
+
   // TASK_V3_401: 回测转条件单 API
   try {
     const backtestToConditional = require('./backtest-to-conditional');
@@ -768,6 +854,7 @@ async function bootstrap() {
 
   const server = app.listen(PORT, HOST, () => {
     console.log(`A股投资系统服务已启动: http://${HOST}:${PORT}`);
+    logSnapshotHealthWarning();
   });
 
   server.on('error', (error) => {

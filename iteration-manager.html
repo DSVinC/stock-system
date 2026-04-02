@@ -23,6 +23,33 @@
       min-height: 100vh;
       padding: 40px 20px;
     }
+    .top-nav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      margin-bottom: 20px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: var(--bg-secondary);
+    }
+    .top-nav a {
+      padding: 8px 14px;
+      border-radius: 8px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+    .top-nav a:hover {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-primary);
+    }
+    .top-nav a.active {
+      background: rgba(102, 126, 234, 0.2);
+      color: #c7d2fe;
+    }
     .container { max-width: 1400px; margin: 0 auto; }
     .header {
       text-align: center;
@@ -208,6 +235,28 @@
       transform: none;
       opacity: 1;
     }
+    .version-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-left: 12px;
+    }
+    .archive-btn {
+      background: rgba(255, 255, 255, 0.12);
+      color: var(--text-primary);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .archive-btn:hover {
+      opacity: 0.9;
+      transform: scale(1.02);
+    }
     .config-section { margin-bottom: 24px; }
     .config-title {
       font-size: 16px;
@@ -293,10 +342,50 @@
     .research-summary-empty {
       color: var(--text-secondary);
     }
+    .history-filters {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .history-filter-item {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .history-filter-item label {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    .history-filter-item input,
+    .history-filter-item select {
+      padding: 8px 10px;
+      background: var(--bg-primary);
+      border: 1px solid var(--text-secondary);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-size: 13px;
+    }
+    .history-filter-footnote {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: -4px;
+      margin-bottom: 8px;
+    }
   </style>
 </head>
 <body>
   <div class="container">
+    <nav class="top-nav">
+      <a href="./select.html">选股分析</a>
+      <a href="./analysis.html">个股分析</a>
+      <a href="./monitor-pool.html">监控池</a>
+      <a href="./conditional-order.html">条件单</a>
+      <a href="./backtest.html">回测系统</a>
+      <a href="./iteration-manager.html" class="active">策略迭代</a>
+      <a href="./portfolio.html">账户管理</a>
+    </nav>
+
     <!-- 页面头部 -->
     <div class="header">
       <h1>🚀 策略自迭代管理器</h1>
@@ -442,11 +531,58 @@
         <span>📚</span>
         <span>策略版本历史</span>
       </div>
-      <!-- 筛选控件 -->
-      <div style="display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <label style="font-size: 13px; color: var(--text-secondary);">反馈状态:</label>
-          <select id="feedbackStatusFilter" style="padding: 6px 12px; background: var(--bg-primary); border: 1px solid var(--text-secondary); border-radius: 6px; color: var(--text-primary); font-size: 13px;">
+      <div class="history-filters">
+        <div class="history-filter-item">
+          <label>最低分数</label>
+          <select id="versionMinScoreFilter">
+            <option value="all">全部</option>
+            <option value="60">≥ 60</option>
+            <option value="70">≥ 70</option>
+            <option value="80">≥ 80</option>
+            <option value="90">≥ 90</option>
+          </select>
+        </div>
+        <div class="history-filter-item">
+          <label>发布状态</label>
+          <select id="versionPublishFilter">
+            <option value="all">全部</option>
+            <option value="published">已发布</option>
+            <option value="can_publish">可发布</option>
+            <option value="blocked">不可发布</option>
+            <option value="unpublished">未发布</option>
+          </select>
+        </div>
+        <div class="history-filter-item">
+          <label>结果质量</label>
+          <select id="versionQualityFilter">
+            <option value="all">全部</option>
+            <option value="valid">仅有效结果</option>
+            <option value="invalid">仅无效结果</option>
+          </select>
+        </div>
+        <div class="history-filter-item">
+          <label>归档状态</label>
+          <select id="versionArchiveFilter">
+            <option value="active">仅未归档</option>
+            <option value="all">全部</option>
+            <option value="archived">仅已归档</option>
+          </select>
+        </div>
+        <div class="history-filter-item">
+          <label>排序</label>
+          <select id="versionSortFilter">
+            <option value="date_desc">按时间（新→旧）</option>
+            <option value="score_desc">按分数（高→低）</option>
+            <option value="score_asc">按分数（低→高）</option>
+          </select>
+        </div>
+        <div class="history-filter-item">
+          <label>关键词</label>
+          <input id="versionSearchInput" type="text" placeholder="版本名 / 版本ID">
+        </div>
+        <div class="history-filter-item">
+          <label>反馈状态（补充）</label>
+          <select id="feedbackStatusFilter">
             <option value="all">全部</option>
             <option value="no_data">暂无反馈</option>
             <option value="positive">正向反馈</option>
@@ -454,9 +590,9 @@
             <option value="caution">需警惕</option>
           </select>
         </div>
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <label style="font-size: 13px; color: var(--text-secondary);">置信度:</label>
-          <select id="feedbackConfidenceFilter" style="padding: 6px 12px; background: var(--bg-primary); border: 1px solid var(--text-secondary); border-radius: 6px; color: var(--text-primary); font-size: 13px;">
+        <div class="history-filter-item">
+          <label>置信度（补充）</label>
+          <select id="feedbackConfidenceFilter">
             <option value="all">全部</option>
             <option value="none">无样本</option>
             <option value="low">低</option>
@@ -465,6 +601,7 @@
           </select>
         </div>
       </div>
+      <div class="history-filter-footnote">默认只展示未归档版本；优先使用分数/发布状态/结果质量/关键词筛选，反馈状态与置信度用于二次过滤。</div>
       <div class="version-list" id="versionList">
         <div class="version-item">
           <span>暂无版本记录</span>
@@ -496,8 +633,6 @@
 
     // 版本历史筛选相关
     let currentVersions = [];  // 保存原始版本数据
-    let currentStatusFilter = 'all';  // 当前状态筛选值
-    let currentConfidenceFilter = 'all';  // 当前置信度筛选值
 
     function getIterationTaskStorage() {
       return window.localStorage || localStorage;
@@ -1326,6 +1461,25 @@
         const validation = summary.validation && typeof summary.validation === 'object'
           ? summary.validation
           : null;
+        const factorStability = summary.factorStability && typeof summary.factorStability === 'object'
+          ? summary.factorStability
+          : null;
+        const formatRegime = (regime) => {
+          if (!regime || typeof regime !== 'object') return '--';
+          const vol = regime.volatility_regime || '--';
+          const trend = regime.trend_regime || '--';
+          const direction = regime.direction || '--';
+          return `${vol} / ${trend} / ${direction}`;
+        };
+        const regimeShiftText = (() => {
+          if (!validation || !validation.regime_shift || typeof validation.regime_shift !== 'object') return '--';
+          const shift = validation.regime_shift;
+          if (!shift.shifted) return '未切换';
+          const changed = Array.isArray(shift.changed_keys) && shift.changed_keys.length > 0
+            ? shift.changed_keys.join(', ')
+            : '--';
+          return `${shift.from || '--'} → ${shift.to || '--'} (${changed})`;
+        })();
         const readinessChecks = deploymentReadiness && Array.isArray(deploymentReadiness.checks)
           ? deploymentReadiness.checks
           : [];
@@ -1423,7 +1577,49 @@
             <div class="metric">
               <span class="metric-label">WFE</span>
               <span class="metric-value">${Number.isFinite(Number(validation.wfe)) ? Number(validation.wfe).toFixed(4) : '--'}</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">IS 市场状态</span>
+              <span class="metric-value">${formatRegime(validation.in_sample?.market_regime)}</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">OOS 市场状态</span>
+              <span class="metric-value">${formatRegime(validation.out_of_sample?.market_regime)}</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">状态切换</span>
+              <span class="metric-value">${regimeShiftText}</span>
             </div>` : ''}
+            ${factorStability ? `
+            <div class="metric">
+              <span class="metric-label">因子稳定性状态</span>
+              <span class="metric-value">${factorStability.status || '--'}</span>
+            </div>
+            ${factorStability.status === 'ok' ? `
+            <div class="metric">
+              <span class="metric-label">因子IC均值</span>
+              <span class="metric-value">${Number.isFinite(Number(factorStability.ic_mean)) ? Number(factorStability.ic_mean).toFixed(4) : '--'}</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">因子IC波动</span>
+              <span class="metric-value">${Number.isFinite(Number(factorStability.ic_std)) ? Number(factorStability.ic_std).toFixed(4) : '--'}</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">IC衰减</span>
+              <span class="metric-value">${Number.isFinite(Number(factorStability.ic_decay)) ? Number(factorStability.ic_decay).toFixed(4) : '--'}</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">行业偏离(均值/最大)</span>
+              <span class="metric-value">${Number.isFinite(Number(factorStability.industry_bias_mean)) ? Number(factorStability.industry_bias_mean).toFixed(4) : '--'} / ${Number.isFinite(Number(factorStability.industry_bias_max)) ? Number(factorStability.industry_bias_max).toFixed(4) : '--'}</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">Top行业集中度HHI</span>
+              <span class="metric-value">${Number.isFinite(Number(factorStability.top_industry_hhi)) ? Number(factorStability.top_industry_hhi).toFixed(4) : '--'}</span>
+            </div>` : `
+            <div class="metric">
+              <span class="metric-label">稳定性说明</span>
+              <span class="metric-value">${factorStability.reason || '暂不适用'}</span>
+            </div>`}` : ''}
           </div>
         </div>
       `;
@@ -1533,8 +1729,62 @@
     function applyVersionFilters() {
       const statusFilter = document.getElementById('feedbackStatusFilter').value;
       const confidenceFilter = document.getElementById('feedbackConfidenceFilter').value;
+      const minScoreFilter = document.getElementById('versionMinScoreFilter').value;
+      const publishFilter = document.getElementById('versionPublishFilter').value;
+      const qualityFilter = document.getElementById('versionQualityFilter').value;
+      const archiveFilter = document.getElementById('versionArchiveFilter').value;
+      const sortFilter = document.getElementById('versionSortFilter').value;
+      const searchText = String(document.getElementById('versionSearchInput').value || '').trim().toLowerCase();
 
       let filtered = currentVersions.slice();  // 复制原始数据
+
+      if (searchText) {
+        filtered = filtered.filter((v) => {
+          const name = String(v.strategy_name || '').toLowerCase();
+          const versionId = String(v.version_id || '').toLowerCase();
+          return name.includes(searchText) || versionId.includes(searchText);
+        });
+      }
+
+      if (minScoreFilter !== 'all') {
+        const minScore = Number(minScoreFilter);
+        filtered = filtered.filter((v) => {
+          const score = Number.isFinite(Number(v.display_score))
+            ? Number(v.display_score)
+            : Number(v.backtest_score || 0);
+          return score >= minScore;
+        });
+      }
+
+      if (publishFilter !== 'all') {
+        filtered = filtered.filter((v) => {
+          const isPublished = v.is_published_to_library === true;
+          const canPublish = v.can_publish !== false;
+          if (publishFilter === 'published') return isPublished;
+          if (publishFilter === 'can_publish') return !isPublished && canPublish;
+          if (publishFilter === 'blocked') return !isPublished && !canPublish;
+          if (publishFilter === 'unpublished') return !isPublished;
+          return true;
+        });
+      }
+
+      if (qualityFilter !== 'all') {
+        filtered = filtered.filter((v) => {
+          const invalid = v.invalid_legacy_result === true || Boolean(v.invalid_reason);
+          if (qualityFilter === 'valid') return !invalid;
+          if (qualityFilter === 'invalid') return invalid;
+          return true;
+        });
+      }
+
+      if (archiveFilter !== 'all') {
+        filtered = filtered.filter((v) => {
+          const isArchived = Number(v.is_archived) === 1 || v.is_archived === true;
+          if (archiveFilter === 'active') return !isArchived;
+          if (archiveFilter === 'archived') return isArchived;
+          return true;
+        });
+      }
 
       // 按状态筛选
       if (statusFilter !== 'all') {
@@ -1544,6 +1794,34 @@
       // 按置信度筛选
       if (confidenceFilter !== 'all') {
         filtered = filtered.filter(v => (v.execution_feedback_confidence || 'none') === confidenceFilter);
+      }
+
+      if (sortFilter === 'score_desc') {
+        filtered.sort((a, b) => {
+          const scoreA = Number.isFinite(Number(a.display_score))
+            ? Number(a.display_score)
+            : Number(a.backtest_score || -99999);
+          const scoreB = Number.isFinite(Number(b.display_score))
+            ? Number(b.display_score)
+            : Number(b.backtest_score || -99999);
+          return scoreB - scoreA;
+        });
+      } else if (sortFilter === 'score_asc') {
+        filtered.sort((a, b) => {
+          const scoreA = Number.isFinite(Number(a.display_score))
+            ? Number(a.display_score)
+            : Number(a.backtest_score || 99999);
+          const scoreB = Number.isFinite(Number(b.display_score))
+            ? Number(b.display_score)
+            : Number(b.backtest_score || 99999);
+          return scoreA - scoreB;
+        });
+      } else {
+        filtered.sort((a, b) => {
+          const ta = new Date(a.created_at || 0).getTime();
+          const tb = new Date(b.created_at || 0).getTime();
+          return tb - ta;
+        });
       }
 
       // 渲染筛选后的列表
@@ -1656,6 +1934,14 @@
       const safeFormatVersionParamSummary = typeof formatVersionParamSummary === 'function'
         ? formatVersionParamSummary
         : () => '';
+      if (!Array.isArray(versions) || versions.length === 0) {
+        container.innerHTML = `
+          <div class="version-item">
+            <span style="color: var(--text-secondary);">当前筛选条件下暂无版本记录</span>
+          </div>
+        `;
+        return;
+      }
       container.innerHTML = versions.map((v, index) => {
         const isInvalidResult = v.invalid_legacy_result === true || Boolean(v.invalid_reason);
         const missingExecutionEvidence = v.has_execution_sample === false;
@@ -1667,6 +1953,7 @@
         // 已发布状态
         const isPublished = v.is_published_to_library === true;
         const publishedId = v.published_strategy_config_id;
+        const isArchived = Number(v.is_archived) === 1 || v.is_archived === true;
 
         // 发布按钮渲染
         let publishBtn;
@@ -1682,6 +1969,10 @@
           // 未发布：可点击发布按钮
           publishBtn = `<button class="publish-btn" onclick="event.stopPropagation(); publishVersion('${v.version_id}', '${v.strategy_name || '未命名'}')" title="发布到策略库">📤 发布</button>`;
         }
+
+        const archiveBtn = isArchived
+          ? `<button class="archive-btn" onclick="event.stopPropagation(); unarchiveVersion('${v.version_id}')">♻️ 取消归档</button>`
+          : `<button class="archive-btn" onclick="event.stopPropagation(); archiveVersion('${v.version_id}')">🗂️ 归档</button>`;
 
         const metricCards = (() => {
           const metricEntries = [
@@ -1736,7 +2027,10 @@
             ${!isInvalidResult && missingExecutionEvidence && v.can_publish !== false ? `<div class="exec-summary" style="margin-bottom: 8px;"><div class="exec-summary-row"><span class="exec-label">发布提示:</span><span class="exec-value exec-warning">${v.publish_warning || '当前版本暂无执行反馈样本，建议发布后尽快完成执行验证。'}</span></div></div>` : ''}
               ${formatExecutionSummary(v.execution_summary)}
             </div>
-            ${publishBtn}
+            <div class="version-actions">
+              ${publishBtn}
+              ${archiveBtn}
+            </div>
           </div>
         `;
       }).join('');
@@ -1786,6 +2080,49 @@
         }
       } catch (error) {
         addLog(`❌ 发布失败: ${error.message}`, 'error');
+      }
+    }
+
+    async function archiveVersion(versionId) {
+      if (!versionId) return;
+      const targetVersion = Array.isArray(currentVersions)
+        ? currentVersions.find((item) => item.version_id === versionId)
+        : null;
+      const versionName = targetVersion?.strategy_name || versionId;
+      const confirmed = confirm(`确认归档版本「${versionName || versionId}」？\n归档后默认从列表隐藏，可通过“归档状态”筛选恢复查看。`);
+      if (!confirmed) return;
+
+      try {
+        const response = await fetch('/api/iteration/archive-version', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ versionId, reason: 'manual_archive_from_ui' })
+        });
+        const result = await response.json();
+        if (!result.success) {
+          throw new Error(result.error || '归档失败');
+        }
+        addLog(`🗂️ 已归档版本: ${versionName || versionId}`, 'info');
+        await loadVersionHistory(document.getElementById('strategySelect').value);
+      } catch (error) {
+        addLog(`❌ 归档失败: ${error.message}`, 'error');
+      }
+    }
+
+    async function unarchiveVersion(versionId) {
+      if (!versionId) return;
+      try {
+        const response = await fetch(`/api/iteration/archive-version/${encodeURIComponent(versionId)}`, {
+          method: 'DELETE'
+        });
+        const result = await response.json();
+        if (!result.success) {
+          throw new Error(result.error || '取消归档失败');
+        }
+        addLog(`♻️ 已取消归档: ${versionId}`, 'info');
+        await loadVersionHistory(document.getElementById('strategySelect').value);
+      } catch (error) {
+        addLog(`❌ 取消归档失败: ${error.message}`, 'error');
       }
     }
 
@@ -1974,6 +2311,12 @@
       // 筛选事件监听
       document.getElementById('feedbackStatusFilter').addEventListener('change', applyVersionFilters);
       document.getElementById('feedbackConfidenceFilter').addEventListener('change', applyVersionFilters);
+      document.getElementById('versionMinScoreFilter').addEventListener('change', applyVersionFilters);
+      document.getElementById('versionPublishFilter').addEventListener('change', applyVersionFilters);
+      document.getElementById('versionQualityFilter').addEventListener('change', applyVersionFilters);
+      document.getElementById('versionArchiveFilter').addEventListener('change', applyVersionFilters);
+      document.getElementById('versionSortFilter').addEventListener('change', applyVersionFilters);
+      document.getElementById('versionSearchInput').addEventListener('input', applyVersionFilters);
     });
 
     // 监听策略选择变化

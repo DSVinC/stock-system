@@ -303,17 +303,36 @@
 
 | 事件类型 | 数据源 | 状态 |
 |----------|--------|------|
-| **公司公告** | 本地新闻数据库 + 新浪财经 | ✅ 已接入 |
+| **公司公告** | 本地新闻数据库 + 新浪财经 MCP | ✅ 已接入 |
 | **财报发布** | Tushare Pro | ✅ 已接入 |
 | **重要新闻** | 本地新闻数据库 | ✅ 已接入 |
 | **行业新闻** | 本地新闻数据库 + 行业监控 | ✅ 已接入 |
-| **价格异动** | 新浪财经 | ✅ 已确认 |
+| **价格异动** | 新浪财经免费 API | ✅ 已确认 |
 
 ### 9.2 新闻数据库详情
 
 - **路径**: `/Users/vvc/.openclaw/workspace/news_system/news.db`
 - **规模**: 26,350+ 条新闻
 - **新闻源**: 财新、第一财经、财联社、华尔街见闻、深交所公告等
+
+### 9.3 数据源架构（2026-04-01 确认）
+
+**两层架构设计**：
+
+| 层级 | 用途 | 数据源 | 说明 |
+|------|------|--------|------|
+| **数据采集层** | 后台批量采集 | 新浪财经 MCP | 财经快讯（每天 23:59）、公司公告 |
+| **实时查询层** | 实时数据查询 | 新浪财经免费 API | 实时行情、分钟线、板块成分股 |
+
+**设计原则**：
+1. 后台采集用 MCP - 批量采集、历史可查、稳定性高
+2. 实时查询用免费 API - 免费、无 Token 限制、实时性好
+3. 数据入库共享 - 采集层数据存入 news_raw 表，查询层统一访问
+
+**免费公告 API 评估**：
+- 巨潮资讯网（cninfo）- 有引用但未实现
+- 东方财富网 - 有数据但未集成
+- **决策**：保持现有 MCP 采集方案，无需额外开发
 
 ---
 
@@ -2402,7 +2421,218 @@ CREATE TABLE mock_performance (
 
 ---
 
-## 十七、设计讨论历史路由
+## 十七、四维度七因子策略优化设计（2026-03-29 新增）
+
+### 17.1 目标
+
+把"四维度七因子策略"的自动优化，从当前的"只调少量交易阈值"，升级成一套可渐进落地的分层优化方案。
+
+**本方案优先解决**：
+1. 当前优化对象不完整
+2. 权重参数未进入搜索空间
+3. 高分结果缺乏样本外验证
+4. 回测分、执行反馈、策略发布条件口径混杂
+
+**本方案不做**：
+1. 不引入 HMM / RL / Transformer 这类重研究型改造
+2. 不推翻现有 Node.js + SQLite + Python Optuna 架构
+3. 不在第一阶段直接把所有参数一次性放进大搜索空间
+
+### 17.2 分层优化架构
+
+**三层主优化 + 一层验证增强**：
+
+| 层级 | 职责 | 参数归属 |
+|------|------|----------|
+| **筛选层** | 决定"哪些股票进入候选池" | min_score, pe_max, peg_max, max_price |
+| **权重层** | 决定"候选股票如何被评分" | 四维度权重、七因子权重 |
+| **交易层** | 决定"筛出股票后怎么进出场" | score_stop_loss, stop_loss, take_profit |
+| **验证层** | 样本外验证增强 | IS/OOS 窗口、WFE 指标 |
+
+### 17.3 参数分层归属
+
+**筛选层参数**：
+- `min_score`: 0.65 ~ 0.90
+- `pe_max`: 30 ~ 100
+- `peg_max`: 1.0 ~ 4.0
+- `max_price`: 80 ~ 800
+
+**权重层参数**（四维度）：
+- `dimensionWeights.social`: 社会经济趋势权重
+- `dimensionWeights.policy`: 政策方向权重
+- `dimensionWeights.public`: 舆论热度权重
+- `dimensionWeights.business`: 商业变现权重
+- 归一化约束：sum = 1.0
+
+**权重层参数**（七因子）- P1 阶段：
+- `factorWeights.trend/momentum/valuation/earnings/capital/volatility/sentiment`
+- 防极端约束：单因子权重 0.03 ~ 0.40
+
+**交易层参数**：
+- `score_stop_loss`: 0.50 ~ 0.80
+- `stop_loss`: 0.03 ~ 0.15
+- `take_profit`: 0.10 ~ 0.50
+
+**网格参数** - P1 独立优化：
+- `gridConfig.gridSize`
+- `gridConfig.maxPosition`
+- `gridConfig.triggerThreshold`
+
+### 17.4 实施计划
+
+**P0：立即落地**
+1. 扩展 seven_factor 搜索空间（7 个参数）
+2. 接入四维度权重搜索（4 维权重）
+3. 版本历史补充样本内指标口径
+4. 加入最小样本外验证（训练 2023-2024.06，验证 2024.07-12）
+
+**P1：中期改造**
+1. 接入七因子权重搜索（7 维权重）
+2. 多目标评分函数（交易笔数、换手惩罚）
+3. 网格参数独立自动优化
+
+**P2：后续增强**
+1. 真正的 Walk-Forward 分析
+2. 市场状态切换（规则法）
+3. 因子稳定性指标（IC、IC 衰减）
+
+### 17.5 权重优化技术选型
+
+**第一版推荐**：归一化系数
+- 采样 4 个非负系数 a,b,c,d
+- 归一化：w_i = a_i / sum(a)
+- 优点：易读易调试，与 Optuna 兼容
+
+**第二版可选**：Dirichlet 采样
+- 适合权重搜索成熟后
+- 更标准的 simplex 采样
+
+**当前不推荐**：Softmax 温度搜索
+- 解释性不够直接
+- 增加额外调试成本
+
+### 17.6 选股 API 参数映射
+
+**四维度权重 → 行业评分**：
+```javascript
+GET /api/select?dimensionWeights={"social":0.25,"policy":0.30,"public":0.25,"business":0.20}
+```
+
+**PE/PEG 上限 → 个股筛选**：
+```javascript
+GET /api/select?peMax=60&pegMax=2.0
+```
+
+**七因子权重 → 待实现**：
+```javascript
+GET /api/select?factorWeights={"trend":0.17,"momentum":0.15,...}
+```
+
+### 17.7 数据库扩展
+
+建议扩展 `strategy_versions` 或旁表，新增：
+- `in_sample_score`
+- `out_of_sample_score`
+- `in_sample_metrics_json`
+- `out_of_sample_metrics_json`
+- `weights_json`
+- `search_space_version`
+
+---
+
+## 十八、独立模拟账户设计（2026-04-01 新增）
+
+### 18.1 核心目标
+
+创建独立的模拟账户系统，与实盘完全隔离，用于：
+1. 验证策略实际表现（回测 vs 模拟）
+2. 计算绩效偏差
+3. 触发二次迭代（偏差>20%）
+
+### 18.2 系统架构
+
+```
+策略版本发布 → 创建模拟账户 → 关联 strategy_version_id
+                    ↓
+监控池条件单触发 → 同时执行：a) 实盘条件单  b) 模拟交易
+                    ↓
+模拟交易引擎 → 获取实时行情 → 应用滑点 (0.1%) → 写入 mock_trade
+                    ↓
+绩效计算（每日）→ 聚合 mock_trade → 计算指标 → 对比回测
+                    ↓
+偏差检测 → 偏差>20% → 自动触发二次迭代
+```
+
+### 18.3 数据库设计（4 张新表）
+
+**mock_account** - 模拟账户表
+- account_id, strategy_version_id, account_name
+- initial_capital, current_capital, available_capital
+- status (active/stopped/closed), created_at, started_at, stopped_at
+
+**mock_position** - 模拟持仓表
+- position_id, account_id, ts_code
+- quantity, avg_cost, current_price, market_value, unrealized_pnl
+
+**mock_trade** - 模拟交易表
+- trade_id, account_id, ts_code, action (BUY/SELL)
+- price (行情价), simulated_price (考虑滑点), slippage_rate
+- commission, stamp_duty, pnl, trigger_source, strategy_version_id
+
+**mock_performance** - 模拟绩效表
+- performance_id, account_id, strategy_version_id
+- total_return, annualized_return, max_drawdown, sharpe_ratio
+- trade_count, win_rate, profit_loss_ratio
+- backtest_total_return, backtest_deviation, is_deviation_exceeded
+
+### 18.4 核心算法
+
+**模拟成交价计算**：
+```javascript
+// 买入：价格上浮，卖出：价格下浮
+if (action === 'BUY') return marketPrice * (1 + slippageRate);
+else return marketPrice * (1 - slippageRate);
+```
+
+**交易成本**：
+- 佣金：万分之 2.5，最低 5 元
+- 印花税：卖出时千分之 1
+
+**偏差阈值**：20%
+
+### 18.5 API 设计
+
+| API | 方法 | 说明 |
+|-----|------|------|
+| /api/mock/account/create | POST | 创建模拟账户 |
+| /api/mock/account/list | GET | 账户列表 |
+| /api/mock/account/stop | POST | 停止账户 |
+| /api/mock/trade/execute | POST | 执行模拟交易 |
+| /api/mock/trade/list | GET | 交易记录 |
+| /api/mock/performance/current | GET | 当前绩效 |
+| /api/mock/performance/deviation | GET | 偏差超标账户 |
+| /api/iteration/trigger-by-deviation | POST | 触发二次迭代 |
+
+### 18.6 实施计划
+
+**Phase 1 (P0, 9h)**: 数据库迁移 + 模拟交易引擎 + 绩效计算
+**Phase 2 (P1, 9h)**: 偏差检测 + 账户管理 API + 前端页面
+
+**总计**: 18 小时
+
+### 18.7 验收标准
+
+- [ ] 创建模拟账户成功，关联策略版本
+- [ ] 条件单触发时，模拟交易正确执行
+- [ ] 模拟成交价考虑滑点 (0.1%)
+- [ ] 每日绩效计算正确
+- [ ] 偏差>20% 时自动触发二次迭代
+- [ ] 前端页面展示模拟账户列表和详情
+- [ ] 版本历史页面展示模拟验证结果
+
+---
+
+## 十九、设计讨论历史路由
 
 为方便查阅历次设计讨论的详细记录，按时间顺序整理如下：
 

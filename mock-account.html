@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>模拟账户面板 - 股票投资系统</title>
+  <link rel="stylesheet" href="./pages/style.css">
+  <style>
+    .top-nav { display:flex; gap:8px; padding:12px 16px; border:1px solid var(--line); border-radius:14px; background:var(--panel); margin-bottom:16px; }
+    .top-nav a { color:var(--text-soft); text-decoration:none; padding:8px 12px; border-radius:10px; }
+    .top-nav a.active, .top-nav a:hover { color:var(--text); background:rgba(56,189,248,.12); }
+    .grid { display:grid; gap:16px; grid-template-columns: 320px 1fr; }
+    .card { border:1px solid var(--line); border-radius:14px; background:var(--panel); padding:14px; }
+    .title { font-size:16px; font-weight:600; margin:0 0 10px; }
+    .account-item { border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:10px; margin-bottom:10px; cursor:pointer; }
+    .account-item.active { border-color: var(--accent); background: rgba(56,189,248,.08); }
+    .meta { color:var(--text-soft); font-size:12px; }
+    .row { display:flex; gap:10px; align-items:center; margin-top:8px; flex-wrap:wrap; }
+    .btn { border:1px solid var(--line); border-radius:10px; background:rgba(255,255,255,.04); color:var(--text); padding:8px 12px; cursor:pointer; }
+    .btn.primary { background:linear-gradient(135deg, #22c55e, #16a34a); border:none; }
+    .btn.warn { background:linear-gradient(135deg, #f97316, #ea580c); border:none; }
+    .input { min-height:40px; border:1px solid rgba(154,178,214,.2); border-radius:10px; background:rgba(4,8,17,.55); color:var(--text); padding:0 10px; }
+    .table { width:100%; border-collapse:collapse; font-size:13px; }
+    .table th,.table td { border-bottom:1px solid rgba(255,255,255,.08); padding:8px 6px; text-align:left; }
+    .kpi { display:grid; grid-template-columns: repeat(4,1fr); gap:10px; margin-bottom:12px; }
+    .kpi .box { border:1px solid rgba(255,255,255,.08); border-radius:10px; padding:10px; background:rgba(255,255,255,.02); }
+    .kpi .label { color:var(--text-soft); font-size:12px; }
+    .kpi .value { font-size:18px; font-weight:700; margin-top:4px; }
+    .muted { color:var(--text-soft); }
+    .good { color:#22c55e; }
+    .bad { color:#ef4444; }
+    @media (max-width: 1100px) { .grid { grid-template-columns:1fr; } .kpi { grid-template-columns:repeat(2,1fr); } }
+  </style>
+</head>
+<body>
+  <main class="page-shell">
+    <header class="top-nav">
+      <a href="./index.html">首页</a>
+      <a href="./backtest.html">回测系统</a>
+      <a href="./iteration-manager.html">策略自迭代</a>
+      <a href="./portfolio.html">模拟账户</a>
+      <a href="./mock-account.html" class="active">模拟验证面板</a>
+    </header>
+
+    <section class="grid">
+      <aside class="card">
+        <h2 class="title">模拟账户</h2>
+        <div id="accountList"></div>
+        <div class="row">
+          <button class="btn primary" id="createBtn">创建账户</button>
+          <button class="btn" id="refreshBtn">刷新</button>
+        </div>
+      </aside>
+
+      <section class="card">
+        <h2 class="title">账户详情</h2>
+        <div id="emptyState" class="muted">请选择左侧账户</div>
+        <div id="detailPanel" style="display:none;">
+          <div class="kpi">
+            <div class="box"><div class="label">总收益</div><div class="value" id="kpiReturn">--</div></div>
+            <div class="box"><div class="label">最大回撤</div><div class="value" id="kpiDrawdown">--</div></div>
+            <div class="box"><div class="label">胜率</div><div class="value" id="kpiWinRate">--</div></div>
+            <div class="box"><div class="label">交易数</div><div class="value" id="kpiTrades">--</div></div>
+          </div>
+          <div class="row">
+            <button class="btn warn" id="stopBtn">停止账户</button>
+            <button class="btn" id="triggerBtn">手动触发二次迭代</button>
+            <span class="meta" id="triggerHint"></span>
+          </div>
+
+          <h3 class="title" style="margin-top:14px;">偏差告警</h3>
+          <div id="alerts" class="muted">暂无告警</div>
+
+          <h3 class="title" style="margin-top:14px;">最近交易</h3>
+          <table class="table">
+            <thead>
+              <tr><th>时间</th><th>代码</th><th>动作</th><th>数量</th><th>成交价</th><th>PnL</th></tr>
+            </thead>
+            <tbody id="tradeRows"></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <dialog id="createDialog" style="border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--text);padding:16px;min-width:360px;">
+    <h3 class="title">创建模拟账户</h3>
+    <div class="row"><input id="strategyIdInput" class="input" style="width:100%;" placeholder="策略版本ID (strategy_version_id)"></div>
+    <div class="row"><input id="strategyTypeInput" class="input" style="width:100%;" value="seven_factor" placeholder="策略类型"></div>
+    <div class="row"><input id="accountNameInput" class="input" style="width:100%;" placeholder="账户名称"></div>
+    <div class="row"><input id="capitalInput" class="input" style="width:100%;" type="number" min="1" step="1" value="1000000" placeholder="初始资金"></div>
+    <div class="row" style="justify-content:flex-end;">
+      <button class="btn" id="cancelCreateBtn">取消</button>
+      <button class="btn primary" id="confirmCreateBtn">创建</button>
+    </div>
+  </dialog>
+
+  <script>
+    const state = { accounts: [], selected: null };
+
+    async function api(url, options = {}) {
+      const res = await fetch(url, options);
+      const data = await res.json().catch(() => ({ success: false, error: '响应解析失败' }));
+      if (!res.ok || data.success === false) {
+        throw new Error(data.error || data.message || `请求失败: ${res.status}`);
+      }
+      return data;
+    }
+
+    function fmtPct(v) {
+      const n = Number(v);
+      if (!Number.isFinite(n)) return '--';
+      return `${(n * 100).toFixed(2)}%`;
+    }
+
+    function renderAccounts() {
+      const container = document.getElementById('accountList');
+      if (!state.accounts.length) {
+        container.innerHTML = '<div class="muted">暂无模拟账户</div>';
+        return;
+      }
+      container.innerHTML = state.accounts.map(acc => `
+        <div class="account-item ${state.selected?.account_id === acc.account_id ? 'active' : ''}" data-id="${acc.account_id}">
+          <div><strong>${acc.account_name || acc.account_id}</strong></div>
+          <div class="meta">${acc.strategy_type || '-'} · ${acc.status}</div>
+          <div class="meta">收益 ${fmtPct(acc.total_return)} · 运行 ${acc.days_running || 0} 天</div>
+        </div>
+      `).join('');
+      container.querySelectorAll('.account-item').forEach(el => {
+        el.addEventListener('click', () => selectAccount(el.dataset.id));
+      });
+    }
+
+    async function loadAccounts() {
+      const data = await api('/api/mock/account/list');
+      state.accounts = data.accounts || [];
+      if (state.selected) {
+        const next = state.accounts.find(x => x.account_id === state.selected.account_id);
+        state.selected = next || null;
+      }
+      renderAccounts();
+      if (state.selected) await loadDetail(state.selected.account_id);
+    }
+
+    async function selectAccount(accountId) {
+      state.selected = state.accounts.find(x => x.account_id === accountId) || null;
+      renderAccounts();
+      await loadDetail(accountId);
+    }
+
+    async function loadDetail(accountId) {
+      document.getElementById('emptyState').style.display = 'none';
+      document.getElementById('detailPanel').style.display = 'block';
+      const perf = await api(`/api/mock/performance/current?account_id=${encodeURIComponent(accountId)}`).catch(() => ({ performance: null }));
+      const trades = await api(`/api/mock/trade/list?account_id=${encodeURIComponent(accountId)}`);
+      const alertsResp = await api('/api/mock/performance/alerts');
+      const alerts = (alertsResp.alerts || []).filter(a => a.account_id === accountId);
+
+      const p = perf.performance || {};
+      document.getElementById('kpiReturn').textContent = fmtPct(p.total_return);
+      document.getElementById('kpiDrawdown').textContent = fmtPct(p.max_drawdown);
+      document.getElementById('kpiWinRate').textContent = fmtPct(p.win_rate);
+      document.getElementById('kpiTrades').textContent = String(p.trade_count ?? '--');
+
+      const rows = (trades.trades || []).slice(0, 20).map(t => `
+        <tr>
+          <td>${t.occurred_at || '-'}</td>
+          <td>${t.ts_code}</td>
+          <td>${t.action}</td>
+          <td>${t.quantity}</td>
+          <td>${Number(t.simulated_price || t.price || 0).toFixed(4)}</td>
+          <td class="${Number(t.pnl || 0) >= 0 ? 'good' : 'bad'}">${t.pnl == null ? '-' : Number(t.pnl).toFixed(2)}</td>
+        </tr>
+      `).join('');
+      document.getElementById('tradeRows').innerHTML = rows || '<tr><td colspan="6" class="muted">暂无交易</td></tr>';
+
+      document.getElementById('alerts').innerHTML = alerts.length
+        ? alerts.map(a => `<div class="meta">${a.created_at || ''} · 偏差 ${fmtPct(a.backtest_deviation)} · ${a.suggestion}</div>`).join('')
+        : '<span class="muted">暂无告警</span>';
+
+      const exceeded = Number(p.is_deviation_exceeded || 0) === 1;
+      document.getElementById('triggerHint').textContent = exceeded ? '可触发二次迭代' : '当前未超偏差阈值';
+    }
+
+    async function createAccount() {
+      const strategyVersionId = document.getElementById('strategyIdInput').value.trim();
+      const strategyType = document.getElementById('strategyTypeInput').value.trim();
+      const accountName = document.getElementById('accountNameInput').value.trim();
+      const initialCapital = Number(document.getElementById('capitalInput').value || 0);
+      await api('/api/mock/account/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          strategy_version_id: strategyVersionId,
+          strategy_type: strategyType,
+          account_name: accountName,
+          initial_capital: initialCapital
+        })
+      });
+      document.getElementById('createDialog').close();
+      await loadAccounts();
+    }
+
+    async function stopAccount() {
+      if (!state.selected) return;
+      await api('/api/mock/account/stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account_id: state.selected.account_id })
+      });
+      await loadAccounts();
+    }
+
+    async function triggerIteration() {
+      if (!state.selected) return;
+      const data = await api('/api/iteration/trigger-by-deviation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accountId: state.selected.account_id,
+          maxIterations: 30,
+          scoreThreshold: 80,
+          optimizationBackend: 'optuna',
+          parallelTasks: 4
+        })
+      });
+      alert(`触发成功: ${data.taskId}`);
+    }
+
+    function bindEvents() {
+      const dialog = document.getElementById('createDialog');
+      document.getElementById('createBtn').addEventListener('click', () => dialog.showModal());
+      document.getElementById('cancelCreateBtn').addEventListener('click', () => dialog.close());
+      document.getElementById('confirmCreateBtn').addEventListener('click', () => createAccount().catch(err => alert(err.message)));
+      document.getElementById('refreshBtn').addEventListener('click', () => loadAccounts().catch(err => alert(err.message)));
+      document.getElementById('stopBtn').addEventListener('click', () => stopAccount().catch(err => alert(err.message)));
+      document.getElementById('triggerBtn').addEventListener('click', () => triggerIteration().catch(err => alert(err.message)));
+    }
+
+    bindEvents();
+    loadAccounts().catch(err => alert(err.message));
+  </script>
+</body>
+</html>

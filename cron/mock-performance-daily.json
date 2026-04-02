@@ -1,0 +1,18 @@
+{
+  "name": "mock-performance-daily",
+  "description": "独立模拟账户 - 每日绩效计算（盘后）",
+  "schedule": "0 20 * * *",
+  "timezone": "Asia/Shanghai",
+  "enabled": true,
+  "task": {
+    "type": "script",
+    "script": "scripts/calculate_mock_performance.mjs",
+    "workdir": "/Users/vvc/.openclaw/workspace/stock-system",
+    "timeout": 300
+  },
+  "notifications": {
+    "on_error": true,
+    "channel": "feishu",
+    "target": "user:ou_a21807011c59304bedfaf2f7440f5361"
+  }
+}

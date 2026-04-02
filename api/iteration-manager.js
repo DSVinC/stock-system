@@ -41,6 +41,16 @@ const ITERATION_TASK_RUNS_TABLE_SQL = `
     updated_at TEXT
   )
 `;
+const STRATEGY_VERSION_ARCHIVE_TABLE_SQL = `
+  CREATE TABLE IF NOT EXISTS strategy_version_archive (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    version_id TEXT NOT NULL UNIQUE,
+    reason TEXT,
+    archived_by TEXT DEFAULT 'codex',
+    archived_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (version_id) REFERENCES strategy_versions(version_id)
+  )
+`;
 
 function safeJsonParse(value, fallback = null) {
   if (value === null || value === undefined || value === '') {
@@ -150,6 +160,17 @@ function parseOptionalFiniteNumber(value) {
   if (value === null || value === undefined || value === '') return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeDateToRequest(dateText) {
+  const value = String(dateText || '').trim();
+  if (/^\d{8}$/.test(value)) {
+    return `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}`;
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
+  return null;
 }
 
 async function filterStocksByRealDataCoverage(stocks, startDate, endDate) {
@@ -736,6 +757,22 @@ function buildTaskResultSummary(task) {
     }
     return null;
   })();
+  const factorStability = (() => {
+    if (task.factorStability && typeof task.factorStability === 'object') {
+      return task.factorStability;
+    }
+    if (task.resultSummary?.factorStability && typeof task.resultSummary.factorStability === 'object') {
+      return task.resultSummary.factorStability;
+    }
+    const history = Array.isArray(task.history) ? task.history : [];
+    for (let i = history.length - 1; i >= 0; i -= 1) {
+      const item = history[i];
+      if (item && item.factorStability && typeof item.factorStability === 'object') {
+        return item.factorStability;
+      }
+    }
+    return null;
+  })();
 
   return {
     status: task.status || null,
@@ -763,6 +800,7 @@ function buildTaskResultSummary(task) {
     tuningPlan,
     deploymentReadiness,
     validation,
+    factorStability,
     ...(optimizationBackend === 'optuna'
       ? {
           requestedTrials,
@@ -1165,6 +1203,10 @@ async function ensureIterationTaskRunsTable(db) {
   await db.runPromise(ITERATION_TASK_RUNS_TABLE_SQL);
 }
 
+async function ensureStrategyVersionArchiveTable(db) {
+  await db.runPromise(STRATEGY_VERSION_ARCHIVE_TABLE_SQL);
+}
+
 async function persistIterationTaskRun(task) {
   const db = await getDatabase();
   await ensureIterationTaskRunsTable(db);
@@ -1424,6 +1466,220 @@ router.post('/start', async (req, res) => {
   } catch (error) {
     console.error('[迭代管理器] 启动失败:', error);
     res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 手动按偏差触发二次迭代（不自动触发，需显式调用）
+ * POST /api/iteration/trigger-by-deviation
+ */
+router.post('/trigger-by-deviation', async (req, res) => {
+  try {
+    const {
+      accountId,
+      maxIterations = 30,
+      scoreThreshold = 80,
+      optimizationBackend = 'optuna',
+      parallelTasks = 4
+    } = req.body || {};
+
+    if (!accountId) {
+      return res.status(400).json({
+        success: false,
+        error: '缺少必要参数：accountId'
+      });
+    }
+
+    const db = await getDatabase();
+    const performance = await db.getPromise(
+      `SELECT account_id, period_start, period_end, trade_count,
+              backtest_deviation, drawdown_deviation, win_rate_deviation,
+              is_deviation_exceeded, is_sample_valid, created_at
+       FROM mock_performance
+       WHERE account_id = ?
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [accountId]
+    );
+
+    if (!performance) {
+      return res.status(404).json({
+        success: false,
+        error: '未找到该账户的模拟绩效记录'
+      });
+    }
+
+    if (Number(performance.is_deviation_exceeded) !== 1) {
+      return res.status(400).json({
+        success: false,
+        error: '最新绩效未超过偏差阈值，无需触发二次迭代',
+        performance
+      });
+    }
+
+    const account = await db.getPromise(
+      `SELECT account_id, strategy_version_id, strategy_type
+       FROM mock_account
+       WHERE account_id = ?`,
+      [accountId]
+    );
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        error: '模拟账户不存在'
+      });
+    }
+
+    const version = await db.getPromise(
+      `SELECT strategy_type, config_json
+       FROM strategy_versions
+       WHERE version_id = ?`,
+      [account.strategy_version_id]
+    );
+    const config = safeJsonParse(version?.config_json, {}) || {};
+    const strategyType = account.strategy_type || version?.strategy_type || 'seven_factor';
+
+    const stockRows = await db.allPromise(
+      `SELECT DISTINCT ts_code
+       FROM mock_trade
+       WHERE account_id = ?
+       ORDER BY ts_code ASC`,
+      [accountId]
+    );
+    const stocks = stockRows
+      .map((row) => normalizeToApi(String(row.ts_code || '').trim().toUpperCase()))
+      .filter(Boolean);
+    if (stocks.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: '该账户无交易样本，无法构建迭代股票池'
+      });
+    }
+
+    const startDate = normalizeDateToRequest(performance.period_start);
+    const endDate = normalizeDateToRequest(performance.period_end);
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        error: '绩效记录缺少有效时间区间，无法触发二次迭代'
+      });
+    }
+
+    // 复用 /start 的创建逻辑（保持行为一致）
+    const taskId = `ITER_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    const normalizedOptimizationBackend = normalizeOptimizationBackend(optimizationBackend);
+    const normalizedMaxIterations = normalizeIterationCount(maxIterations, 10);
+    const normalizedScoreThreshold = normalizeScoreThreshold(scoreThreshold, 80);
+    const normalizedParallelTasks = normalizeParallelTasks(parallelTasks);
+    const { supportedStocks, excludedStocks } = await filterStocksByRealDataCoverage(stocks, startDate, endDate);
+
+    let finalStocks = supportedStocks;
+    let autoAddedStocks = [];
+    let autoExcludedStocks = [];
+    if (String(strategyType || '').toLowerCase() === 'seven_factor') {
+      try {
+        const augmented = await augmentSevenFactorStocks(db, supportedStocks, startDate, endDate, 20);
+        autoAddedStocks = augmented.added;
+        const rechecked = await filterStocksByRealDataCoverage(augmented.stocks, startDate, endDate);
+        finalStocks = rechecked.supportedStocks;
+        autoExcludedStocks = rechecked.excludedStocks.filter(code => augmented.added.includes(code));
+      } catch (augmentError) {
+        console.warn('[迭代管理器] seven_factor 股票池自动扩展失败，回退原始股票池:', augmentError.message);
+      }
+    }
+
+    if (finalStocks.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: '当前股票池在指定区间内缺少真实行情数据，无法启动迭代任务',
+        excludedStocks
+      });
+    }
+
+    const task = {
+      taskId,
+      strategyType,
+      optimizationBackend: normalizedOptimizationBackend,
+      config,
+      inputSummary: {
+        triggerSource: 'manual_deviation',
+        triggerAccountId: accountId,
+        triggerVersionId: account.strategy_version_id,
+        triggerPerformanceAt: performance.created_at,
+        triggerDeviation: {
+          backtest_deviation: performance.backtest_deviation,
+          drawdown_deviation: performance.drawdown_deviation,
+          win_rate_deviation: performance.win_rate_deviation
+        },
+        stocks: finalStocks,
+        excludedStocks,
+        autoExcludedStocks,
+        autoAddedStocks,
+        startDate,
+        endDate,
+        config,
+        parallelTasks: normalizedParallelTasks,
+        optimizationBackend: normalizedOptimizationBackend
+      },
+      maxIterations: normalizedMaxIterations,
+      scoreThreshold: normalizedScoreThreshold,
+      stocks: finalStocks,
+      startDate,
+      endDate,
+      parallelTasks: normalizedParallelTasks,
+      status: 'pending',
+      progress: 0,
+      currentIteration: 0,
+      bestScore: 0,
+      bestParams: null,
+      history: [],
+      createdAt: new Date().toISOString()
+    };
+    if (normalizedOptimizationBackend === 'optuna') {
+      task.optunaTrialsRequested = normalizedMaxIterations;
+    }
+
+    activeTasks.set(taskId, task);
+    await persistIterationTaskRun(task);
+    runIterationTask(taskId).catch(err => {
+      console.error(`[迭代任务 ${taskId}] 执行失败:`, err);
+      const t = activeTasks.get(taskId);
+      if (t) {
+        finalizeTaskAsFailed(
+          t,
+          inferInvalidReasonFromError(err?.message),
+          err?.message || '任务执行失败'
+        );
+        persistIterationTaskRun(t).catch(persistError => {
+          console.error(`[迭代任务 ${taskId}] 失败快照保存失败:`, persistError);
+        });
+      }
+    });
+
+    return res.json({
+      success: true,
+      taskId,
+      message: '已按偏差结果手动触发二次迭代任务',
+      triggerContext: {
+        accountId,
+        strategyVersionId: account.strategy_version_id,
+        tradeCount: Number(performance.trade_count || 0),
+        deviations: {
+          backtest_deviation: performance.backtest_deviation,
+          drawdown_deviation: performance.drawdown_deviation,
+          win_rate_deviation: performance.win_rate_deviation
+        }
+      },
+      excludedStocks,
+      autoAddedStocks,
+      autoExcludedStocks
+    });
+  } catch (error) {
+    console.error('[迭代管理器] 偏差触发失败:', error);
+    return res.status(500).json({
       success: false,
       error: error.message
     });
@@ -1907,15 +2163,18 @@ router.get('/versions/:strategyType', async (req, res) => {
     const { strategyType } = req.params;
     const db = await getDatabase();
     await syncIterationTaskRunsToStrategyVersions(db, strategyType);
+    await ensureStrategyVersionArchiveTable(db);
 
     const versions = await db.allPromise(`
-      SELECT version_id, strategy_name, config_json, backtest_score,
-             sharpe_ratio, max_drawdown, calmar_ratio,
-             profit_loss_ratio, win_rate, total_return,
-             created_at, parent_version, change_log
-      FROM strategy_versions
-      WHERE strategy_type = ?
-      ORDER BY created_at DESC
+      SELECT sv.version_id, sv.strategy_name, sv.config_json, sv.backtest_score,
+             sv.sharpe_ratio, sv.max_drawdown, sv.calmar_ratio,
+             sv.profit_loss_ratio, sv.win_rate, sv.total_return,
+             sv.created_at, sv.parent_version, sv.change_log,
+             CASE WHEN sva.version_id IS NULL THEN 0 ELSE 1 END AS is_archived
+      FROM strategy_versions sv
+      LEFT JOIN strategy_version_archive sva ON sva.version_id = sv.version_id
+      WHERE sv.strategy_type = ?
+      ORDER BY sv.created_at DESC
       LIMIT 50
     `, [strategyType]);
 
@@ -1955,6 +2214,73 @@ router.get('/versions/:strategyType', async (req, res) => {
       success: false,
       error: error.message
     });
+  }
+});
+
+/**
+ * 归档策略版本
+ * POST /api/iteration/archive-version
+ */
+router.post('/archive-version', async (req, res) => {
+  try {
+    const { versionId, reason } = req.body || {};
+    if (!versionId) {
+      return res.status(400).json({ success: false, error: '缺少 versionId' });
+    }
+
+    const db = await getDatabase();
+    await ensureStrategyVersionArchiveTable(db);
+
+    const version = await db.getPromise(
+      'SELECT version_id FROM strategy_versions WHERE version_id = ?',
+      [versionId]
+    );
+    if (!version) {
+      return res.status(404).json({ success: false, error: '版本不存在' });
+    }
+
+    await db.runPromise(
+      `
+      INSERT INTO strategy_version_archive (version_id, reason, archived_by, archived_at)
+      VALUES (?, ?, 'codex', datetime('now'))
+      ON CONFLICT(version_id) DO UPDATE SET
+        reason = excluded.reason,
+        archived_by = excluded.archived_by,
+        archived_at = excluded.archived_at
+      `,
+      [versionId, String(reason || '手动归档')]
+    );
+
+    return res.json({ success: true, message: '归档成功' });
+  } catch (error) {
+    console.error('[版本归档] 失败:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * 取消归档策略版本
+ * DELETE /api/iteration/archive-version/:versionId
+ */
+router.delete('/archive-version/:versionId', async (req, res) => {
+  try {
+    const { versionId } = req.params;
+    if (!versionId) {
+      return res.status(400).json({ success: false, error: '缺少 versionId' });
+    }
+
+    const db = await getDatabase();
+    await ensureStrategyVersionArchiveTable(db);
+
+    await db.runPromise(
+      'DELETE FROM strategy_version_archive WHERE version_id = ?',
+      [versionId]
+    );
+
+    return res.json({ success: true, message: '已取消归档' });
+  } catch (error) {
+    console.error('[取消归档] 失败:', error);
+    return res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -2286,6 +2612,9 @@ async function runOptunaIterationTask(task) {
   const completedTrials = parseOptionalFiniteNumber(completedTrialsRaw);
   const bestMetrics = result.metrics && typeof result.metrics === 'object' ? { ...result.metrics } : {};
   const validation = result.validation && typeof result.validation === 'object' ? result.validation : null;
+  const factorStability = result.factor_stability && typeof result.factor_stability === 'object'
+    ? result.factor_stability
+    : null;
   const tradeCount = parseOptionalFiniteNumber(
     result.trade_count ??
     result.tradeCount ??
@@ -2313,11 +2642,13 @@ async function runOptunaIterationTask(task) {
       score: task.bestScore,
       params: bestParams,
       metrics: bestMetrics,
-      validation
+      validation,
+      factorStability
     }
   ];
   task.error = null;
   task.validation = validation;
+  task.factorStability = factorStability;
 
   if (!bestParams || typeof bestParams !== 'object') {
     finalizeTaskAsFailed(task, 'invalid_optuna_result');

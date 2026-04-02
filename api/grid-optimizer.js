@@ -41,6 +41,22 @@ const GRID_PARAMETER_SPACE = {
   }
 };
 
+const DEFAULT_OBJECTIVE_WEIGHTS = {
+  totalReturn: 0.4,
+  sharpeRatio: 0.4,
+  maxDrawdown: -0.2 // 负权重表示越小越好
+};
+
+function normalizeObjectiveWeights(weights) {
+  if (!weights || typeof weights !== 'object') {
+    return { ...DEFAULT_OBJECTIVE_WEIGHTS };
+  }
+  return {
+    ...DEFAULT_OBJECTIVE_WEIGHTS,
+    ...weights
+  };
+}
+
 /**
  * 生成参数范围数组
  * @param {Object} paramDef - 参数定义 {min, max, step}
@@ -149,21 +165,34 @@ class GridBacktestExecutor {
         symbols: tsCode ? [tsCode] : []
       });
 
+      const summary = result?.summary || result?.metrics || null;
+      if (!summary) {
+        return {
+          success: false,
+          params: { gridStep, positionRatio, gridCount },
+          error: '分钟回测未返回 summary/metrics，无法计算网格优化指标',
+          metrics: null
+        };
+      }
+
       return {
         success: true,
         params: { gridStep, positionRatio, gridCount },
         metrics: {
-          totalReturn: result.summary.totalReturn,
-          annualizedReturn: result.summary.annualizedReturn,
-          sharpeRatio: result.summary.sharpeRatio,
-          maxDrawdown: result.summary.maxDrawdown,
-          winRate: result.summary.winRate,
-          totalTrades: result.summary.totalTrades
+          totalReturn: summary.totalReturn || 0,
+          annualizedReturn: summary.annualizedReturn || 0,
+          sharpeRatio: summary.sharpeRatio || 0,
+          maxDrawdown: summary.maxDrawdown || 0,
+          winRate: summary.winRate || 0,
+          totalTrades: summary.totalTrades || summary.tradeCount || 0
         },
         details: result
       };
     } catch (error) {
       console.error(`[网格回测] 执行失败:`, error.message);
+      if (error && error.stack) {
+        console.error('[网格回测] 错误栈:', error.stack);
+      }
       return {
         success: false,
         params: { gridStep, positionRatio, gridCount },
@@ -234,16 +263,11 @@ class GridOptimizer {
       parallelWorkers: config.parallelWorkers || Math.min(4, os.cpus().length),
       // 参数空间
       parameterSpace: config.parameterSpace || GRID_PARAMETER_SPACE,
-      // 优化目标权重
-      objectiveWeights: config.objectiveWeights || {
-        totalReturn: 0.4,
-        sharpeRatio: 0.4,
-        maxDrawdown: -0.2 // 负权重表示越小越好
-      },
       // 初始资金
       initialCapital: config.initialCapital || 1000000,
       ...config
     };
+    this.config.objectiveWeights = normalizeObjectiveWeights(this.config.objectiveWeights);
 
     this.executor = new GridBacktestExecutor(this.config);
     this.results = [];
@@ -345,6 +369,9 @@ class GridOptimizer {
           results.push(result);
         } catch (error) {
           console.error('[网格优化器] 回测失败:', error.message);
+          if (error && error.stack) {
+            console.error('[网格优化器] 回测失败堆栈:', error.stack);
+          }
           results.push({
             success: false,
             params: combo,
@@ -426,12 +453,13 @@ class GridOptimizer {
    * @returns {number} 综合得分
    */
   calculateScore(metrics) {
-    const weights = this.config.objectiveWeights;
+    const weights = normalizeObjectiveWeights(this.config.objectiveWeights);
+    const safeMetrics = metrics || {};
 
     let score = 0;
-    score += (metrics.totalReturn || 0) * weights.totalReturn;
-    score += (metrics.sharpeRatio || 0) * weights.sharpeRatio;
-    score += (metrics.maxDrawdown || 0) * weights.maxDrawdown; // maxDrawdown 是正数，权重为负
+    score += (safeMetrics.totalReturn || 0) * weights.totalReturn;
+    score += (safeMetrics.sharpeRatio || 0) * weights.sharpeRatio;
+    score += (safeMetrics.maxDrawdown || 0) * weights.maxDrawdown; // maxDrawdown 是正数，权重为负
 
     return score;
   }
@@ -588,11 +616,15 @@ async function runGridOptimizerAPI(req, res) {
       });
     }
 
-    const optimizer = new GridOptimizer({
+    const optimizerConfig = {
       parallelWorkers,
-      objectiveWeights,
       initialCapital: 1000000
-    });
+    };
+    if (objectiveWeights && typeof objectiveWeights === 'object') {
+      optimizerConfig.objectiveWeights = objectiveWeights;
+    }
+
+    const optimizer = new GridOptimizer(optimizerConfig);
 
     // 运行优化
     const result = await optimizer.optimize({

@@ -1,16 +1,16 @@
 /**
- * API 模块：行业选股 (select.js)
- * 
- * 职责：负责行业方向数据的筛选和推荐
+ * API 模块:行业选股 (select.js)
+ *
+ * 职责:负责行业方向数据的筛选和推荐
  * - 读取选股报告数据 (report/selection/)
- * - 计算四维度评分（社会经济趋势、政策方向、舆论热度、商业变现）
+ * - 计算四维度评分(社会经济趋势、政策方向、舆论热度、商业变现)
  * - 生成行业推荐列表和成分股 picks
- * 
- * 主要接口：
+ *
+ * 主要接口:
  * - GET /api/select - 获取行业方向推荐列表
  * - POST /api/select/report - 生成选股报告
- * 
- * 依赖：market-data.js (tushareRequest, getSelectionDatasets)
+ *
+ * 依赖:market-data.js (tushareRequest, getSelectionDatasets)
  */
 
 const fs = require('node:fs');
@@ -25,7 +25,7 @@ const { saveSelectionReport, getSelectionHistory, getSelectionReport } = require
 // TASK_API_001: 导入 V4 决策引擎
 const { HistoricalDecisionEngine, STRATEGY_CONFIG } = require('./backtest-decision');
 
-// 数据库连接（单例）
+// 数据库连接(单例)
 const DB_PATH = process.env.STOCK_DB || '/Volumes/SSD500/openclaw/stock-system/stock_system.db';
 let dbCache = null;
 function getDb() {
@@ -41,6 +41,14 @@ const REPORT_DIR = path.join(__dirname, '..', '..', 'report', 'selection');
 const POLICY_KEYWORDS = {
   5: ['算力', '人工智能', '机器人', '创新药', '低空', '半导体', '芯片', '储能', '电网', '数据', '信创', '卫星', '军工'],
   4: ['医疗', '工业', '新能源', '智能', '新材料', '高端制造', '汽车', '消费电子', '光模块', '服务器', '云', '数字'],
+};
+
+const STRATEGY_DIMENSION_WEIGHTS = {
+  seven_factor: { social: 0.25, policy: 0.25, public: 0.25, business: 0.25 },
+  double_ma: { social: 0.4, policy: 0.1, public: 0.35, business: 0.15 },
+  rsi: { social: 0.1, policy: 0.1, public: 0.55, business: 0.25 },
+  macd: { social: 0.2, policy: 0.1, public: 0.5, business: 0.2 },
+  bollinger: { social: 0.15, policy: 0.05, public: 0.65, business: 0.15 },
 };
 
 function normalizeName(value) {
@@ -83,7 +91,7 @@ function normalizeSnapshotDimension(rawValue, fallback = 3) {
   if (!Number.isFinite(numeric)) {
     return fallback;
   }
-  // 快照库维度字段当前主要是 0-10 口径，这里统一折算为前端展示使用的 1-5 区间。
+  // 快照库维度字段当前主要是 0-10 口径,这里统一折算为前端展示使用的 1-5 区间。
   return Number((clamp(numeric, 0, 10) / 2).toFixed(1));
 }
 
@@ -125,6 +133,47 @@ function normalizeWeightMap(input, keys, defaults) {
   return normalized;
 }
 
+function resolveDimensionWeights(strategy, filters = {}) {
+  const key = String(strategy || 'seven_factor').toLowerCase();
+  const defaults = STRATEGY_DIMENSION_WEIGHTS[key] || STRATEGY_DIMENSION_WEIGHTS.seven_factor;
+  return normalizeWeightMap(filters.dimensionWeights, ['social', 'policy', 'public', 'business'], defaults);
+}
+
+function computeDirectionScoreByStrategy(strategy, context) {
+  const normalizedStrategy = String(strategy || 'seven_factor').toLowerCase();
+  const dim = clamp(context.dimensionScore / 100, 0, 1);
+  const momentum = clamp((context.pctChange + 10) / 20, 0, 1);
+  const absMomentum = clamp(Math.abs(context.pctChange) / 10, 0, 1);
+  const oversold = clamp((5 - context.pctChange) / 10, 0, 1);
+  const hot = context.hotRank && context.hotRank < 999
+    ? clamp((120 - context.hotRank) / 120, 0, 1)
+    : 0.2;
+  const breadth = clamp((context.companyCount || 0) / 300, 0, 1);
+  const flow = clamp((context.netAmount + 10) / 20, 0, 1);
+
+  let score01;
+  switch (normalizedStrategy) {
+    case 'double_ma':
+      score01 = dim * 0.30 + momentum * 0.45 + hot * 0.15 + breadth * 0.10;
+      break;
+    case 'rsi':
+      score01 = dim * 0.30 + oversold * 0.45 + hot * 0.15 + breadth * 0.10;
+      break;
+    case 'macd':
+      score01 = dim * 0.25 + momentum * 0.40 + hot * 0.20 + flow * 0.15;
+      break;
+    case 'bollinger':
+      score01 = dim * 0.25 + absMomentum * 0.45 + hot * 0.15 + breadth * 0.15;
+      break;
+    case 'seven_factor':
+    default:
+      score01 = dim * 0.55 + momentum * 0.20 + hot * 0.15 + breadth * 0.10;
+      break;
+  }
+
+  return Math.round(clamp(score01 * 100, 0, 100));
+}
+
 function toMarkdownTable(headers, rows) {
   const normalizedRows = rows.map((row) => row.map((cell) => String(cell).replace(/\|/g, '\\|').replace(/\n/g, '<br>')));
   return [
@@ -148,10 +197,10 @@ async function buildDirectionPicks(direction, dailyBasicMap, stockBasicMap) {
       const turnoverRate = toNumber(quote.turnover_rate);
       const volumeRatio = toNumber(quote.volume_ratio);
 
-      // 个股综合评分（100 分制）
-      // 市值评分（40 分）：市值越大分数越高
+      // 个股综合评分(100 分制)
+      // 市值评分(40 分):市值越大分数越高
       const mvScore = Math.min(40, Math.log10(totalMv + 1) * 8);
-      // PE 评分（30 分）：PE 在 10-30 之间最佳
+      // PE 评分(30 分):PE 在 10-30 之间最佳
       let peScore = 30;
       if (peTtm > 0) {
         if (peTtm >= 10 && peTtm <= 30) peScore = 30;
@@ -159,12 +208,12 @@ async function buildDirectionPicks(direction, dailyBasicMap, stockBasicMap) {
         else if (peTtm > 30 && peTtm <= 50) peScore = 15;
         else peScore = 5;
       }
-      // 换手率评分（15 分）：2-8% 最佳
+      // 换手率评分(15 分):2-8% 最佳
       let turnoverScore = 15;
       if (turnoverRate >= 2 && turnoverRate <= 8) turnoverScore = 15;
       else if (turnoverRate < 2) turnoverScore = 8;
       else turnoverScore = 5;
-      // 量比评分（15 分）：1-3 最佳
+      // 量比评分(15 分):1-3 最佳
       let volumeScore = 15;
       if (volumeRatio >= 1 && volumeRatio <= 3) volumeScore = 15;
       else if (volumeRatio < 1) volumeScore = 8;
@@ -203,32 +252,32 @@ function buildReason(direction) {
     `近一年相关 IPO ${direction.metrics.ipoMatches} 家`,
   ];
 
-  return `${direction.name} 当前由真实市场数据筛出：${fragments.join('，')}，四维度综合得分 ${direction.score}。`;
+  return `${direction.name} 当前由真实市场数据筛出:${fragments.join(',')},四维度综合得分 ${direction.score}。`;
 }
 
 // TASK_V4_FIX_001: 从历史快照数据构建选股 payload
 async function buildSelectionPayloadFromSnapshot(date, strategy, filters) {
   const db = getDb();
-  // 支持多种日期格式：2024-01-02, 2024/01/02
+  // 支持多种日期格式:2024-01-02, 2024/01/02
   const originalDate = String(date);
   const dateStamp = originalDate.replace(/[-/]/g, '');
-  
+
   // 先检查该日期是否有数据
   const checkSql = `SELECT trade_date FROM stock_factor_snapshot WHERE trade_date = ? LIMIT 1`;
   let checkResult = db.prepare(checkSql).get(dateStamp);
-  
+
   let adjustedDate = originalDate;
   let dateAdjusted = false;
-  
+
   if (!checkResult) {
-    // 日期无数据，找之前最后一个交易日（避免未来函数）
+    // 日期无数据,找之前最后一个交易日(避免未来函数)
     const findSql = `SELECT trade_date FROM stock_factor_snapshot WHERE trade_date <= ? ORDER BY trade_date DESC LIMIT 1`;
     const prevTrade = db.prepare(findSql).get(dateStamp);
-    
+
     if (prevTrade) {
       adjustedDate = String(prevTrade.trade_date).replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3');
       dateAdjusted = true;
-      console.log(`[select.js] 日期 ${originalDate} 非交易日，调整至 ${adjustedDate}`);
+      console.log(`[select.js] 日期 ${originalDate} 非交易日,调整至 ${adjustedDate}`);
     } else {
       return {
         tradeDate: originalDate,
@@ -237,15 +286,15 @@ async function buildSelectionPayloadFromSnapshot(date, strategy, filters) {
       };
     }
   }
-  
+
   const finalDateStamp = adjustedDate.replace(/[-/]/g, '');
-  
-  console.log(`[select.js] 使用历史快照数据，日期：${adjustedDate} (${finalDateStamp})`);
+
+  console.log(`[select.js] 使用历史快照数据,日期:${adjustedDate} (${finalDateStamp})`);
   console.log(`[select.js] 筛选参数:`, JSON.stringify(filters));
-  
-  // 获取原始因子数据（包含七个因子）
+
+  // 获取原始因子数据(包含七个因子)
   const factorSnapshot = db.prepare(`
-    SELECT ts_code, industry, 
+    SELECT ts_code, industry,
            trend_score, momentum_score, valuation_score, earnings_score,
            capital_score_raw, volatility_score, sentiment_score_raw,
            social_score, policy_score_raw, public_score, business_score,
@@ -254,26 +303,26 @@ async function buildSelectionPayloadFromSnapshot(date, strategy, filters) {
     WHERE trade_date = ?
     ORDER BY seven_factor_score DESC
   `).all(finalDateStamp);
-  
+
   if (factorSnapshot.length === 0) {
-    console.warn(`[select.js] 日期 ${adjustedDate} 无快照数据，返回空结果`);
+    console.warn(`[select.js] 日期 ${adjustedDate} 无快照数据,返回空结果`);
     return {
       tradeDate: adjustedDate,
       directions: [],
       message: `日期 ${adjustedDate} 无快照数据`
     };
   }
-  
+
   console.log(`[select.js] 获取到 ${factorSnapshot.length} 条因子快照记录`);
-  
+
   // 从 stock_list 获取股票基本信息
   const stockBasic = db.prepare(`
     SELECT ts_code, stock_name as name
     FROM stock_list
   `).all();
   const stockBasicMap = new Map(stockBasic.map((item) => [item.ts_code, item]));
-  
-  // 如果有价格筛选，需要获取股票价格数据
+
+  // 如果有价格筛选,需要获取股票价格数据
   let priceMap = new Map();
   let priceDataAvailable = false;
   if (filters.maxPrice) {
@@ -284,24 +333,24 @@ async function buildSelectionPayloadFromSnapshot(date, strategy, filters) {
       if (prices.length > 0) {
         priceMap = new Map(prices.map(p => [p.ts_code, p.close]));
         priceDataAvailable = true;
-        console.log(`[select.js] 获取到 ${prices.length} 条价格数据，筛选 maxPrice <= ${filters.maxPrice}`);
+        console.log(`[select.js] 获取到 ${prices.length} 条价格数据,筛选 maxPrice <= ${filters.maxPrice}`);
       } else {
-        console.warn(`[select.js] 日期 ${adjustedDate} 无价格数据，跳过价格筛选`);
+        console.warn(`[select.js] 日期 ${adjustedDate} 无价格数据,跳过价格筛选`);
       }
     } catch (e) {
-      console.warn(`[select.js] 获取价格数据失败：${e.message}`);
+      console.warn(`[select.js] 获取价格数据失败:${e.message}`);
     }
   }
-  
-  // 构建个股评分列表（使用动态权重计算）
+
+  // 构建个股评分列表(使用动态权重计算)
   const stockScores = factorSnapshot
     .map((row) => {
-      // 转换 ts_code 格式：601728.SH -> sh.601728
+      // 转换 ts_code 格式:601728.SH -> sh.601728
       const normalizedTsCode = row.ts_code.toLowerCase().split('.').reverse().join('.');
       const stock = stockBasicMap.get(normalizedTsCode);
       const price = priceMap.get(row.ts_code);
-      
-      // 动态计算七因子评分（使用传入的权重）
+
+      // 动态计算七因子评分(使用传入的权重)
       let dynamicScore = row.seven_factor_score; // 默认使用预计算值
       if (filters.factorWeights) {
         const w = normalizeWeightMap(
@@ -318,9 +367,9 @@ async function buildSelectionPayloadFromSnapshot(date, strategy, filters) {
           (row.volatility_score || 5) * (w.volatility || 0.15) +
           (row.sentiment_score_raw || 5) * (w.sentiment || 0.15)
         );
-        console.log(`[select.js] ${row.ts_code} 动态评分：${dynamicScore.toFixed(2)} (原：${row.seven_factor_score})`);
+        console.log(`[select.js] ${row.ts_code} 动态评分:${dynamicScore.toFixed(2)} (原:${row.seven_factor_score})`);
       }
-      
+
       return {
         ts_code: row.ts_code,
         name: stock?.name || row.ts_code,
@@ -355,26 +404,26 @@ async function buildSelectionPayloadFromSnapshot(date, strategy, filters) {
       if (shouldExcludeTsCode(s.ts_code, filters)) return false;
       if (filters.minSevenFactorScore && s.score < filters.minSevenFactorScore) return false;
       if (filters.peMax && s.factors.pe && s.factors.pe > filters.peMax) return false;
-      
-      // PEG 筛选：PEG = PE / 净利润增长率（增长率单位为%，如 10 表示 10%）
+
+      // PEG 筛选:PEG = PE / 净利润增长率(增长率单位为%,如 10 表示 10%)
       if (filters.pegMax) {
         const netprofitGrowth = s.netprofitGrowth || 0;
         // 只对有正增长且 PE 为正的股票计算 PEG
         const peg = s.factors.pe && netprofitGrowth > 0 ? s.factors.pe / netprofitGrowth : 999;
         if (peg > filters.pegMax) return false;
       }
-      
+
       // 只在价格数据可用时应用价格筛选
       if (filters.maxPrice && priceDataAvailable && s.factors.price && s.factors.price > filters.maxPrice) return false;
-      
+
       const minScoreThreshold = Number(filters.minSevenFactorScore || 0.75);
       return s.score >= minScoreThreshold;
     })
     .sort((a, b) => b.score - a.score);
-  
+
   console.log(`[select.js] 筛选后剩余 ${stockScores.length} 只股票`);
-  
-  // 按行业分组，计算行业得分
+
+  // 按行业分组,计算行业得分
   const industryMap = new Map();
   for (const stock of stockScores) {
     const industry = stock.industry || '其他';
@@ -402,12 +451,8 @@ async function buildSelectionPayloadFromSnapshot(date, strategy, filters) {
       ind.dimensionSamples.public.add(stock.snapshotDimensions.public);
     }
   }
-  
-  const dimensionWeights = normalizeWeightMap(
-    filters.dimensionWeights,
-    ['social', 'policy', 'public', 'business'],
-    { social: 0.25, policy: 0.25, public: 0.25, business: 0.25 }
-  );
+
+  const dimensionWeights = resolveDimensionWeights(strategy, filters || {});
 
   // 计算行业平均分并排序
   const industries = Array.from(industryMap.values())
@@ -420,7 +465,7 @@ async function buildSelectionPayloadFromSnapshot(date, strategy, filters) {
       const avgBusinessRaw = ind.dimensionTotals.business / stockCount;
       const avgSentimentRaw = ind.dimensionTotals.sentiment / stockCount;
 
-      // 历史回填里 social/public 曾被写成常量占位值，这里在检测到无方差时做行业级回退。
+      // 历史回填里 social/public 曾被写成常量占位值,这里在检测到无方差时做行业级回退。
       const socialFallbackRaw = clamp(4 + Math.min(stockCount, 50) * 0.05 + avgScore * 0.1, 0, 10);
       const socialDisplay = normalizeSnapshotDimension(
         ind.dimensionSamples.social.size > 1 ? avgSocialRaw : socialFallbackRaw,
@@ -431,17 +476,27 @@ async function buildSelectionPayloadFromSnapshot(date, strategy, filters) {
         3
       );
 
+      const policyDisplay = normalizeSnapshotDimension(avgPolicyRaw, 3);
+      const businessDisplay = normalizeSnapshotDimension(avgBusinessRaw, 3);
       const weightedDimensionScore = (
         socialDisplay * dimensionWeights.social +
-        normalizeSnapshotDimension(avgPolicyRaw, 3) * dimensionWeights.policy +
+        policyDisplay * dimensionWeights.policy +
         publicDisplay * dimensionWeights.public +
-        normalizeSnapshotDimension(avgBusinessRaw, 3) * dimensionWeights.business
+        businessDisplay * dimensionWeights.business
       );
-      // 维度权重开启后，行业排序分对齐“股票评分 + 行业维度”双口径，避免只改权重但结果不变。
-      const rankScore = filters.dimensionWeights
-        ? (avgScore * 0.5 + weightedDimensionScore * 0.5)
-        : avgScore;
-
+      const dimensionScore = (weightedDimensionScore / 5) * 100;
+      // 历史快照路径没有实时热榜/资金口径，使用快照可得的均值因子近似构造上下文。
+      const pseudoPctChange = clamp((avgSentimentRaw - 5) * 1.8, -10, 10);
+      const pseudoNetAmount = clamp((avgBusinessRaw - 5) * 2, -10, 10);
+      const pseudoHotRank = Math.max(1, Math.round(120 - avgPublicRaw * 10));
+      const rankScore = computeDirectionScoreByStrategy(strategy, {
+        dimensionScore,
+        pctChange: pseudoPctChange,
+        netAmount: pseudoNetAmount,
+        hotRank: pseudoHotRank,
+        companyCount: stockCount,
+      });
+      
       return {
         ...ind,
         avgScore,
@@ -450,29 +505,30 @@ async function buildSelectionPayloadFromSnapshot(date, strategy, filters) {
         stockCount,
         dimensions: {
           social: socialDisplay,
-          policy: normalizeSnapshotDimension(avgPolicyRaw, 3),
+          policy: policyDisplay,
           public: publicDisplay,
-          business: normalizeSnapshotDimension(avgBusinessRaw, 3),
+          business: businessDisplay,
         },
       };
     })
     .filter(ind => ind.stockCount >= 3)
     .sort((a, b) => b.rankScore - a.rankScore)
     .slice(0, 10);
-  
+
   console.log(`[select.js] 筛选出 ${industries.length} 个行业`);
 
   // 构建返回结果
   const directions = industries.map((ind, index) => ({
     ts_code: `IND_${index}`,
     name: ind.name,
-    score: Math.round(ind.rankScore * 100),
+    score: ind.rankScore,
     dimensions: ind.dimensions,
     metrics: {
       companyCount: ind.stockCount,
       avgScore: ind.avgScore,
       rankScore: ind.rankScore,
-      weightedDimensionScore: ind.weightedDimensionScore
+      weightedDimensionScore: ind.weightedDimensionScore,
+      strategy: strategy || 'seven_factor',
     },
     picks: ind.stocks.slice(0, 5).map(s => ({
       ts_code: s.ts_code,
@@ -481,15 +537,15 @@ async function buildSelectionPayloadFromSnapshot(date, strategy, filters) {
       industry: s.industry,
       score: s.score
     })),
-    reason: `${ind.name} 行业综合得分 ${ind.rankScore.toFixed(2)}（股票均分 ${ind.avgScore.toFixed(2)}），共 ${ind.stockCount} 只股票`
+    reason: `${ind.name} 行业综合得分 ${ind.rankScore.toFixed(1)}(股票均分 ${ind.avgScore.toFixed(2)}),共 ${ind.stockCount} 只股票`
   }));
 
   // TASK_API_001: 生成决策单
-  // 为每个行业的 Top 股票生成决策建议（使用完整决策引擎）
+  // 为每个行业的 Top 股票生成决策建议(使用完整决策引擎)
   let decisions = [];
   const decisionEngine = new HistoricalDecisionEngine({ strategyType: 'short_term' });
 
-  // 收集所有需要生成决策的股票（去重）
+  // 收集所有需要生成决策的股票(去重)
   const stocksNeedingDecisions = industries.flatMap(ind =>
     ind.stocks.slice(0, 3).map(s => ({
       ts_code: s.ts_code,
@@ -503,7 +559,7 @@ async function buildSelectionPayloadFromSnapshot(date, strategy, filters) {
   const stocksToProcess = stocksNeedingDecisions.slice(0, 10);
   const tsCodesToProcess = [...new Set(stocksToProcess.map(s => s.ts_code))];
 
-  // 计算预加载日期范围（需要60天历史数据）
+  // 计算预加载日期范围(需要60天历史数据)
   const preloadStartDate = new Date(adjustedDate);
   preloadStartDate.setDate(preloadStartDate.getDate() - 90); // 预留90天确保足够
 
@@ -522,7 +578,7 @@ async function buildSelectionPayloadFromSnapshot(date, strategy, filters) {
     console.warn(`[select.js] 预加载价格数据失败:`, e.message);
   }
 
-  // 为股票生成决策单（使用完整决策引擎）
+  // 为股票生成决策单(使用完整决策引擎)
   for (const stock of stocksToProcess) {
     try {
       // 获取快照数据
@@ -564,7 +620,7 @@ async function buildSelectionPayloadFromSnapshot(date, strategy, filters) {
             technical_snapshot: fullDecision.technical_snapshot
           });
         } else {
-          // 决策引擎返回 null（数据不足或停牌），使用简化版
+          // 决策引擎返回 null(数据不足或停牌),使用简化版
           decisions.push({
             ts_code: stock.ts_code,
             name: stock.name,
@@ -578,7 +634,7 @@ async function buildSelectionPayloadFromSnapshot(date, strategy, filters) {
             seven_factor_score: snapshot.seven_factor_score,
             pe_ttm: snapshot.pe_ttm,
             pb: snapshot.pb,
-            warning: '数据不足，无法计算完整决策'
+            warning: '数据不足,无法计算完整决策'
           });
         }
       }
@@ -605,10 +661,12 @@ async function buildSelectionPayloadFromSnapshot(date, strategy, filters) {
       ...filters,
       priceDataAvailable
     },
+    strategy: strategy || 'seven_factor',
     weights: {
-      dimension: filters.dimensionWeights || null,
+      dimension: dimensionWeights,
       factor: filters.factorWeights || null
-    }
+    },
+    dataSource: 'snapshot'
   };
 }
 
@@ -623,27 +681,33 @@ function calculatePositionSuggest(sevenFactorScore) {
   return 0.10;
 }
 
-// TASK_V4_FIX_001: 支持日期参数，使用历史快照数据
-async function buildSelectionPayload(date, strategy, filters) {
-  // 有日期参数：使用历史快照数据
+// TASK_V4_FIX_001: 支持日期参数,使用历史快照数据
+async function buildSelectionPayload(date, strategy, filters, limit, minScore) {
+  const normalizedLimit = Number.isFinite(Number(limit)) ? Math.max(1, Math.min(50, Number(limit))) : 10;
+  const normalizedMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : null;
+  // 有日期参数:使用历史快照数据
   if (date) {
-    return await buildSelectionPayloadFromSnapshot(date, strategy, filters);
+    const snapshotPayload = await buildSelectionPayloadFromSnapshot(date, strategy, filters);
+    if (Array.isArray(snapshotPayload.directions)) {
+      let directions = snapshotPayload.directions;
+      if (normalizedMinScore !== null) {
+        directions = directions.filter((item) => Number(item.score || 0) >= normalizedMinScore);
+      }
+      snapshotPayload.directions = directions.slice(0, normalizedLimit);
+    }
+    return snapshotPayload;
   }
-  // 无日期参数：使用最新数据
+  // 无日期参数:使用最新数据
   let datasets;
   try {
     datasets = await getSelectionDatasets();
   } catch (error) {
     if (error instanceof MarketDataError && error.code === 'MISSING_TUSHARE_TOKEN') {
-      const latestTradeDate = getDb().prepare(`
-        SELECT MAX(trade_date) as latest_date FROM stock_factor_snapshot
-      `).get().latest_date;
-
-      if (latestTradeDate) {
-        const fallbackDate = String(latestTradeDate).replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3');
-        console.warn(`[select.js] 缺少 TUSHARE_TOKEN，降级到历史快照路径：${fallbackDate}`);
-        return buildSelectionPayloadFromSnapshot(fallbackDate, strategy, filters || {});
-      }
+      throw new MarketDataError(
+        '缺少 TUSHARE_TOKEN，无法获取实时行业数据。请配置后重试（不再自动降级历史快照）。',
+        503,
+        'MISSING_TUSHARE_TOKEN',
+      );
     }
     throw error;
   }
@@ -662,8 +726,9 @@ async function buildSelectionPayload(date, strategy, filters) {
 
   // 【回归初版】直接使用概念板块资金流数据
   const conceptFlows = datasets.conceptFlow.slice(0, 50);
-  console.log(`[select.js] 使用概念板块资金流数据，共 ${conceptFlows.length} 个概念板块`);
+  console.log(`[select.js] 使用概念板块资金流数据,共 ${conceptFlows.length} 个概念板块`);
 
+  const dimensionWeights = resolveDimensionWeights(strategy, filters || {});
   const candidateDirections = conceptFlows
     .map((flow) => {
       const name = normalizeName(flow.name);
@@ -677,10 +742,23 @@ async function buildSelectionPayload(date, strategy, filters) {
 
       const social = dimensionFromRaw(Math.min(100, (companyCount * 0.6) + (ipoMatches * 22) + (pctChange > 0 ? 15 : 0)));
       const policy = keywordScore(name);
-      // 修改：使用涨跌幅作为热度替代（conceptHot 名称不匹配）
+      // 修改:使用涨跌幅作为热度替代(conceptHot 名称不匹配)
       const publicHeat = dimensionFromRaw(Math.min(100, Math.max(pctChange, 0) * 12 + (hotRank < 999 ? (110 - hotRank * 3) : 0)));
       const business = dimensionFromRaw(Math.min(100, (Math.max(netAmount, 0) * 4) + (companyCount * 0.4) + (pctChange * 8)));
-      const score = Math.round((average([social, policy, publicHeat, business]) / 5) * 100);
+      const weightedDimensionScore = (
+        social * dimensionWeights.social +
+        policy * dimensionWeights.policy +
+        publicHeat * dimensionWeights.public +
+        business * dimensionWeights.business
+      );
+      const dimensionScore = (weightedDimensionScore / 5) * 100;
+      const score = computeDirectionScoreByStrategy(strategy, {
+        dimensionScore,
+        pctChange,
+        netAmount,
+        hotRank,
+        companyCount
+      });
 
       return {
         ts_code: flow.ts_code,
@@ -699,6 +777,8 @@ async function buildSelectionPayload(date, strategy, filters) {
           ipoMatches,
           netAmount: netAmount / 100000000, // 转换为中心
           pctChange,
+          weightedDimensionScore,
+          strategy,
         },
         leadStock: '',
       };
@@ -709,7 +789,8 @@ async function buildSelectionPayload(date, strategy, filters) {
       if (right.metrics.netAmount !== left.metrics.netAmount) return right.metrics.netAmount - left.metrics.netAmount;
       return left.name.localeCompare(right.name, 'zh-CN');
     })
-    .slice(0, 10); // 改为返回 Top 10
+    .filter((item) => normalizedMinScore === null || item.score >= normalizedMinScore)
+    .slice(0, normalizedLimit);
 
   const directions = [];
   for (const direction of candidateDirections) {
@@ -737,11 +818,16 @@ async function buildSelectionPayload(date, strategy, filters) {
       passed_seven_factor: directions.length,
       final_selected: directions.length
     };
-    
+
     saveSelectionReport({
       reportId,
       tradeDate: datasets.tradeDate,
-      filterConfig,
+      filterConfig: {
+        ...filterConfig,
+        strategy: strategy || 'seven_factor',
+        min_score: normalizedMinScore,
+        dimension_weights: dimensionWeights
+      },
       selectedStocks: directions.map((d, i) => ({
         rank: i + 1,
         ts_code: d.ts_code,
@@ -750,7 +836,7 @@ async function buildSelectionPayload(date, strategy, filters) {
       })),
       statistics
     });
-    console.log(`[select.js] 选股报告已保存：${reportId}`);
+    console.log(`[select.js] 选股报告已保存:${reportId}`);
   } catch (error) {
     console.error('[select.js] 保存选股报告失败:', error.message);
   }
@@ -758,11 +844,11 @@ async function buildSelectionPayload(date, strategy, filters) {
   // TASK_E2E_FIX_001: 为 Top 行业中的股票生成决策单
   const decisions = [];
   const decisionEngine = new HistoricalDecisionEngine({ strategyType: 'short_term' });
-  
+
   // 确保数据库连接已初始化
   const db = getDb();
-  
-  // 收集所有需要生成决策的股票（每个行业取前 3 只）
+
+  // 收集所有需要生成决策的股票(每个行业取前 3 只)
   const stocksNeedingDecisions = directions.flatMap(dir =>
     dir.picks.slice(0, 3).map(s => ({
       ts_code: s.ts_code,
@@ -771,36 +857,36 @@ async function buildSelectionPayload(date, strategy, filters) {
       seven_factor_score: s.score / 100 // 转换为 0-1 范围
     }))
   );
-  
+
   // 取前 10 只股票生成决策
   const stocksToProcess = stocksNeedingDecisions.slice(0, 10);
   const tsCodesToProcess = [...new Set(stocksToProcess.map(s => s.ts_code))];
-  
-  console.log(`[select.js] 需要生成决策的股票：${stocksToProcess.length} 只`);
-  console.log(`[select.js] 股票列表：${stocksToProcess.map(s => s.ts_code).join(', ')}`);
-  
-  // 获取数据库中最新的交易日（处理休市日）
+
+  console.log(`[select.js] 需要生成决策的股票:${stocksToProcess.length} 只`);
+  console.log(`[select.js] 股票列表:${stocksToProcess.map(s => s.ts_code).join(', ')}`);
+
+  // 获取数据库中最新的交易日(处理休市日)
   const latestTradeDate = db.prepare(`
     SELECT MAX(trade_date) as latest_date FROM stock_factor_snapshot
   `).get().latest_date;
-  
-  console.log(`[select.js] 数据库最新交易日：${latestTradeDate}`);
-  
-  // 预加载价格数据（需要 60 天历史数据）
+
+  console.log(`[select.js] 数据库最新交易日:${latestTradeDate}`);
+
+  // 预加载价格数据(需要 60 天历史数据)
   const preloadStartDate = new Date();
   preloadStartDate.setDate(preloadStartDate.getDate() - 90);
   const preloadStartStr = preloadStartDate.toISOString().split('T')[0].replace(/-/g, '');
   const preloadEndStr = latestTradeDate; // 使用数据库最新交易日
-  
-  console.log(`[select.js] 查询日期：${preloadEndStr}`);
-  
+
+  console.log(`[select.js] 查询日期:${preloadEndStr}`);
+
   try {
     await decisionEngine.preloadPrices(tsCodesToProcess, preloadStartStr, preloadEndStr);
     console.log(`[select.js] 预加载了 ${tsCodesToProcess.length} 只股票的价格数据`);
   } catch (e) {
-    console.warn(`[select.js] 预加载价格数据失败：${e.message}`);
+    console.warn(`[select.js] 预加载价格数据失败:${e.message}`);
   }
-  
+
   // 为每只股票生成决策单
   for (const stock of stocksToProcess) {
     try {
@@ -811,11 +897,11 @@ async function buildSelectionPayload(date, strategy, filters) {
         WHERE ts_code = ? AND trade_date = ?
         LIMIT 1
       `;
-      console.log(`[select.js] 查询 ${stock.ts_code} 的快照数据，日期：${latestTradeDate}`);
+      console.log(`[select.js] 查询 ${stock.ts_code} 的快照数据,日期:${latestTradeDate}`);
       const snapshot = db.prepare(snapshotSql).get(stock.ts_code, latestTradeDate);
-      
+
       if (snapshot) {
-        console.log(`[select.js] 找到 ${stock.ts_code} 的快照数据，七因子评分：${snapshot.seven_factor_score}`);
+        console.log(`[select.js] 找到 ${stock.ts_code} 的快照数据,七因子评分:${snapshot.seven_factor_score}`);
         // 使用完整决策引擎生成决策
         const fullDecision = await decisionEngine.generateDecision(
           stock.ts_code,
@@ -826,7 +912,7 @@ async function buildSelectionPayload(date, strategy, filters) {
             pb: snapshot.pb
           }
         );
-        
+
         if (fullDecision) {
           decisions.push({
             ts_code: stock.ts_code,
@@ -844,7 +930,7 @@ async function buildSelectionPayload(date, strategy, filters) {
             technical_snapshot: fullDecision.technical_snapshot
           });
         } else {
-          // 决策引擎返回 null（数据不足或停牌），使用简化版
+          // 决策引擎返回 null(数据不足或停牌),使用简化版
           decisions.push({
             ts_code: stock.ts_code,
             name: stock.name,
@@ -862,10 +948,10 @@ async function buildSelectionPayload(date, strategy, filters) {
         }
       }
     } catch (e) {
-      console.warn(`[select.js] 生成 ${stock.ts_code} 决策单失败：${e.message}`);
+      console.warn(`[select.js] 生成 ${stock.ts_code} 决策单失败:${e.message}`);
     }
   }
-  
+
   console.log(`[select.js] 生成了 ${decisions.length} 个决策单`);
 
   return {
@@ -876,6 +962,11 @@ async function buildSelectionPayload(date, strategy, filters) {
       dimensions: ['社会经济趋势', '政策方向', '舆论热度', '商业变现'],
       sources: ['Tushare stock_basic', 'Tushare ths_index', 'Tushare moneyflow_cnt_ths', 'Tushare ths_hot', 'Tushare new_share'],
     },
+    strategy: strategy || 'seven_factor',
+    weights: {
+      dimension: dimensionWeights,
+      factor: filters?.factorWeights || null,
+    },
     directions,
     decisions, // TASK_E2E_FIX_001: 新增决策字段
     conclusions: directions.slice(0, 3).map((direction, index) => ({
@@ -885,10 +976,11 @@ async function buildSelectionPayload(date, strategy, filters) {
       reason: direction.reason,
     })),
     risks: [
-      '方向筛选反映的是最新板块热度和资金偏好，不等于个股买点已经成熟。',
-      '概念板块存在轮动，若后续资金净流入转负，方向优先级会快速下修。',
+      '方向筛选反映的是最新板块热度和资金偏好,不等于个股买点已经成熟。',
+      '概念板块存在轮动,若后续资金净流入转负,方向优先级会快速下修。',
       '最终交易前仍需在个股层面复核财报、估值和实时行情。',
     ],
+    dataSource: datasets.tradeDateSource || 'tushare_realtime',
   };
 }
 
@@ -915,24 +1007,24 @@ function renderSelectionReport(payload) {
 
   const details = payload.directions.map((direction, index) => [
     `### ${index + 1}. ${direction.name}`,
-    `- 综合得分：${direction.score}`,
-    `- 四维度评分：社会 ${direction.dimensions.social} / 政策 ${direction.dimensions.policy} / 舆论 ${direction.dimensions.public} / 商业 ${direction.dimensions.business}`,
-    `- 板块资金：${direction.metrics.netAmount.toFixed(2)} 亿元`,
-    `- 热度/IPO：${direction.metrics.hotRank ? `热榜第 ${direction.metrics.hotRank} 名` : '热榜缺失'} / 近一年 IPO ${direction.metrics.ipoMatches} 家`,
-    `- 核心标的：${direction.picks.map((item) => `${item.name}(${item.code})`).join('、') || '-'}`,
-    `- 推荐逻辑：${direction.reason}`,
+    `- 综合得分:${direction.score}`,
+    `- 四维度评分:社会 ${direction.dimensions.social} / 政策 ${direction.dimensions.policy} / 舆论 ${direction.dimensions.public} / 商业 ${direction.dimensions.business}`,
+    `- 板块资金:${direction.metrics.netAmount.toFixed(2)} 亿元`,
+    `- 热度/IPO:${direction.metrics.hotRank ? `热榜第 ${direction.metrics.hotRank} 名` : '热榜缺失'} / 近一年 IPO ${direction.metrics.ipoMatches} 家`,
+    `- 核心标的:${direction.picks.map((item) => `${item.name}(${item.code})`).join('、') || '-'}`,
+    `- 推荐逻辑:${direction.reason}`,
   ].join('\n')).join('\n\n');
 
   return [
     '# A股行业筛选报告',
     '',
-    `- 生成时间：${generatedLabel}`,
-    `- 交易日：${payload.tradeDate}`,
-    `- 方法论：${payload.methodology.framework}`,
-    `- 数据来源：${payload.methodology.sources.join('、')}`,
+    `- 生成时间:${generatedLabel}`,
+    `- 交易日:${payload.tradeDate}`,
+    `- 方法论:${payload.methodology.framework}`,
+    `- 数据来源:${payload.methodology.sources.join('、')}`,
     '',
     '## 1. 核心结论',
-    ...payload.conclusions.map((item) => `${item.rank}. ${item.name}（${item.score}）: ${item.reason}`),
+    ...payload.conclusions.map((item) => `${item.rank}. ${item.name}(${item.score}): ${item.reason}`),
     '',
     '## 2. 完整推荐表',
     recommendationTable,
@@ -942,7 +1034,7 @@ function renderSelectionReport(payload) {
     '',
     '## 4. 风险提示',
     ...payload.risks.map((risk) => `- ${risk}`),
-    '- 若外部数据源异常，报告应视为失效，不使用回退假数据。',
+    '- 若外部数据源异常,报告应视为失效,不使用回退假数据。',
     '',
   ].join('\n');
 }
@@ -961,48 +1053,48 @@ async function writeSelectionReport() {
 
 // TASK_V4_FIX_001: 接收日期参数
 router.get('/', async (req, res) => {
+  console.log("[select.js] GET / 请求收到，query:", JSON.stringify(req.query));
+  console.log("[select.js] filters.dimensionWeights:", req.query.dimensionWeights);
   try {
     const date = req.query.date;
     const strategy = req.query.strategy;
     const limit = req.query.limit;
     const minScore = req.query.minScore;
-    
+
     // 四维度七因子策略筛选参数
     const filters = {
-      // 默认排除北交所股票，避免后续回测/迭代链路出现无行情样本导致的伪失败。
+      // 默认排除北交所股票,避免后续回测/迭代链路出现无行情样本导致的伪失败。
       excludeMarkets: ['BJ']
     };
-    if (strategy === 'seven_factor') {
-      if (req.query.minSevenFactorScore) filters.minSevenFactorScore = parseFloat(req.query.minSevenFactorScore);
-      if (req.query.peMax) filters.peMax = parseFloat(req.query.peMax);
-      if (req.query.pegMax) filters.pegMax = parseFloat(req.query.pegMax);
-      if (req.query.maxPrice) filters.maxPrice = parseFloat(req.query.maxPrice);
-      
-      // 解析权重配置
-      if (req.query.dimensionWeights) {
-        try {
-          filters.dimensionWeights = JSON.parse(req.query.dimensionWeights);
-          console.log(`[select.js] 接收四维度权重:`, JSON.stringify(filters.dimensionWeights));
-        } catch (e) {
-          console.warn(`[select.js] 解析四维度权重失败：${e.message}`);
-        }
-      }
-      if (req.query.factorWeights) {
-        try {
-          filters.factorWeights = JSON.parse(req.query.factorWeights);
-          console.log(`[select.js] 接收七因子权重:`, JSON.stringify(filters.factorWeights));
-        } catch (e) {
-          console.warn(`[select.js] 解析七因子权重失败：${e.message}`);
-        }
-      }
-      if (req.query.excludeMarkets) {
-        filters.excludeMarkets = String(req.query.excludeMarkets)
-          .split(',')
-          .map(item => item.trim().toUpperCase())
-          .filter(Boolean);
+    if (req.query.minSevenFactorScore) filters.minSevenFactorScore = parseFloat(req.query.minSevenFactorScore);
+    if (req.query.peMax) filters.peMax = parseFloat(req.query.peMax);
+    if (req.query.pegMax) filters.pegMax = parseFloat(req.query.pegMax);
+    if (req.query.maxPrice) filters.maxPrice = parseFloat(req.query.maxPrice);
+
+    // 解析权重配置（所有策略都允许覆写维度权重）
+    if (req.query.dimensionWeights) {
+      try {
+        filters.dimensionWeights = JSON.parse(req.query.dimensionWeights);
+        console.log(`[select.js] 接收四维度权重:`, JSON.stringify(filters.dimensionWeights));
+      } catch (e) {
+        console.warn(`[select.js] 解析四维度权重失败:${e.message}`);
       }
     }
-    
+    if (req.query.factorWeights) {
+      try {
+        filters.factorWeights = JSON.parse(req.query.factorWeights);
+        console.log(`[select.js] 接收七因子权重:`, JSON.stringify(filters.factorWeights));
+      } catch (e) {
+        console.warn(`[select.js] 解析七因子权重失败:${e.message}`);
+      }
+    }
+    if (req.query.excludeMarkets) {
+      filters.excludeMarkets = String(req.query.excludeMarkets)
+        .split(',')
+        .map(item => item.trim().toUpperCase())
+        .filter(Boolean);
+    }
+
     res.json(await buildSelectionPayload(date, strategy, filters, limit, minScore));
   } catch (error) {
     const status = error instanceof MarketDataError ? error.status : 500;

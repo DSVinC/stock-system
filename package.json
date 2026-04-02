@@ -15,6 +15,12 @@
     "test:flow": "node tests/test-full-flow.js",
     "test:performance": "node tests/test-performance.js",
     "test:accept": "node tests/test-acceptance.js",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:report": "playwright show-report",
+    "snapshot:update-daily": "bun scripts/update_factor_snapshot_daily.ts",
+    "mock:performance": "node scripts/calculate_mock_performance.mjs",
     "update:industry": "node scripts/update_valuation_data.mjs --type=industry",
     "update:pe": "node scripts/update_valuation_data.mjs --type=pe",
     "update:atr": "node scripts/update_valuation_data.mjs --type=atr"
@@ -29,6 +35,7 @@
     "uuid": "^13.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.0",
     "playwright": "^1.58.2"
   }
 }

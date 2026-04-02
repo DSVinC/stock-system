@@ -37,3 +37,11 @@ config.local.json
 # 内存/缓存
 memory/
 data/cache/
+
+# E2E 产物
+playwright-report/
+test-results/
+
+# 临时/备份文件
+*.bak
+*.bak.*

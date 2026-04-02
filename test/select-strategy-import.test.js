@@ -123,6 +123,8 @@ async function main() {
       alerts.push(message);
     },
     hideImportPanel() {},
+    updateAdvancedSettingsDisplay() {},
+    loadSelectionData() {},
     fetch: async (url, options) => {
       fetchCalls.push({ url, options });
       return {

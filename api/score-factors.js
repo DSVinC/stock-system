@@ -468,7 +468,7 @@ function calculateWeightedScore(factors, weights = FACTOR_WEIGHTS) {
  * @param {string} stockCode - 股票代码（用于舆情因子）
  * @returns {Object} 完整评分结果
  */
-async function calculateCompositeScore(params, stockCode = null) {
+async function calculateCompositeScore(params, stockCode = null, customWeights = null) {
   const {
     technical,
     valuation,
@@ -480,6 +480,9 @@ async function calculateCompositeScore(params, stockCode = null) {
     atr20,
     peHistory
   } = params;
+
+  // 使用自定义权重或默认权重
+  const effectiveWeights = customWeights ? { ...DEFAULT_WEIGHTS, ...customWeights } : FACTOR_WEIGHTS;
 
   // 计算 6 个基础因子
   const trend = calculateTrendFactor(technical);
@@ -500,7 +503,7 @@ async function calculateCompositeScore(params, stockCode = null) {
     }
   }
 
-  // 计算加权总分
+  // 计算加权总分（使用自定义权重）
   const weightedScore = calculateWeightedScore({
     trend: trend.score,
     momentum: momentum.score,
@@ -509,7 +512,7 @@ async function calculateCompositeScore(params, stockCode = null) {
     earnings: earnings.score,
     volatility: volatility.score,
     sentiment: sentiment.score
-  });
+  }, effectiveWeights);
 
   // 映射到 0-10 分（原 weightedScore 范围 0.6-1.2，线性映射到 0-10）
   const reportScore = Math.min(10, Math.max(0, ((weightedScore - 0.6) / 0.6) * 10));
@@ -543,15 +546,16 @@ async function calculateCompositeScore(params, stockCode = null) {
     weightedScore,
     blackSwanEvent,
     factors: {
-      trend: { ...trend, weight: FACTOR_WEIGHTS.trend },
-      momentum: { ...momentum, weight: FACTOR_WEIGHTS.momentum },
-      valuation: { ...valuationResult, weight: FACTOR_WEIGHTS.valuation },
-      capital: { ...capital, weight: FACTOR_WEIGHTS.capital },
-      earnings: { ...earnings, weight: FACTOR_WEIGHTS.earnings },
-      volatility: { ...volatility, weight: FACTOR_WEIGHTS.volatility },
-      sentiment: { ...sentiment, weight: FACTOR_WEIGHTS.sentiment }
+      trend: { ...trend, weight: effectiveWeights.trend },
+      momentum: { ...momentum, weight: effectiveWeights.momentum },
+      valuation: { ...valuationResult, weight: effectiveWeights.valuation },
+      capital: { ...capital, weight: effectiveWeights.capital },
+      earnings: { ...earnings, weight: effectiveWeights.earnings },
+      volatility: { ...volatility, weight: effectiveWeights.volatility },
+      sentiment: { ...sentiment, weight: effectiveWeights.sentiment }
     },
-    weights: FACTOR_WEIGHTS
+    weights: effectiveWeights,
+    customWeightsUsed: !!customWeights
   };
 }
 

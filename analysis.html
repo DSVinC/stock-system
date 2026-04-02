@@ -686,13 +686,20 @@
           }
         }
 
+        // 获取策略库导入的七因子权重配置
+        const selectConfig = JSON.parse(localStorage.getItem('stockSelectConfig') || '{}');
+        const factorWeights = selectConfig.factorWeights || null;
+        if (factorWeights) {
+          console.log('[个股分析] 使用策略库七因子权重:', factorWeights);
+        }
+
         // 并行调用 v2 API 和报告生成
         const [v2Response, reportResponse] = await Promise.all([
           fetch(`/api/v2/analyze/report?ts_code=${encodeURIComponent(stockCode)}`),
           fetch("/api/analysis/report", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ stock_name: stockName, stock_code: stockCode })
+            body: JSON.stringify({ stock_name: stockName, stock_code: stockCode, factorWeights })
           })
         ]);
 

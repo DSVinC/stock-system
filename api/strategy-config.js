@@ -1495,9 +1495,9 @@ async function publishVersionToStrategyLibrary(req, res) {
       template_id: configJson.template_id || null,
 
       // 四维度权重（从 config 映射或使用默认值）
-      policy_weight: configJson.policy_weight ?? configJson.weights?.policy ?? 0.25,
-      commercialization_weight: configJson.commercialization_weight ?? configJson.weights?.commercialization ?? 0.30,
-      sentiment_weight: configJson.sentiment_weight ?? configJson.weights?.sentiment ?? 0.25,
+      policy_weight: configJson.policy_weight ?? configJson.weights?.policy ?? configJson.dimensionWeights?.policy ?? 0.25,
+      commercialization_weight: configJson.commercialization_weight ?? configJson.weights?.commercialization ?? configJson.dimensionWeights?.business ?? 0.30,
+      sentiment_weight: configJson.sentiment_weight ?? configJson.weights?.sentiment ?? configJson.dimensionWeights?.public ?? 0.25,
       capital_weight: configJson.capital_weight ?? configJson.weights?.capital ?? 0.20,
 
       // 商业化阈值
@@ -1528,8 +1528,13 @@ async function publishVersionToStrategyLibrary(req, res) {
       min_annual_return: configJson.min_annual_return ?? 0.15,
       min_win_rate: configJson.min_win_rate ?? 0.55,
 
-      // JSON 配置字段
-      portfolio_config: configJson.portfolio_config || null,
+      // JSON 配置字段（包含七因子权重）
+      portfolio_config: {
+        ...(configJson.portfolio_config || {}),
+        // 保存七因子权重供个股分析使用
+        factorWeights: configJson.factorWeights || null,
+        dimensionWeights: configJson.dimensionWeights || null
+      },
       grid_config: configJson.grid_config || null,
       backtest_period: configJson.backtest_period || null
     };

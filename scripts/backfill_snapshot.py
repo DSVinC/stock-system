@@ -17,12 +17,34 @@ import time
 from typing import List, Dict, Optional, Tuple
 
 # 配置
+ENV_PATHS = [
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env'),
+    os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), '.env'),
+]
+
+def load_env_files():
+    """兼容 Node 侧的环境变量加载策略，支持 stock-system/.env 与 workspace/.env"""
+    for env_path in ENV_PATHS:
+        if not os.path.exists(env_path):
+            continue
+        with open(env_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#') or '=' not in line:
+                    continue
+                key, value = line.split('=', 1)
+                key = key.strip()
+                value = value.strip().strip("'\"")
+                if key and key not in os.environ:
+                    os.environ[key] = value
+
+load_env_files()
 TUSHARE_TOKEN = os.environ.get('TUSHARE_TOKEN')
 if not TUSHARE_TOKEN:
-    print("错误：请设置环境变量 TUSHARE_TOKEN")
+    print("错误：请设置环境变量 TUSHARE_TOKEN（可写入 stock-system/.env 或 workspace/.env）")
     sys.exit(1)
 
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'stock_system.db')
+DB_PATH = os.environ.get('STOCK_DB') or os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'stock_system.db')
 START_DATE = '20200101'
 END_DATE = datetime.now().strftime('%Y%m%d')
 
