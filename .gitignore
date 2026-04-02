@@ -45,3 +45,5 @@ test-results/
 # 临时/备份文件
 *.bak
 *.bak.*
+CLAUDE.md
+debug-import.html
