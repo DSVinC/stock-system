@@ -1,13 +1,43 @@
 # 股票系统 - 项目进度总览
 
-**最后更新**: 2026-04-02 08:35  
+**最后更新**: 2026-04-02 09:14  
 **项目经理**: 灵爪  
 **程序员**: Claude Code（按任务分配）  
 **验收员**: Gemini CLI（按任务分配）  
 
 ---
 
-## 📋 今日完成（2026-04-01）
+## 📋 今日完成（2026-04-02）
+
+### 公告数据源切换完成（09:08-09:14）
+
+**任务**: TASK_DATASOURCE_001 - AkShare 主数据源 + Sina MCP 备用
+
+**完成内容**:
+- ✅ 扩展 `lib/sina-free-api.js` 添加公告获取函数
+- ✅ 修改 `api/position-signals.js` 实现双数据源逻辑
+- ✅ 创建 `scripts/fetch_announcements_akshare.py` Python 封装
+- ✅ 测试验证：AkShare 获取成功 15 条公告
+- ✅ 功能对比评估：AkShare 100% 覆盖 Sina MCP 功能
+
+**数据源策略**:
+- **主数据源**: AkShare（免费）
+- **备用数据源**: Sina MCP（自动回退）
+
+**文档更新**:
+- ✅ `docs/AKSHARE_PRIMARY_SINA_BACKUP.md` - 双数据源策略文档
+- ✅ `docs/AKSHARE_VS_SINA_MCP_COMPARISON.md` - 功能对比评估
+- ✅ `docs/tasks/TASK_DATASOURCE_001_ASSIGNMENT.md` - 任务分配单
+- ✅ `docs/runtime/TASK_DATASOURCE_001_STATUS.md` - 状态文档
+
+**三保险同步**:
+- ✅ `docs/tasks/TASK_DATASOURCE_001_ASSIGNMENT.md`
+- ✅ `docs/runtime/TASK_DATASOURCE_001_STATUS.md`
+- ✅ `memory/project/stock_system/2026-04-02T091400-datasource-switch.json`
+
+---
+
+## 📋 昨日完成（2026-04-01）
 
 ### 数据源架构确认（20:30-20:39）
 

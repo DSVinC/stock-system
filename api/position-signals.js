@@ -17,8 +17,8 @@ const execFileAsync = promisify(execFile);
 
 const ANN_IMPORT_LOOKBACK_DAYS = 30;
 const ANN_MAJOR_LOOKBACK_DAYS = 3;
-const SINA_MCP_CALL_TOOL = '/Users/vvc/.openclaw/workspace/skills/sina-ashare-mcp/scripts/call-tool.cjs';
 const AKSHARE_SCRIPT = '/Users/vvc/.openclaw/workspace/stock-system/scripts/fetch_announcements_akshare.py';
+const SINA_MCP_CALL_TOOL = '/Users/vvc/.openclaw/workspace/skills/sina-ashare-mcp/scripts/call-tool.cjs';
 
 const ANN_RISK_KEYWORDS = [
   { keyword: '立案调查', eventType: 'regulatory_investigation', signalType: 'SELL', signalLevel: 'HIGH', riskTag: 'high' },
@@ -99,10 +99,8 @@ function isSinaMcpToolAvailable() {
   return fs.existsSync(SINA_MCP_CALL_TOOL);
 }
 
-// 已移除 fetchTushareAnnouncements - 完全使用新浪财经 MCP
-
 /**
- * 使用 AkShare 获取公司公告（免费数据源）
+ * 使用 AkShare 获取公司公告（免费数据源 - 主数据源）
  */
 async function fetchAkshareAnnouncements(tsCode, limit = 100) {
   const { stdout } = await execFileAsync(
@@ -163,15 +161,11 @@ async function syncCompanyAnnouncements(db, holdings, options = {}) {
   const startDateStr = toTradeDateString(startDate); // yyyyMMdd for fast compare
   const endDateStr = toTradeDateString(endDate); // yyyyMMdd
   const stockNameByCode = new Map((holdings || []).map(item => [item.ts_code, item.stock_name || null]));
-  const fetchSinaEvents = typeof options.fetchSinaMajorEvents === 'function' ? options.fetchSinaMajorEvents : fetchSinaMajorEvents;
-  // 已移除 fetchTushareEvents - 完全使用新浪财经 MCP
-
+  // 优先使用 AkShare（免费），Sina MCP 作为备用
   let synced = 0;
   let inserted = 0;
   const insertedItems = [];
-  const canUseSinaMcp = typeof options.canUseSinaMcp === 'boolean'
-    ? options.canUseSinaMcp
-    : isSinaMcpToolAvailable();
+  
   for (const tsCode of tsCodes) {
     let rows = [];
     const sinaSymbol = toSinaSymbol(tsCode);
@@ -179,9 +173,41 @@ async function syncCompanyAnnouncements(db, holdings, options = {}) {
       continue;
     }
 
-    if (canUseSinaMcp) {
+    // 1. 优先使用 AkShare（免费数据源）
+    try {
+      const akEvents = await fetchAkshareAnnouncements(tsCode, 100);
+      rows = (akEvents || [])
+        .map((item) => {
+          const dateStr = String(item.ann_date || '').replace(/-/g, '');
+          if (!dateStr || dateStr < startDateStr || dateStr > endDateStr) {
+            return null;
+          }
+          return {
+            ts_code: tsCode,
+            name: item.name || stockNameByCode.get(tsCode) || null,
+            ann_date: dateStr,
+            ann_time: item.ann_time || null,
+            title: String(item.title || '').trim(),
+            content: String(item.content || '').trim(),
+            symbol: item.symbol || tsCode,
+            event_type: item.event_type || null,
+            source: 'akshare'
+          };
+        })
+        .filter(Boolean);
+      
+      if (rows.length > 0) {
+        console.log(`[position-signals] AkShare 获取成功 ${tsCode}: ${rows.length} 条公告`);
+      }
+    } catch (error) {
+      console.warn(`[position-signals] AkShare 公告同步失败 ${tsCode}: ${error.message}`);
+    }
+
+    // 2. 回退到 Sina MCP（备用数据源）
+    if (rows.length === 0 && isSinaMcpToolAvailable()) {
+      console.log(`[position-signals] AkShare 无数据，尝试 Sina MCP ${tsCode} (${startDateStr}-${endDateStr})`);
       try {
-        const events = await fetchSinaEvents(sinaSymbol, 100);
+        const events = await fetchSinaMajorEvents(sinaSymbol, 100);
         rows = (events || [])
           .map((item) => {
             const dateStr = String(item.date || '').replace(/-/g, '');
@@ -201,41 +227,12 @@ async function syncCompanyAnnouncements(db, holdings, options = {}) {
             };
           })
           .filter(Boolean);
-      } catch (error) {
-        console.warn(`[position-signals] 新浪公告同步失败 ${tsCode}: ${error.message}`);
-      }
-    }
-
-    // 回退到 AkShare（免费数据源）
-    if (rows.length === 0) {
-      console.log(`[position-signals] 新浪公告无数据，尝试 AkShare ${tsCode} (${startDateStr}-${endDateStr})`);
-      try {
-        const akEvents = await fetchAkshareAnnouncements(tsCode, 100);
-        rows = (akEvents || [])
-          .map((item) => {
-            const dateStr = String(item.ann_date || '').replace(/-/g, '');
-            if (!dateStr || dateStr < startDateStr || dateStr > endDateStr) {
-              return null;
-            }
-            return {
-              ts_code: tsCode,
-              name: item.name || stockNameByCode.get(tsCode) || null,
-              ann_date: dateStr,
-              ann_time: item.ann_time || null,
-              title: String(item.title || '').trim(),
-              content: String(item.content || '').trim(),
-              symbol: item.symbol || tsCode,
-              event_type: item.event_type || null,
-              source: 'akshare'
-            };
-          })
-          .filter(Boolean);
         
         if (rows.length > 0) {
-          console.log(`[position-signals] AkShare 获取成功 ${tsCode}: ${rows.length} 条公告`);
+          console.log(`[position-signals] Sina MCP 获取成功 ${tsCode}: ${rows.length} 条公告`);
         }
       } catch (error) {
-        console.warn(`[position-signals] AkShare 公告同步失败 ${tsCode}: ${error.message}`);
+        console.warn(`[position-signals] Sina MCP 公告同步失败 ${tsCode}: ${error.message}`);
       }
     }
 
@@ -767,6 +764,8 @@ module.exports = {
     toSinaSymbol,
     classifyAnnouncementTitle,
     parseSinaMajorEventsPayload,
+    fetchSinaMajorEvents,
+    isSinaMcpToolAvailable,
     syncCompanyAnnouncements
   }
 };
