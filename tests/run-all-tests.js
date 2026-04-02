@@ -40,7 +40,8 @@ async function runTestSuite(name, testPath) {
   console.log('='.repeat(70));
 
   try {
-    const TestClass = require(testPath);
+    const resolvedTestPath = path.resolve(__dirname, testPath);
+    const TestClass = require(resolvedTestPath);
     const tests = new TestClass();
     const results = await tests.runAll();
 

@@ -2,7 +2,9 @@
 
 const assert = require('assert');
 const fs = require('fs');
+const path = require('path');
 const vm = require('vm');
+const HTML_PATH = path.join(__dirname, '..', 'iteration-manager.html');
 
 function extractFunction(source, functionName) {
   const start = source.indexOf(`function ${functionName}`);
@@ -30,7 +32,7 @@ function extractFunction(source, functionName) {
 }
 
 function loadHelper() {
-  const html = fs.readFileSync('/Users/vvc/.openclaw/workspace/stock-system/iteration-manager.html', 'utf8');
+  const html = fs.readFileSync(HTML_PATH, 'utf8');
   const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
   const sandbox = {};
   vm.createContext(sandbox);

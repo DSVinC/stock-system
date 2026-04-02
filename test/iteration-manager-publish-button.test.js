@@ -13,9 +13,10 @@
 
 const assert = require('assert');
 const fs = require('fs');
+const path = require('path');
 const vm = require('vm');
 
-const HTML_PATH = '/Users/vvc/.openclaw/workspace/stock-system/iteration-manager.html';
+const HTML_PATH = path.join(__dirname, '..', 'iteration-manager.html');
 
 // 提取函数源码
 function extractFunction(source, functionName) {

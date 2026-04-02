@@ -2,7 +2,9 @@
 
 const assert = require('assert');
 const fs = require('fs');
+const path = require('path');
 const vm = require('vm');
+const HTML_PATH = path.join(__dirname, '..', 'iteration-manager.html');
 
 function extractFunction(source, functionName) {
   const start = source.indexOf(`function ${functionName}`);
@@ -30,7 +32,7 @@ function extractFunction(source, functionName) {
 }
 
 function loadSandbox() {
-  const html = fs.readFileSync('/Users/vvc/.openclaw/workspace/stock-system/iteration-manager.html', 'utf8');
+  const html = fs.readFileSync(HTML_PATH, 'utf8');
   const script = html.match(/<script>([\s\S]*)<\/script>/);
   if (!script) {
     throw new Error('未找到 script 标签');
@@ -43,7 +45,7 @@ function loadSandbox() {
 }
 
 function main() {
-  const html = fs.readFileSync('/Users/vvc/.openclaw/workspace/stock-system/iteration-manager.html', 'utf8');
+  const html = fs.readFileSync(HTML_PATH, 'utf8');
 
   // 测试 1: DOM 容器存在
   assert.ok(html.includes('id="compareFeedbackPanel"'), 'compareFeedbackPanel 容器必须存在');

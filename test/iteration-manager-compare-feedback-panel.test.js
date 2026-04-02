@@ -2,7 +2,9 @@
 
 const assert = require('assert');
 const fs = require('fs');
+const path = require('path');
 const vm = require('vm');
+const HTML_PATH = path.join(__dirname, '..', 'iteration-manager.html');
 
 /**
  * 测试 iteration-manager.html 版本对比执行反馈面板
@@ -58,7 +60,7 @@ function createMockDocument() {
 }
 
 function loadSandbox() {
-  const html = fs.readFileSync('/Users/vvc/.openclaw/workspace/stock-system/iteration-manager.html', 'utf8');
+  const html = fs.readFileSync(HTML_PATH, 'utf8');
   const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
   if (!scriptMatch) {
     throw new Error('未找到主 script 标签');
@@ -80,7 +82,7 @@ function loadSandbox() {
 }
 
 function main() {
-  const html = fs.readFileSync('/Users/vvc/.openclaw/workspace/stock-system/iteration-manager.html', 'utf8');
+  const html = fs.readFileSync(HTML_PATH, 'utf8');
 
   console.log('测试 1: HTML 中必须有 compare 结果容器');
   assert.ok(

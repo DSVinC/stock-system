@@ -2,9 +2,10 @@
 
 const assert = require('assert');
 const fs = require('fs');
+const path = require('path');
 const vm = require('vm');
 
-const HTML_PATH = '/Users/vvc/.openclaw/workspace/stock-system/iteration-manager.html';
+const HTML_PATH = path.join(__dirname, '..', 'iteration-manager.html');
 
 function loadScript() {
   const html = fs.readFileSync(HTML_PATH, 'utf8');
