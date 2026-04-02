@@ -1,13 +1,83 @@
 # 股票系统 - 项目进度总览
 
-**最后更新**: 2026-03-31 11:44  
+**最后更新**: 2026-04-02 08:35  
 **项目经理**: 灵爪  
 **程序员**: Claude Code（按任务分配）  
 **验收员**: Gemini CLI（按任务分配）  
 
 ---
 
+## 📋 今日完成（2026-04-01）
+
+### 数据源架构确认（20:30-20:39）
+
+**任务**：排查新浪财经 MCP 使用情况，统一切换到免费 API
+
+**排查结果**：
+- MCP 使用：财经早报采集、持仓监控公告、新闻数据库
+- 免费 API 使用：实时行情、分钟线数据、板块成分股
+
+**决策**：保持两层架构
+- 采集层：MCP（批量采集、历史可查）
+- 查询层：免费 API（实时查询、无 Token 限制）
+
+**文档更新**：
+- ✅ README.md - 添加数据源说明章节
+- ✅ DESIGN_CONSENSUS.md - 添加 9.3 数据源架构
+- ✅ memory/2026-04-01.md - 当天工作记录
+- ✅ memory/project/stock_system/ - 创建记忆锚点
+
+### 独立模拟账户主线推进（22:00-23:35）
+
+**任务完成**：
+- ✅ TASK_MOCK_001：4 张模拟表迁移完成（mock_account/mock_position/mock_trade/mock_performance）
+- ✅ TASK_MOCK_002：模拟交易引擎 API 完成（`POST /api/mock/trade/execute`，BUY/SELL 实测通过）
+- ✅ TASK_MOCK_003：绩效计算脚本完成（`scripts/calculate_mock_performance.mjs`）
+- ✅ TASK_MOCK_004：偏差人工触发二次迭代接口完成（`POST /api/iteration/trigger-by-deviation`）
+- ✅ TASK_MOCK_005：模拟账户管理 API 完成（`/api/mock/*`）
+- 🟡 TASK_MOCK_006：`mock-account.html` 页面初版完成，待浏览器细验收
+
+**三保险同步**：
+- ✅ `docs/tasks/TASK_MOCK_00{1..6}_ASSIGNMENT.md`
+- ✅ `docs/runtime/TASK_MOCK_00{1..6}_STATUS.md`
+- ✅ `memory/project/stock_system/2026-04-01T*.json`
+
+---
+
 ## 📊 任务状态总览
+
+### 四维度七因子策略优化（2026-03-29 设计）
+
+| 任务 ID | 任务名称 | 优先级 | 状态 | 说明 |
+|---------|----------|--------|------|------|
+| **TASK_OPTIMIZE_001** | **筛选层参数扩展** | **P0** | 🟢 done | 搜索空间已覆盖 min_score/pe_max/peg_max/max_price + 风控参数 |
+| **TASK_OPTIMIZE_002** | **四维度权重搜索接入** | **P0** | 🟢 done | 4 维权重归一化采样与回测消费链路已落地 |
+| **TASK_OPTIMIZE_003** | **样本外验证最小闭环** | **P0** | 🟢 done | Optuna 输出 validation(IS/OOS/WFE) 并在页面展示 |
+| **TASK_OPTIMIZE_004** | **七因子权重搜索接入** | **P1** | 🟢 done | 已加入 0.03~0.40 边界约束 + 归一化 sum=1 |
+| **TASK_OPTIMIZE_005** | **多目标评分函数** | **P1** | 🟢 done | objective 已接入交易样本/回撤/负收益惩罚项 |
+| **TASK_OPTIMIZE_006** | **网格参数独立优化** | **P1** | 🟢 done | `/api/grid-optimizer/run` 已修复崩溃并可稳定返回结果 |
+| **TASK_OPTIMIZE_007** | **Walk-Forward 分析** | **P2** | 🟢 done | API 已落地并完成数据前置修复，`/api/walk-forward/run` 实测成功 |
+| **TASK_OPTIMIZE_008** | **市场状态切换** | **P2** | 🟢 done | 识别+展示+边界切换+回归测试已完成 |
+| **TASK_OPTIMIZE_009** | **因子稳定性指标** | **P2** | 🟢 done | 已接入 IC/IC衰减/行业偏离与页面展示 |
+
+### 独立模拟账户（2026-04-01 设计）
+
+| 任务 ID | 任务名称 | 优先级 | 状态 | 说明 |
+|---------|----------|--------|------|------|
+| **TASK_MOCK_001** | **数据库迁移：4 张模拟表** | **P0** | 🟢 done | mock_account/position/trade/performance 已建表并验收 |
+| **TASK_MOCK_002** | **模拟交易引擎 API** | **P0** | 🟢 done | `POST /api/mock/trade/execute` 已落地并完成 BUY/SELL 实测 |
+| **TASK_MOCK_003** | **绩效计算脚本** | **P0** | 🟢 done | `calculate_mock_performance.mjs` 已落地并完成落库验收 |
+| **TASK_MOCK_004** | **偏差检测 + 二次迭代触发** | **P1** | 🟢 done | 已实现人工触发接口 `/api/iteration/trigger-by-deviation` |
+| **TASK_MOCK_005** | **模拟账户管理 API** | **P1** | 🟢 done | `/api/mock/*` 账户/交易/绩效/告警接口已落地 |
+| **TASK_MOCK_006** | **前端页面：mock-account.html** | **P1** | 🟡 in_progress | 页面初版已落地，待浏览器验收与细节收口 |
+
+### 体验治理与版本管理（2026-04-01 新增）
+
+| 任务 ID | 任务名称 | 优先级 | 状态 | 说明 |
+|---------|----------|--------|------|------|
+| **TASK_UI_REFINEMENT_001** | **迭代管理器与策略导入体验重构** | **P0** | 🟢 done | A:导航统一 B:版本筛选/归档 C:select 导入固定底栏 |
+
+---
 
 | 任务 ID | 任务名称 | 优先级 | 状态 | 负责人 | 进度 |
 |---------|----------|--------|------|--------|------|
@@ -201,6 +271,15 @@
 
 ### 🔄 近期任务状态
 
+- TASK_OPTIMIZE_001/002/003: 已按代码证据完成口径回填并同步三保险，避免“文档 pending / 代码已实现”偏差
+- TASK_OPTIMIZE_004: 已落地七因子权重防极端约束（0.03~0.40）并完成代码级验证，三保险已登记
+- TASK_OPTIMIZE_005: 已将 objective 升级为惩罚型综合目标（交易样本/回撤/负收益），并同步三保险
+- TASK_OPTIMIZE_006: 已完成网格优化 API 稳定化，修复 `objectiveWeights` 为空导致打分崩溃问题，接口回归通过（`successCount=1`）
+- TASK_OPTIMIZE_007: 已完成 Walk-Forward API 化（`/api/walk-forward/run|config`）与前置校验；主库已补齐并回填 `stock_factor_snapshot.peg`，接口实测返回 `success=true`
+- TASK_OPTIMIZE_008: 已完成市场状态切换基础能力（识别/展示/边界切换）并通过回归测试 `tests/test_optuna_regime.py`（3/3）
+- TASK_OPTIMIZE_009: 已完成因子稳定性指标（IC均值/波动/衰减、行业偏离、HHI），并接入迭代摘要展示与回归测试
+- TASK_MOCK_001: 已完成模拟账户 4 张基础表迁移（`018_create_mock_tables.sql`），主库建表/外键/索引/插入链路验收通过
+- TASK_UI_REFINEMENT_001: 已完成并验收（迭代页导航统一 + 多维筛选 + 归档/取消归档 + select 导入筛选与固定底栏）
 - TASK_FLOW_REFACTOR_044K: 已生成交接状态单并同步接力计划（已完成项/未完成项/优先级/验收命令）；灵爪可按文档直接接手推进迭代稳定性与最终交付复验
 - TASK_FLOW_REFACTOR_044J: 已完成持仓监控公司公告链路稳健化；公告同步保留新浪 MCP 主路径，MCP 不可用或失败时自动回退 `tushare anns_d`，并新增回退回归测试 `position-signals-announcement-fallback.test.js`（通过）
 - TASK_FLOW_REFACTOR_044I: 已收口 iteration-manager 回归失败 5 项（前端隔离兼容 + 后端 stock_daily 缺表回退 + 用例对齐），全量总测恢复 `52/52` 通过
@@ -856,7 +935,43 @@
 
 ---
 
-## 📅 今日完成（2026-03-31）
+## 📅 今日完成（2026-04-01）
+
+### Bug 修复
+
+| 任务 ID | 任务名称 | 优先级 | 状态 | 开发者 | 验收员 | 完成时间 |
+|--------|----------|--------|------|--------|--------|---------|
+| **BUG_SELECT_IMPORT_001** | **策略库导入参数后选股结果不变** | **P0** | **🟢 accepted** | **Claude Code** | **Gemini CLI** | **2026-04-01 14:30** |
+
+**根因**: 前端 `applyStrategyToUI()` 保存配置后没有调用 `loadSelectionData()` 刷新选股结果。
+
+**修复**:
+- `select.html`: 添加 `loadSelectionData()` 调用
+- `api/select.js`: 移除 DEBUG 测试代码
+- `e2e/smoke.spec.js`: 修复测试断言
+
+**验收结果**: ✅ 单元测试 52/52 通过，E2E 测试 2/2 通过，API 功能验证通过
+
+**验收报告**: `docs/acceptance/BUG_SELECT_IMPORT_001_ACCEPTANCE.md`
+
+| **TASK_SEVEN_FACTOR_ANALYSIS** | **七因子权重集成到个股分析** | **P0** | **🟢 accepted** | **Claude Code** | **Gemini CLI** | **2026-04-01 15:20** |
+
+**功能**: 策略库导入时保存七因子权重配置，个股分析页面使用这些权重影响评分决策。
+
+**实现内容**:
+1. `select.html`: `applyStrategyToUI()` 从导入策略的 `portfolio_config.factorWeights` 读取并保存到 localStorage
+2. `analysis.html`: 从 localStorage 读取 factorWeights 并通过 POST body 传递给 `/api/analysis/report`
+3. `api/analyze.js`: `buildReportData()`, `buildReportPayload()`, `writeStockReport()` 函数添加 `factorWeights` 参数
+4. `api/score-factors.js`: `calculateCompositeScore()` 接收 `customWeights` 参数，使用自定义权重计算评分
+5. `api/strategy-config.js`: `publishVersionToStrategyLibrary()` 在 `portfolio_config` 中保存 `factorWeights`
+
+**验收结果**: ✅ 单元测试 52/52 通过，E2E 测试通过，七因子权重传递链完整
+
+**验收报告**: `docs/acceptance/TASK_SEVEN_FACTOR_ANALYSIS_ACCEPTANCE.md`
+
+---
+
+## 📅 今日完成（2026-04-01）
 
 ### 策略库导入参数映射任务
 
@@ -880,4 +995,4 @@
 - **已完成**: 待统计
 - **完成率**: 待统计
 
-**最后更新时间**: 2026-03-31 21:35
+**最后更新时间**: 2026-04-01 15:25

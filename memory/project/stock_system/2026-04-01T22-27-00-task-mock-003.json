@@ -1,0 +1,53 @@
+{
+  "timestamp": "2026-04-01T22:27:00+08:00",
+  "event_type": "implementation",
+  "author": "Codex",
+  "task_id": "TASK_MOCK_003",
+  "summary": "模拟绩效计算脚本完成并通过本地落库验收",
+  "details": {
+    "script": "scripts/calculate_mock_performance.mjs",
+    "scope": [
+      "按实时数据日计算模拟账户绩效",
+      "对比策略回测指标并输出偏差",
+      "写入 mock_performance"
+    ],
+    "metrics": [
+      "total_return",
+      "annualized_return",
+      "max_drawdown",
+      "volatility",
+      "sharpe_ratio",
+      "sortino_ratio",
+      "calmar_ratio",
+      "win_rate",
+      "profit_loss_ratio",
+      "turnover_rate"
+    ],
+    "deviation_flags": [
+      "backtest_deviation",
+      "drawdown_deviation",
+      "win_rate_deviation",
+      "is_deviation_exceeded",
+      "is_sample_valid"
+    ],
+    "scheduling": {
+      "cron_file": "cron/mock-performance-daily.json",
+      "cron": "0 20 * * *",
+      "timezone": "Asia/Shanghai"
+    },
+    "acceptance": {
+      "syntax_check": "node --check scripts/calculate_mock_performance.mjs",
+      "manual_run": "node scripts/calculate_mock_performance.mjs --account-id=<test_account>",
+      "db_write_verified": true,
+      "test_data_cleaned": true
+    }
+  },
+  "related_files": [
+    "scripts/calculate_mock_performance.mjs",
+    "cron/mock-performance-daily.json",
+    "package.json",
+    "docs/tasks/TASK_MOCK_003_ASSIGNMENT.md",
+    "docs/runtime/TASK_MOCK_003_STATUS.md",
+    "docs/PROJECT_PROGRESS.md"
+  ]
+}

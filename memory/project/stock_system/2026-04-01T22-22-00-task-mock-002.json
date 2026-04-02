@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-04-01T22:22:00+08:00",
+  "event_type": "implementation",
+  "author": "Codex",
+  "task_id": "TASK_MOCK_002",
+  "summary": "模拟交易引擎 API 完成并通过本地真实库验收",
+  "details": {
+    "endpoint": "POST /api/mock/trade/execute",
+    "rules": {
+      "slippage_default": 0.001,
+      "commission_rate": 0.00025,
+      "commission_min": 5,
+      "stamp_duty_sell": 0.001
+    },
+    "validation": [
+      "BUY/SELL 参数校验",
+      "账户状态校验(active)",
+      "资金充足/持仓充足校验"
+    ],
+    "db_effects": [
+      "写入 mock_trade",
+      "更新 mock_position",
+      "更新 mock_account(current_capital/available_capital)"
+    ],
+    "acceptance": {
+      "syntax_check": [
+        "node --check api/mock-trade.js",
+        "node --check api/server.js"
+      ],
+      "api_smoke": "BUY+SELL 实测通过，测试数据已清理"
+    }
+  },
+  "related_files": [
+    "api/mock-trade.js",
+    "api/server.js",
+    "docs/tasks/TASK_MOCK_002_ASSIGNMENT.md",
+    "docs/runtime/TASK_MOCK_002_STATUS.md",
+    "docs/PROJECT_PROGRESS.md"
+  ]
+}

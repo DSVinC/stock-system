@@ -1,0 +1,46 @@
+{
+  "timestamp": "2026-04-01T23:27:00+08:00",
+  "event_type": "implementation",
+  "author": "Codex",
+  "task_id": "TASK_MOCK_004+TASK_MOCK_005",
+  "summary": "完成人工偏差触发接口与模拟账户管理 API 套件",
+  "details": {
+    "task_mock_004": {
+      "endpoint": "POST /api/iteration/trigger-by-deviation",
+      "policy": "仅人工触发，不自动触发",
+      "checks": [
+        "无绩效记录时报错",
+        "未超阈值时报错",
+        "上下文完整时创建迭代任务"
+      ]
+    },
+    "task_mock_005": {
+      "module": "api/mock-account.js",
+      "endpoints": [
+        "POST /api/mock/account/create",
+        "GET /api/mock/account/list",
+        "POST /api/mock/account/stop",
+        "GET /api/mock/trade/list",
+        "GET /api/mock/performance/current",
+        "GET /api/mock/performance/deviation",
+        "GET /api/mock/performance/alerts"
+      ],
+      "mount": "/api/mock/*"
+    },
+    "acceptance": {
+      "syntax_ok": true,
+      "api_smoke_ok": true,
+      "test_data_cleaned": true
+    }
+  },
+  "related_files": [
+    "api/iteration-manager.js",
+    "api/mock-account.js",
+    "api/server.js",
+    "docs/tasks/TASK_MOCK_004_ASSIGNMENT.md",
+    "docs/runtime/TASK_MOCK_004_STATUS.md",
+    "docs/tasks/TASK_MOCK_005_ASSIGNMENT.md",
+    "docs/runtime/TASK_MOCK_005_STATUS.md",
+    "docs/PROJECT_PROGRESS.md"
+  ]
+}

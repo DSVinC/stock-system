@@ -1,6 +1,35 @@
 # A 股股票投资系统
 
-> 基于 Tushare + 新浪财经的 A 股投资分析与交易系统
+> 基于新浪财经免费 API 的 A 股投资分析与交易系统
+
+## ⚠️ 数据源说明
+
+### 核心数据源：新浪财经免费 HTTP API
+
+**实时数据查询**统一使用 `lib/sina-free-api.js`：
+
+| 数据类型 | API 函数 | 说明 |
+|----------|----------|------|
+| **实时行情** | `getQuote()`, `getQuotes()` | 替代收费 MCP 服务 |
+| **分钟线数据** | `getMinuteData()` | 5/15/30/60 分钟 K 线 |
+| **板块成分股** | `getSectorComponents()` | 行业板块成分股 |
+
+**优势**：
+- ✅ 免费使用，无调用限制
+- ✅ 无需 Token 配置
+- ✅ 数据实时性好
+- ✅ 覆盖 A 股全市场（沪深北）
+
+### 数据采集层：新浪财经 MCP
+
+**定时采集任务**使用 `skills/sina-ashare-mcp/`：
+
+| 任务 | 频率 | 说明 |
+|------|------|------|
+| **财经快讯采集** | 每天 23:59 | 采集当天所有快讯到 `news_raw` 表 |
+| **公司公告** | 盘后 | 从 `news_raw` 表筛选重大事项 |
+
+**说明**：MCP 仅用于后台数据采集，实时查询统一使用免费 API。
 
 ## 📚 文档路由
 
@@ -52,5 +81,10 @@ node api/server.js
 
 ## 📊 当前状态
 
-**最后更新**: 2026-03-31 11:44  
+**最后更新**: 2026-04-02 08:35  
+**设计文档**: 查看 [`docs/design/2026-03-29-seven-factor-optimization-engineering-plan.md`](docs/design/2026-03-29-seven-factor-optimization-engineering-plan.md)  
+**设计共识**: 查看 [`docs/DESIGN_CONSENSUS.md`](docs/DESIGN_CONSENSUS.md) 第十七节  
 **详细进度**: 查看 [`docs/PROJECT_PROGRESS.md`](docs/PROJECT_PROGRESS.md)
+
+**新增设计**：四维度七因子策略优化重构方案（分层优化架构）  
+**昨日进展同步**：`TASK_MOCK_001~005` 已完成，`TASK_MOCK_006` 进行中（以 `docs/PROJECT_PROGRESS.md` 与 `docs/runtime/` 为准）
