@@ -77,6 +77,12 @@ node api/server.js
 
 访问：`http://127.0.0.1:3000`
 
+### 双击启动（macOS）
+
+- 双击项目根目录：`启动服务.command`
+- 停止服务：双击 `停止服务.command`
+- 日志文件：`logs/server.out.log`
+
 ---
 
 ## 📊 当前状态

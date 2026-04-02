@@ -133,6 +133,7 @@ async function syncCompanyAnnouncements(db, holdings, options = {}) {
 
   let synced = 0;
   let inserted = 0;
+  const insertedItems = [];
   const canUseSinaMcp = typeof options.canUseSinaMcp === 'boolean'
     ? options.canUseSinaMcp
     : isSinaMcpToolAvailable();
@@ -212,10 +213,17 @@ async function syncCompanyAnnouncements(db, holdings, options = {}) {
         ]
       );
       inserted += 1;
+      insertedItems.push({
+        ts_code: tsCode,
+        stock_name: row.name || stockNameByCode.get(tsCode) || null,
+        title,
+        event_time: eventTime,
+        source: row.source || 'sina_mcp_major_events'
+      });
     }
   }
 
-  return { synced, inserted };
+  return { synced, inserted, insertedItems };
 }
 
 async function getRecentMajorAnnouncements(db, tsCode, days = ANN_MAJOR_LOOKBACK_DAYS) {
@@ -527,9 +535,16 @@ async function runFullMonitoring() {
     return { success: true, message: '无持仓，跳过监控', signals: [] };
   }
 
+  let annSyncSummary = { synced: 0, inserted: 0 };
+
   // 先同步持仓股重大事项：公司公告走新浪 MCP，不依赖行业新闻库。
   try {
     const annSync = await syncCompanyAnnouncements(db, holdings);
+    annSyncSummary = {
+      synced: Number(annSync?.synced || 0),
+      inserted: Number(annSync?.inserted || 0),
+      insertedItems: Array.isArray(annSync?.insertedItems) ? annSync.insertedItems : []
+    };
     if (annSync.inserted > 0) {
       console.log(`[Monitor] 公告同步完成，拉取 ${annSync.synced} 条，新增 ${annSync.inserted} 条`);
     }
@@ -608,7 +623,8 @@ async function runFullMonitoring() {
     success: true,
     count: holdings.length,
     signals: allSignals,
-    announcements: allAnnouncements
+    announcements: allAnnouncements,
+    announcementSync: annSyncSummary
   };
 }
 
